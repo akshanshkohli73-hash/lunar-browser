@@ -2,10 +2,72 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --lunar-bg: #050508;
+  --lunar-bg-secondary: #0d0f17;
+  --lunar-surface: #131622;
+  --lunar-surface-hover: #1c2032;
+  --lunar-border: rgba(255, 255, 255, 0.12);
+  --lunar-text: #f1f5f9;
+  --lunar-text-muted: #94a3b8;
+  --lunar-primary: #00f0ff;
+  --lunar-secondary: #8a2be2;
+  --lunar-accent: #a3e635;
+  --lunar-glow: rgba(0, 240, 255, 0.25);
+  --lunar-blur: 16px;
+  --lunar-radius: 8px;
+  --lunar-font-family: Inter, system-ui, sans-serif;
+}
+
 @layer base {
   body {
-    @apply bg-[#050508] text-slate-100 font-sans antialiased overflow-hidden select-none;
+    background-color: var(--lunar-bg);
+    color: var(--lunar-text);
+    font-family: var(--lunar-font-family);
+    @apply antialiased overflow-hidden select-none;
   }
+}
+
+.lunar-app-bg {
+  background-color: var(--lunar-bg);
+  color: var(--lunar-text);
+}
+
+.lunar-header-bg {
+  background-color: var(--lunar-bg-secondary);
+  border-color: var(--lunar-border);
+}
+
+.lunar-surface {
+  background-color: var(--lunar-surface);
+  border-color: var(--lunar-border);
+  color: var(--lunar-text);
+}
+
+.lunar-surface:hover {
+  background-color: var(--lunar-surface-hover);
+}
+
+.lunar-border {
+  border-color: var(--lunar-border);
+}
+
+.lunar-text-primary {
+  color: var(--lunar-primary);
+}
+
+.lunar-bg-primary {
+  background-color: var(--lunar-primary);
+}
+
+.lunar-text-muted {
+  color: var(--lunar-text-muted);
+}
+
+.lunar-glass {
+  background-color: var(--lunar-surface);
+  backdrop-filter: blur(var(--lunar-blur));
+  border-color: var(--lunar-border);
 }
 
 /* Custom scrollbars */
@@ -15,14 +77,14 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(13, 15, 23, 0.5);
+  background: var(--lunar-bg-secondary);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 3px;
+  background: var(--lunar-border);
+  border-radius: var(--lunar-radius);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 240, 255, 0.4);
+  background: var(--lunar-primary);
 }
