@@ -50,7 +50,7 @@ export const Window: React.FC<WindowProps> = ({
     if (isDragging && !windowState.isMaximized) {
       onUpdatePosition(windowState.id, {
         x: Math.max(0, e.clientX - dragOffset.x),
-        y: Math.max(30, e.clientY - dragOffset.y),
+        y: Math.max(28, e.clientY - dragOffset.y),
       });
     }
   };
@@ -62,10 +62,10 @@ export const Window: React.FC<WindowProps> = ({
   const style: React.CSSProperties = windowState.isMaximized
     ? {
         position: 'absolute',
-        top: 32,
+        top: 28,
         left: 0,
         right: 0,
-        bottom: 80,
+        bottom: 68,
         zIndex: windowState.zIndex,
       }
     : {
@@ -83,29 +83,29 @@ export const Window: React.FC<WindowProps> = ({
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
-      className="flex flex-col bg-[var(--lunar-surface)] border border-[var(--lunar-border)] rounded-2xl shadow-2xl overflow-hidden transition-shadow duration-200"
+      className="flex flex-col bg-[#FAF7F2] border border-[#EADFD5] rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.08)] overflow-hidden transition-shadow duration-200"
     >
-      {/* MACOS WINDOW TITLE BAR */}
-      <div className="window-titlebar flex items-center justify-between h-9 px-3 bg-[var(--lunar-bg-secondary)] border-b border-[var(--lunar-border)] select-none cursor-move">
+      {/* COQUETTE MACOS WINDOW TITLE BAR */}
+      <div className="window-titlebar flex items-center justify-between h-9 px-3.5 bg-[#FAF7F2] border-b border-[#EADFD5] select-none cursor-move">
         {/* TRAFFIC LIGHTS */}
         <div className="flex items-center gap-2 no-drag">
           <button
             onClick={() => onClose(windowState.id)}
-            className="w-3 h-3 rounded-full bg-[#ff5f56] hover:bg-[#e0443e] border border-[#e0443e] flex items-center justify-center text-[8px] text-black font-bold opacity-80 hover:opacity-100 transition"
+            className="w-3 h-3 rounded-full bg-[#FFB3BA] hover:bg-[#FF8B94] border border-[#FF8B94] flex items-center justify-center text-[8px] text-[#3D3535] font-bold transition"
             title="Close"
           >
             ✕
           </button>
           <button
             onClick={() => onMinimize(windowState.id)}
-            className="w-3 h-3 rounded-full bg-[#ffbd2e] hover:bg-[#dea123] border border-[#dea123] flex items-center justify-center text-[8px] text-black font-bold opacity-80 hover:opacity-100 transition"
+            className="w-3 h-3 rounded-full bg-[#FFDFBA] hover:bg-[#FFC98B] border border-[#FFC98B] flex items-center justify-center text-[8px] text-[#3D3535] font-bold transition"
             title="Minimize"
           >
             ⎯
           </button>
           <button
             onClick={() => onMaximize(windowState.id)}
-            className="w-3 h-3 rounded-full bg-[#27c93f] hover:bg-[#1aab29] border border-[#1aab29] flex items-center justify-center text-[8px] text-black font-bold opacity-80 hover:opacity-100 transition"
+            className="w-3 h-3 rounded-full bg-[#BAFFC9] hover:bg-[#8BFF9F] border border-[#8BFF9F] flex items-center justify-center text-[8px] text-[#3D3535] font-bold transition"
             title="Maximize"
           >
             ▢
@@ -113,16 +113,18 @@ export const Window: React.FC<WindowProps> = ({
         </div>
 
         {/* TITLE */}
-        <div className="flex items-center gap-2 font-medium text-xs text-[var(--lunar-text)]">
+        <div className="flex items-center gap-2 font-medium text-xs text-[#3D3535]">
           <span>{windowState.icon}</span>
           <span>{windowState.title}</span>
         </div>
 
-        <div className="w-12" />
+        <div className="flex items-center gap-1 text-[11px] text-[#D87093]">
+          <span>🎀</span>
+        </div>
       </div>
 
-      {/* WINDOW CONTENT AREA */}
-      <div className="flex-1 overflow-hidden relative bg-[var(--lunar-bg)]">
+      {/* CONTENT */}
+      <div className="flex-1 overflow-hidden relative bg-[var(--lunar-bg, #FAF7F2)]">
         {windowState.component}
       </div>
     </div>

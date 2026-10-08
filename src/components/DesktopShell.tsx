@@ -23,7 +23,7 @@ export const DesktopShell: React.FC = () => {
     const updateTime = () => {
       const now = new Date();
       setTimeStr(
-        now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) +
+        now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) +
           ' ' +
           now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       );
@@ -42,22 +42,40 @@ export const DesktopShell: React.FC = () => {
       isOpen: true,
       isMinimized: false,
       isMaximized: true,
-      position: { x: 80, y: 50 },
-      size: { width: 1000, height: 650 },
+      position: { x: 90, y: 45 },
+      size: { width: 1020, height: 660 },
       zIndex: 10,
     },
     bookmarks: {
       id: 'bookmarks',
-      title: 'Finder - Bookmarks & Files',
+      title: 'Finder — Documents & Favorites',
       icon: '📁',
       component: (
-        <div className="p-8 h-full bg-[var(--lunar-bg)] text-[var(--lunar-text)]">
-          <h2 className="text-lg font-bold mb-4">📁 Favorites & Bookmarks</h2>
-          <div className="grid grid-cols-4 gap-4">
-            {['School', 'Gaming', 'Research', 'Coding'].map((folder) => (
-              <div key={folder} className="p-4 rounded-xl bg-[var(--lunar-surface)] border border-[var(--lunar-border)] flex flex-col items-center gap-2 hover:border-[var(--lunar-primary)] cursor-pointer">
-                <span className="text-3xl">🎀</span>
-                <span className="text-xs font-semibold">{folder}</span>
+        <div className="p-6 h-full bg-[#FAF7F2] text-[#3D3535] font-sans selection:bg-[#FFD1DC]">
+          <div className="flex items-center justify-between pb-3 mb-5 border-b border-[#E8DFC8]">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🎀</span>
+              <h2 className="text-sm font-semibold tracking-wide text-[#3D3535]">Coquette Documents & Bookmarks</h2>
+            </div>
+            <span className="text-xs text-[#8C7A7A]">4 items</span>
+          </div>
+          <div className="grid grid-cols-4 gap-5">
+            {[
+              { label: 'School Notes', icon: '🎀', count: '12 items' },
+              { label: 'Gaming & Setup', icon: '🌸', count: '8 items' },
+              { label: 'Research Papers', icon: '🩰', count: '15 items' },
+              { label: 'Coding Projects', icon: '☕', count: '24 items' },
+            ].map((folder) => (
+              <div
+                key={folder.label}
+                className="group p-4 rounded-xl bg-white border border-[#E8DFC8] hover:border-[#F4C2C2] hover:shadow-sm flex flex-col items-center gap-2 cursor-pointer transition-all duration-200"
+              >
+                <div className="relative w-14 h-12 bg-[#F7EBE8] rounded-lg border border-[#EADFD5] flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <span className="absolute top-1 text-xs">🎀</span>
+                  <span className="text-xl mt-2">{folder.icon}</span>
+                </div>
+                <span className="text-xs font-medium text-[#3D3535] group-hover:text-[#D87093]">{folder.label}</span>
+                <span className="text-[10px] text-[#A39292]">{folder.count}</span>
               </div>
             ))}
           </div>
@@ -66,20 +84,20 @@ export const DesktopShell: React.FC = () => {
       isOpen: false,
       isMinimized: false,
       isMaximized: false,
-      position: { x: 120, y: 80 },
-      size: { width: 700, height: 450 },
+      position: { x: 140, y: 75 },
+      size: { width: 720, height: 460 },
       zIndex: 5,
     },
     notes: {
       id: 'notes',
-      title: 'Notes & TextEdit',
+      title: 'TextEdit — Quick Notes',
       icon: '📝',
       component: <NotesView />,
       isOpen: false,
       isMinimized: false,
       isMaximized: false,
-      position: { x: 180, y: 100 },
-      size: { width: 500, height: 400 },
+      position: { x: 190, y: 95 },
+      size: { width: 520, height: 420 },
       zIndex: 6,
     },
     settings: {
@@ -90,13 +108,13 @@ export const DesktopShell: React.FC = () => {
       isOpen: false,
       isMinimized: false,
       isMaximized: false,
-      position: { x: 140, y: 70 },
-      size: { width: 850, height: 550 },
+      position: { x: 150, y: 65 },
+      size: { width: 860, height: 560 },
       zIndex: 7,
     },
     themestudio: {
       id: 'themestudio',
-      title: 'Theme Studio',
+      title: 'Theme Studio & Design Tokens',
       icon: '🎨',
       component: (
         <ThemeStudioView
@@ -110,8 +128,8 @@ export const DesktopShell: React.FC = () => {
       isOpen: false,
       isMinimized: false,
       isMaximized: false,
-      position: { x: 160, y: 90 },
-      size: { width: 900, height: 600 },
+      position: { x: 170, y: 85 },
+      size: { width: 920, height: 610 },
       zIndex: 8,
     },
   });
@@ -196,51 +214,66 @@ export const DesktopShell: React.FC = () => {
     <div
       onContextMenu={handleContextMenu}
       onClick={() => setContextMenuPos(null)}
-      className="relative w-screen h-screen overflow-hidden select-none bg-[var(--lunar-bg)] text-[var(--lunar-text)]"
+      className="relative w-screen h-screen overflow-hidden select-none bg-[#FAF7F2] text-[#3D3535] font-sans"
+      style={{
+        backgroundImage: `radial-gradient(#E8DFC8 0.75px, transparent 0.75px)`,
+        backgroundSize: '24px 24px',
+      }}
     >
-      {/* TOP MACOS MENU BAR */}
-      <div className="flex items-center justify-between h-7 px-4 bg-[var(--lunar-bg-secondary)]/90 backdrop-blur-md border-b border-[var(--lunar-border)] text-xs z-40">
-        <div className="flex items-center gap-4 font-medium">
-          <span className="font-bold text-[var(--lunar-primary)] cursor-pointer">☾ Lunar macOS</span>
-          <span className="cursor-pointer hover:text-[var(--lunar-primary)]" onClick={() => handleDockClick('browser')}>
-            Browser
+      {/* COQUETTE MACOS TOP MENU BAR */}
+      <div className="flex items-center justify-between h-7 px-4 bg-[#FAF7F2]/90 backdrop-blur-md border-b border-[#EADFD5] text-[12px] font-medium z-40 text-[#4A3E3E]">
+        <div className="flex items-center gap-4">
+          <span className="font-semibold text-[#D87093] cursor-pointer hover:opacity-80 flex items-center gap-1.5">
+            <span>🎀</span>
+            <span>Lunar</span>
           </span>
-          <span className="cursor-pointer hover:text-[var(--lunar-primary)]" onClick={() => handleDockClick('bookmarks')}>
+          <span className="cursor-pointer hover:text-[#D87093]" onClick={() => handleDockClick('browser')}>
             Finder
           </span>
-          <span className="cursor-pointer hover:text-[var(--lunar-primary)]" onClick={() => handleDockClick('themestudio')}>
-            Theme Studio
+          <span className="cursor-pointer hover:text-[#D87093]" onClick={() => handleDockClick('browser')}>
+            File
           </span>
-          <span className="cursor-pointer hover:text-[var(--lunar-primary)]" onClick={() => handleDockClick('settings')}>
-            Preferences
+          <span className="cursor-pointer hover:text-[#D87093]" onClick={() => handleDockClick('notes')}>
+            Edit
+          </span>
+          <span className="cursor-pointer hover:text-[#D87093]" onClick={() => handleDockClick('themestudio')}>
+            Theme
+          </span>
+          <span className="cursor-pointer hover:text-[#D87093]" onClick={() => handleDockClick('settings')}>
+            Window
           </span>
         </div>
 
-        <div className="flex items-center gap-3 font-mono text-[11px] text-[var(--lunar-text-muted)]">
-          <span>🛡️ Shield Active</span>
-          <span>✨ Lunar AI</span>
+        <div className="flex items-center gap-3.5 text-[11px] text-[#7A6B6B]">
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-[#A3E4D7] inline-block"></span>
+            <span>Shield Active</span>
+          </span>
+          <span className="text-[#C19A6B]">✨ Lunar AI</span>
           <span>{timeStr}</span>
         </div>
       </div>
 
-      {/* DESKTOP ICONS / SHORTCUTS */}
-      <div className="p-6 grid grid-cols-1 gap-6 w-32 relative z-10">
+      {/* COQUETTE DESKTOP FOLDERS & ICONS */}
+      <div className="p-8 grid grid-cols-1 gap-6 w-36 relative z-10">
         {[
-          { id: 'browser', title: 'Lunar Browser', icon: '🌐' },
-          { id: 'bookmarks', title: 'Bookmarks / Finder', icon: '🎀' },
-          { id: 'notes', title: 'Quick Notes', icon: '📝' },
-          { id: 'themestudio', title: 'Theme Studio', icon: '🎨' },
-          { id: 'settings', title: 'Settings', icon: '⚙️' },
+          { id: 'browser', title: 'Lunar Browser', icon: '🌐', tag: 'Web' },
+          { id: 'bookmarks', title: 'Favorites', icon: '📁', tag: 'Folder' },
+          { id: 'notes', title: 'Quick Notes', icon: '📝', tag: 'TextEdit' },
+          { id: 'themestudio', title: 'Theme Studio', icon: '🎨', tag: 'Design' },
+          { id: 'settings', title: 'Preferences', icon: '⚙️', tag: 'System' },
         ].map((item) => (
           <div
             key={item.id}
             onDoubleClick={() => handleDockClick(item.id)}
-            className="flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-white/10 cursor-pointer group transition"
+            className="flex flex-col items-center gap-1.5 p-2 rounded-xl hover:bg-white/50 cursor-pointer group transition-all duration-150"
           >
-            <div className="w-12 h-12 rounded-2xl bg-[var(--lunar-surface)] border border-[var(--lunar-border)] flex items-center justify-center text-2xl group-hover:scale-110 group-hover:border-[var(--lunar-primary)] shadow-lg transition">
-              {item.icon}
+            {/* RIBBON-TIED DESKTOP FOLDER ITEM */}
+            <div className="relative w-14 h-14 rounded-2xl bg-white border border-[#EADFD5] shadow-[0_4px_12px_rgba(0,0,0,0.03)] flex items-center justify-center text-2xl group-hover:scale-105 group-hover:border-[#F4C2C2] group-hover:shadow-md transition-all">
+              <span className="absolute -top-1.5 -right-1 text-[11px]">🎀</span>
+              <span>{item.icon}</span>
             </div>
-            <span className="text-[11px] font-medium text-center text-[var(--lunar-text)] drop-shadow">
+            <span className="text-[11px] font-medium text-center text-[#3D3535] line-clamp-1 leading-tight">
               {item.title}
             </span>
           </div>
@@ -260,32 +293,41 @@ export const DesktopShell: React.FC = () => {
         />
       ))}
 
-      {/* DOCK */}
+      {/* COQUETTE DOCK */}
       <Dock items={dockItems} activeWindowId={activeWindowId} onAppClick={handleDockClick} />
 
-      {/* RIGHT CLICK CONTEXT MENU */}
+      {/* CONTEXT MENU */}
       {contextMenuPos && (
         <div
           style={{ top: contextMenuPos.y, left: contextMenuPos.x }}
-          className="fixed z-50 w-48 bg-[var(--lunar-surface)]/90 backdrop-blur-xl border border-[var(--lunar-border)] rounded-xl py-1.5 shadow-2xl text-xs"
+          className="fixed z-50 w-52 bg-white/95 backdrop-blur-xl border border-[#EADFD5] rounded-xl py-1.5 shadow-xl text-xs text-[#3D3535]"
         >
+          <div className="px-3 py-1 font-semibold text-[10px] text-[#A39292] uppercase tracking-wider border-b border-[#F0E6DF] mb-1">
+            Coquette Desktop
+          </div>
           <button
             onClick={() => handleDockClick('browser')}
-            className="w-full text-left px-3 py-1.5 hover:bg-[var(--lunar-primary)] hover:text-black transition"
+            className="w-full text-left px-3 py-1.5 hover:bg-[#FFF0F3] hover:text-[#D87093] flex items-center gap-2 transition"
           >
-            🌐 Open Browser
+            <span>🌐</span> Open Lunar Browser
+          </button>
+          <button
+            onClick={() => handleDockClick('bookmarks')}
+            className="w-full text-left px-3 py-1.5 hover:bg-[#FFF0F3] hover:text-[#D87093] flex items-center gap-2 transition"
+          >
+            <span>📁</span> Open Finder
           </button>
           <button
             onClick={() => handleDockClick('themestudio')}
-            className="w-full text-left px-3 py-1.5 hover:bg-[var(--lunar-primary)] hover:text-black transition"
+            className="w-full text-left px-3 py-1.5 hover:bg-[#FFF0F3] hover:text-[#D87093] flex items-center gap-2 transition"
           >
-            🎨 Open Theme Studio
+            <span>🎨</span> Theme Studio
           </button>
           <button
             onClick={() => handleDockClick('settings')}
-            className="w-full text-left px-3 py-1.5 hover:bg-[var(--lunar-primary)] hover:text-black transition"
+            className="w-full text-left px-3 py-1.5 hover:bg-[#FFF0F3] hover:text-[#D87093] flex items-center gap-2 transition"
           >
-            ⚙️ System Preferences
+            <span>⚙️</span> System Preferences
           </button>
         </div>
       )}
