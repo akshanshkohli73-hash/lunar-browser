@@ -39,7 +39,7 @@ export const App: React.FC = () => {
   const [isReaderMode, setIsReaderMode] = useState<boolean>(false);
   const [readerContent, setReaderContent] = useState<string>('');
 
-  const [currentTheme, setCurrentTheme] = useState<ThemeTokens>(BUILTIN_THEMES['lunar-dark']);
+  const [currentTheme, setCurrentTheme] = useState<ThemeTokens>(BUILTIN_THEMES['lunar-coquette']);
 
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -189,23 +189,10 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[var(--lunar-bg)] text-[var(--lunar-text)] font-sans overflow-hidden border border-[var(--lunar-border)] rounded-lg select-none">
-      {/* WINDOW TITLE BAR & TABS */}
-      <div className="flex items-center bg-[var(--lunar-bg-secondary)] h-11 px-2 border-b border-[var(--lunar-border)] drag select-none">
-        {/* LOGO */}
-        <div className="flex items-center gap-2 px-2 no-drag mr-2">
-          <div className="w-5 h-5 rounded-full bg-[var(--lunar-primary)] p-[1px]">
-            <div className="w-full h-full bg-[var(--lunar-bg)] rounded-full flex items-center justify-center text-[10px] font-bold text-[var(--lunar-primary)]">
-              ☾
-            </div>
-          </div>
-          <span className="text-xs font-semibold tracking-wider text-[var(--lunar-primary)]">
-            LUNAR
-          </span>
-        </div>
-
-        {/* TABS CONTAINER */}
-        <div className="flex-1 flex items-center gap-1 overflow-x-auto no-drag scrollbar-none">
+    <div className="flex flex-col h-full w-full bg-[var(--lunar-bg)] text-[var(--lunar-text)] font-sans overflow-hidden select-none">
+      {/* TABS CONTAINER BAR */}
+      <div className="flex items-center bg-[var(--lunar-bg-secondary)] h-10 px-2 border-b border-[var(--lunar-border)] select-none">
+        <div className="flex-1 flex items-center gap-1 overflow-x-auto scrollbar-none">
           {tabs.map((tab) => {
             const isActive = tab.id === activeTabId;
             return (
@@ -241,32 +228,10 @@ export const App: React.FC = () => {
 
           <button
             onClick={handleNewTab}
-            className="w-7 h-7 flex items-center justify-center rounded-md bg-white/5 hover:bg-[var(--lunar-surface-hover)] hover:text-[var(--lunar-primary)] transition no-drag"
+            className="w-7 h-7 flex items-center justify-center rounded-md bg-white/5 hover:bg-[var(--lunar-surface-hover)] hover:text-[var(--lunar-primary)] transition"
             title="New Tab (Ctrl+T)"
           >
             +
-          </button>
-        </div>
-
-        {/* WINDOW CONTROLS */}
-        <div className="flex items-center gap-1 no-drag ml-2">
-          <button
-            onClick={() => window.lunarAPI?.minimize()}
-            className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/10 text-xs"
-          >
-            ⎯
-          </button>
-          <button
-            onClick={() => window.lunarAPI?.maximize()}
-            className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/10 text-xs"
-          >
-            ▢
-          </button>
-          <button
-            onClick={() => window.lunarAPI?.close()}
-            className="w-7 h-7 flex items-center justify-center rounded hover:bg-red-500 hover:text-white text-xs"
-          >
-            ✕
           </button>
         </div>
       </div>
