@@ -190,8 +190,8 @@ export const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full w-full bg-[var(--lunar-bg)] text-[var(--lunar-text)] font-sans overflow-hidden select-none">
-      {/* TABS CONTAINER BAR */}
-      <div className="flex items-center bg-[var(--lunar-bg-secondary)] h-10 px-2 border-b border-[var(--lunar-border)] select-none">
+      {/* BROWSER TABS BAR */}
+      <div className="flex items-center bg-[var(--lunar-bg-secondary)] h-9 px-2 border-b border-[var(--lunar-border)] select-none">
         <div className="flex-1 flex items-center gap-1 overflow-x-auto scrollbar-none">
           {tabs.map((tab) => {
             const isActive = tab.id === activeTabId;
@@ -199,7 +199,7 @@ export const App: React.FC = () => {
               <div
                 key={tab.id}
                 onClick={() => handleSwitchTab(tab.id)}
-                className={`group relative flex items-center gap-2 h-8 px-3 max-w-[200px] min-w-[120px] rounded-md text-xs transition-all cursor-pointer border ${
+                className={`group relative flex items-center gap-2 h-7 px-3 max-w-[200px] min-w-[120px] rounded-md text-xs transition-all cursor-pointer border ${
                   isActive
                     ? 'bg-[var(--lunar-surface)] text-[var(--lunar-primary)] border-[var(--lunar-border)] shadow-[0_0_10px_var(--lunar-glow)]'
                     : 'bg-white/5 text-[var(--lunar-text-muted)] border-transparent hover:bg-white/10 hover:text-[var(--lunar-text)]'
@@ -228,7 +228,7 @@ export const App: React.FC = () => {
 
           <button
             onClick={handleNewTab}
-            className="w-7 h-7 flex items-center justify-center rounded-md bg-white/5 hover:bg-[var(--lunar-surface-hover)] hover:text-[var(--lunar-primary)] transition"
+            className="w-6 h-6 flex items-center justify-center rounded-md bg-white/5 hover:bg-[var(--lunar-surface-hover)] hover:text-[var(--lunar-primary)] transition"
             title="New Tab (Ctrl+T)"
           >
             +
@@ -237,7 +237,7 @@ export const App: React.FC = () => {
       </div>
 
       {/* NAVIGATION BAR & OMNIBOX */}
-      <div className="flex items-center gap-2 h-11 px-3 bg-[var(--lunar-bg)] border-b border-[var(--lunar-border)] select-none">
+      <div className="flex items-center gap-2 h-10 px-3 bg-[var(--lunar-bg)] border-b border-[var(--lunar-border)] select-none">
         <div className="flex items-center gap-1">
           <button
             onClick={() => window.lunarAPI?.goBack(activeTabId)}
@@ -281,7 +281,7 @@ export const App: React.FC = () => {
             onChange={(e) => setUrlInput(e.target.value)}
             onFocus={() => setIsOmniboxFocused(true)}
             onBlur={() => setIsOmniboxFocused(false)}
-            placeholder="Search the web or type a URL (e.g. youtube.com or @tabs github)..."
+            placeholder="Search the web or type a URL..."
             className="w-full h-8 pl-8 pr-20 bg-[var(--lunar-surface)] text-xs text-[var(--lunar-text)] placeholder-[var(--lunar-text-muted)] rounded-md border border-[var(--lunar-border)] focus:border-[var(--lunar-primary)] focus:shadow-[0_0_12px_var(--lunar-glow)] focus:outline-none transition"
           />
           <div className="absolute right-2 flex items-center gap-1 text-[10px]">
