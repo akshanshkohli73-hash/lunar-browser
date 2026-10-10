@@ -6,6 +6,8 @@ import AISidebar from './AISidebar';
 import CommandPalette from './CommandPalette';
 import OnboardingModal from './OnboardingModal';
 import ReaderModeView from './ReaderModeView';
+import ThemeStudioView from './ThemeStudioView';
+import { BUILTIN_THEMES, applyThemeTokens, ThemeTokens } from '../styles/themes';
 
 declare global {
   interface Window {
@@ -37,13 +39,55 @@ export const App: React.FC = () => {
   const [isReaderMode, setIsReaderMode] = useState<boolean>(false);
   const [readerContent, setReaderContent] = useState<string>('');
 
+  const [currentTheme, setCurrentTheme] = useState<ThemeTokens>(BUILTIN_THEMES['lunar-coquette']);
+
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [downloads, setDownloads] = useState<DownloadItemInfo[]>([]);
 
   const omniboxInputRef = useRef<HTMLInputElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
+
+  useEffect(() => {
+    applyThemeTokens(currentTheme);
+  }, [currentTheme]);
+
+
+  useEffect(() => {
+    if (!viewportRef.current || !activeTabId || !window.lunarAPI?.updateTabBounds) return;
+
+    let animId: number;
+    let lastRect = { left: -1, top: -1, width: -1, height: -1 };
+
+    const checkGeometry = () => {
+      if (viewportRef.current) {
+        const rect = viewportRef.current.getBoundingClientRect();
+        if (
+          Math.abs(rect.left - lastRect.left) > 0.5 ||
+          Math.abs(rect.top - lastRect.top) > 0.5 ||
+          Math.abs(rect.width - lastRect.width) > 0.5 ||
+          Math.abs(rect.height - lastRect.height) > 0.5
+        ) {
+          lastRect = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+          window.lunarAPI.updateTabBounds(activeTabId, {
+            x: Math.round(rect.left),
+            y: Math.round(rect.top),
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+          });
+        }
+      }
+      animId = requestAnimationFrame(checkGeometry);
+    };
+
+    animId = requestAnimationFrame(checkGeometry);
+
+    return () => {
+      cancelAnimationFrame(animId);
+    };
+  }, [activeTabId, activePage, showAISidebar]);
 
   useEffect(() => {
     if (!window.lunarAPI) return;
@@ -51,6 +95,9 @@ export const App: React.FC = () => {
     window.lunarAPI.getSettings().then((settings: any) => {
       if (settings && settings.isFirstRun !== false) {
         setShowOnboarding(true);
+      }
+      if (settings && settings.themeId && BUILTIN_THEMES[settings.themeId]) {
+        setCurrentTheme(BUILTIN_THEMES[settings.themeId]);
       }
     });
 
@@ -178,49 +225,36 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#050508] text-slate-100 font-sans overflow-hidden border border-white/10 rounded-lg select-none">
-      {/* WINDOW TITLE BAR & TABS */}
-      <div className="flex items-center bg-[#0d0f17] h-11 px-2 border-b border-white/10 drag select-none">
-        {/* LOGO */}
-        <div className="flex items-center gap-2 px-2 no-drag mr-2">
-          <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-cyan-500 via-violet-500 to-lime-400 p-[1px]">
-            <div className="w-full h-full bg-[#050508] rounded-full flex items-center justify-center text-[10px] font-bold text-cyan-400">
-              ☾
-            </div>
-          </div>
-          <span className="text-xs font-semibold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-violet-400">
-            LUNAR
-          </span>
-        </div>
-
-        {/* TABS CONTAINER */}
-        <div className="flex-1 flex items-center gap-1 overflow-x-auto no-drag scrollbar-none">
+    <div className="flex flex-col h-full w-full bg-[var(--lunar-bg)] text-[var(--lunar-text)] font-sans overflow-hidden select-none">
+      {/* BROWSER TABS BAR */}
+      <div className="flex items-center bg-[var(--lunar-bg-secondary)] h-9 px-2 border-b border-[var(--lunar-border)] select-none">
+        <div className="flex-1 flex items-center gap-1 overflow-x-auto scrollbar-none">
           {tabs.map((tab) => {
             const isActive = tab.id === activeTabId;
             return (
               <div
                 key={tab.id}
                 onClick={() => handleSwitchTab(tab.id)}
-                className={`group relative flex items-center gap-2 h-8 px-3 max-w-[200px] min-w-[120px] rounded-md text-xs transition-all cursor-pointer border ${
+                className={`group relative flex items-center gap-2 h-7 px-3 max-w-[200px] min-w-[120px] rounded-md text-xs transition-all cursor-pointer border ${
                   isActive
-                    ? 'bg-[#131622] text-cyan-400 border-cyan-500/30 shadow-[0_0_10px_rgba(0,240,255,0.1)]'
-                    : 'bg-white/5 text-slate-400 border-transparent hover:bg-white/10 hover:text-slate-200'
+                    ? 'bg-[var(--lunar-surface)] text-[var(--lunar-primary)] border-[var(--lunar-border)] shadow-[0_0_10px_var(--lunar-glow)]'
+                    : 'bg-white/5 text-[var(--lunar-text-muted)] border-transparent hover:bg-white/10 hover:text-[var(--lunar-text)]'
                 }`}
               >
                 {tab.favicon ? (
                   <img src={tab.favicon} alt="" className="w-3.5 h-3.5 rounded-sm" />
                 ) : (
-                  <span className="text-slate-500 text-[10px]">🌐</span>
+                  <svg className="w-3.5 h-3.5 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg>
                 )}
                 <span className="truncate flex-1 font-medium">
                   {tab.url === 'lunar://newtab' ? 'New Tab' : tab.title || 'Loading...'}
                 </span>
 
-                {tab.audible && <span className="text-[10px] text-cyan-400 animate-pulse">🔊</span>}
+                {tab.audible && <span className="text-[10px] text-[var(--lunar-primary)] animate-pulse">🔊</span>}
 
                 <button
                   onClick={(e) => handleCloseTab(tab.id, e)}
-                  className="opacity-0 group-hover:opacity-100 hover:bg-white/20 p-0.5 rounded text-slate-400 hover:text-white transition"
+                  className="opacity-0 group-hover:opacity-100 hover:bg-white/20 p-0.5 rounded transition"
                 >
                   ✕
                 </button>
@@ -230,43 +264,21 @@ export const App: React.FC = () => {
 
           <button
             onClick={handleNewTab}
-            className="w-7 h-7 flex items-center justify-center rounded-md bg-white/5 hover:bg-cyan-500/20 hover:text-cyan-400 text-slate-400 transition no-drag"
+            className="w-6 h-6 flex items-center justify-center rounded-md bg-white/5 hover:bg-[var(--lunar-surface-hover)] hover:text-[var(--lunar-primary)] transition"
             title="New Tab (Ctrl+T)"
           >
             +
           </button>
         </div>
-
-        {/* WINDOW CONTROLS */}
-        <div className="flex items-center gap-1 no-drag ml-2">
-          <button
-            onClick={() => window.lunarAPI?.minimize()}
-            className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/10 text-slate-400 hover:text-white text-xs"
-          >
-            ⎯
-          </button>
-          <button
-            onClick={() => window.lunarAPI?.maximize()}
-            className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/10 text-slate-400 hover:text-white text-xs"
-          >
-            ▢
-          </button>
-          <button
-            onClick={() => window.lunarAPI?.close()}
-            className="w-7 h-7 flex items-center justify-center rounded hover:bg-red-500 hover:text-white text-slate-400 text-xs"
-          >
-            ✕
-          </button>
-        </div>
       </div>
 
       {/* NAVIGATION BAR & OMNIBOX */}
-      <div className="flex items-center gap-2 h-11 px-3 bg-[#08090f] border-b border-white/10 select-none">
+      <div className="flex items-center gap-2 h-10 px-3 bg-[var(--lunar-bg)] border-b border-[var(--lunar-border)] select-none">
         <div className="flex items-center gap-1">
           <button
             onClick={() => window.lunarAPI?.goBack(activeTabId)}
             disabled={!activeTab?.canGoBack}
-            className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent text-slate-300"
+            className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/10 disabled:opacity-30"
             title="Back"
           >
             ←
@@ -274,14 +286,14 @@ export const App: React.FC = () => {
           <button
             onClick={() => window.lunarAPI?.goForward(activeTabId)}
             disabled={!activeTab?.canGoForward}
-            className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent text-slate-300"
+            className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/10 disabled:opacity-30"
             title="Forward"
           >
             →
           </button>
           <button
             onClick={() => window.lunarAPI?.reloadTab(activeTabId)}
-            className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/10 text-slate-300"
+            className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/10"
             title="Reload"
           >
             ↻
@@ -289,13 +301,11 @@ export const App: React.FC = () => {
         </div>
 
         <form onSubmit={handleNavigate} className="flex-1 relative flex items-center">
-          <div className="absolute left-3 flex items-center gap-1.5 text-xs text-slate-400">
+          <div className="absolute left-3 flex items-center gap-1.5 text-xs">
             {activeTab?.url.startsWith('https://') ? (
-              <span className="text-cyan-400 text-[11px]" title="Secure Connection">
-                🔒
-              </span>
+              <span className="text-[11px]" title="Secure Connection"><svg className="w-3.5 h-3.5 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
             ) : (
-              <span className="text-slate-500 text-[11px]">🌐</span>
+              <svg className="w-3.5 h-3.5 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg>
             )}
           </div>
           <input
@@ -305,20 +315,28 @@ export const App: React.FC = () => {
             onChange={(e) => setUrlInput(e.target.value)}
             onFocus={() => setIsOmniboxFocused(true)}
             onBlur={() => setIsOmniboxFocused(false)}
-            placeholder="Search the web or type a URL (e.g. youtube.com or @tabs github)..."
-            className="w-full h-8 pl-8 pr-20 bg-[#131622] text-xs text-slate-200 placeholder-slate-500 rounded-md border border-white/10 focus:border-cyan-500/50 focus:shadow-[0_0_12px_rgba(0,240,255,0.2)] focus:outline-none transition"
+            placeholder="Search the web or type a URL..."
+            className="w-full h-8 pl-8 pr-20 bg-[var(--lunar-surface)] text-xs text-[var(--lunar-text)] placeholder-[var(--lunar-text-muted)] rounded-md border border-[var(--lunar-border)] focus:border-[var(--lunar-primary)] focus:shadow-[0_0_12px_var(--lunar-glow)] focus:outline-none transition"
           />
-          <div className="absolute right-2 flex items-center gap-1 text-[10px] text-slate-400">
-            <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 font-mono text-cyan-400">
+          <div className="absolute right-2 flex items-center gap-1 text-[10px]">
+            <span className="px-1.5 py-0.5 rounded bg-white/5 border border-[var(--lunar-border)] font-mono text-[var(--lunar-primary)]">
               Ctrl+K
             </span>
           </div>
         </form>
 
+        <button
+          onClick={() => window.lunarAPI?.navigateTab(activeTabId, 'lunar://themestudio')}
+          className="px-2 py-1 rounded-md bg-[var(--lunar-surface)] border border-[var(--lunar-border)] text-xs hover:border-[var(--lunar-primary)] transition"
+          title="Theme Studio"
+        >
+          🎨
+        </button>
+
         {activePage === 'browser' && (
           <button
             onClick={handleOpenReaderMode}
-            className="w-8 h-8 flex items-center justify-center rounded-md bg-white/5 border border-white/10 text-slate-300 hover:text-cyan-400 hover:bg-white/10 text-xs transition"
+            className="w-8 h-8 flex items-center justify-center rounded-md bg-[var(--lunar-surface)] border border-[var(--lunar-border)] text-xs hover:text-[var(--lunar-primary)] transition"
             title="Reader Mode"
           >
             📖
@@ -330,8 +348,8 @@ export const App: React.FC = () => {
             onClick={() => setShowShieldPopup(!showShieldPopup)}
             className={`flex items-center gap-1.5 h-8 px-2.5 rounded-md border text-xs font-medium transition ${
               shieldStats.totalBlocked > 0
-                ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20'
-                : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+                ? 'bg-[var(--lunar-surface)] border-[var(--lunar-primary)] text-[var(--lunar-primary)]'
+                : 'bg-[var(--lunar-surface)] border-[var(--lunar-border)] text-[var(--lunar-text-muted)]'
             }`}
           >
             <span>🛡️</span>
@@ -339,36 +357,32 @@ export const App: React.FC = () => {
           </button>
 
           {showShieldPopup && (
-            <div className="absolute right-0 top-10 w-72 bg-[#0d0f17] border border-cyan-500/30 rounded-lg p-4 shadow-2xl z-50 backdrop-blur-md">
-              <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-3">
+            <div className="absolute right-0 top-10 w-72 bg-[var(--lunar-bg-secondary)] border border-[var(--lunar-border)] rounded-lg p-4 shadow-2xl z-50 backdrop-blur-md">
+              <div className="flex items-center justify-between border-b border-[var(--lunar-border)] pb-2 mb-3">
                 <div className="flex items-center gap-2">
                   <span className="text-lg">🛡️</span>
                   <div>
-                    <h3 className="text-xs font-bold text-cyan-400 tracking-wider">LUNAR SHIELD</h3>
-                    <p className="text-[10px] text-slate-400">Active Protection</p>
+                    <h3 className="text-xs font-bold text-[var(--lunar-primary)] tracking-wider">LUNAR SHIELD</h3>
+                    <p className="text-[10px] text-[var(--lunar-text-muted)]">Active Protection</p>
                   </div>
                 </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[var(--lunar-primary)] text-black">
                   PROTECTED
                 </span>
               </div>
 
               <div className="space-y-2 text-xs">
-                <div className="flex justify-between items-center py-1 border-b border-white/5">
-                  <span className="text-slate-400">Ads Blocked</span>
-                  <span className="font-mono text-cyan-400 font-bold">{shieldStats.adsBlocked}</span>
+                <div className="flex justify-between items-center py-1 border-b border-[var(--lunar-border)]">
+                  <span className="text-[var(--lunar-text-muted)]">Ads Blocked</span>
+                  <span className="font-mono text-[var(--lunar-primary)] font-bold">{shieldStats.adsBlocked}</span>
                 </div>
-                <div className="flex justify-between items-center py-1 border-b border-white/5">
-                  <span className="text-slate-400">Trackers Blocked</span>
-                  <span className="font-mono text-violet-400 font-bold">{shieldStats.trackersBlocked}</span>
-                </div>
-                <div className="flex justify-between items-center py-1 border-b border-white/5">
-                  <span className="text-slate-400">Cryptominers</span>
-                  <span className="font-mono text-lime-400 font-bold">{shieldStats.cryptominersBlocked}</span>
+                <div className="flex justify-between items-center py-1 border-b border-[var(--lunar-border)]">
+                  <span className="text-[var(--lunar-text-muted)]">Trackers Blocked</span>
+                  <span className="font-mono text-[var(--lunar-secondary)] font-bold">{shieldStats.trackersBlocked}</span>
                 </div>
                 <div className="flex justify-between items-center py-1">
-                  <span className="text-slate-400">Total Intercepted</span>
-                  <span className="font-mono text-slate-100 font-bold">{shieldStats.totalBlocked}</span>
+                  <span className="text-[var(--lunar-text-muted)]">Total Intercepted</span>
+                  <span className="font-mono font-bold">{shieldStats.totalBlocked}</span>
                 </div>
               </div>
             </div>
@@ -379,8 +393,8 @@ export const App: React.FC = () => {
           onClick={() => setShowAISidebar(!showAISidebar)}
           className={`flex items-center gap-1.5 h-8 px-2.5 rounded-md border text-xs font-medium transition ${
             showAISidebar
-              ? 'bg-violet-500/20 border-violet-500/50 text-violet-300 shadow-[0_0_12px_rgba(138,43,226,0.3)]'
-              : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
+              ? 'bg-[var(--lunar-surface)] border-[var(--lunar-secondary)] text-[var(--lunar-secondary)]'
+              : 'bg-[var(--lunar-surface)] border-[var(--lunar-border)]'
           }`}
         >
           <span>✨</span>
@@ -389,7 +403,7 @@ export const App: React.FC = () => {
       </div>
 
       {/* MAIN CONTAINER */}
-      <div className="flex-1 relative flex overflow-hidden">
+      <div ref={viewportRef} className="flex-1 relative flex overflow-hidden">
         {isReaderMode ? (
           <ReaderModeView
             title={activeTab?.title || 'Article View'}
@@ -397,23 +411,28 @@ export const App: React.FC = () => {
             content={readerContent}
             onClose={() => setIsReaderMode(false)}
           />
+        ) : activePage === 'themestudio' ? (
+          <ThemeStudioView
+            currentTheme={currentTheme}
+            onThemeChange={(newTheme) => {
+              setCurrentTheme(newTheme);
+              window.lunarAPI?.updateSettings({ themeId: newTheme.id });
+            }}
+          />
         ) : activePage === 'newtab' ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#050508] relative overflow-y-auto">
-            <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute bottom-1/4 left-1/3 w-80 h-80 bg-violet-500/10 rounded-full blur-3xl pointer-events-none" />
-
+          <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[var(--lunar-bg)] relative overflow-y-auto">
             <div className="z-10 max-w-2xl w-full flex flex-col items-center text-center space-y-6">
               <div>
-                <h1 className="text-6xl font-extralight tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-slate-100 via-slate-200 to-cyan-300">
+                <h1 className="text-6xl font-extralight tracking-tight text-[var(--lunar-text)]">
                   {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </h1>
-                <p className="text-xs font-mono tracking-widest text-cyan-400/80 uppercase mt-2">
+                <p className="text-xs font-mono tracking-widest text-[var(--lunar-primary)] uppercase mt-2">
                   {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
                 </p>
               </div>
 
-              <h2 className="text-xl font-medium tracking-wide text-slate-300">
-                What are you exploring today?
+              <h2 className="text-xl font-medium tracking-wide text-[var(--lunar-text-muted)]">
+                Browse beyond.
               </h2>
 
               <form onSubmit={handleNavigate} className="w-full relative">
@@ -422,23 +441,23 @@ export const App: React.FC = () => {
                   value={urlInput}
                   onChange={(e) => setUrlInput(e.target.value)}
                   placeholder="Search the web or enter URL..."
-                  className="w-full h-12 pl-12 pr-4 bg-[#0d0f17]/80 text-sm text-slate-100 placeholder-slate-500 rounded-xl border border-white/10 focus:border-cyan-500/60 focus:shadow-[0_0_20px_rgba(0,240,255,0.25)] focus:outline-none backdrop-blur-md transition"
+                  className="w-full h-12 pl-12 pr-4 bg-[var(--lunar-surface)] text-sm text-[var(--lunar-text)] placeholder-[var(--lunar-text-muted)] rounded-xl border border-[var(--lunar-border)] focus:border-[var(--lunar-primary)] focus:shadow-[0_0_20px_var(--lunar-glow)] focus:outline-none backdrop-blur-md transition"
                 />
-                <span className="absolute left-4 top-3.5 text-base text-slate-400">🔍</span>
+                <span className="absolute left-4 top-3.5 text-base">🔍</span>
               </form>
 
-              <div className="w-full grid grid-cols-3 gap-4 p-4 rounded-xl bg-[#0d0f17]/60 border border-white/5 backdrop-blur-md">
+              <div className="w-full grid grid-cols-3 gap-4 p-4 rounded-xl bg-[var(--lunar-surface)] border border-[var(--lunar-border)] backdrop-blur-md">
                 <div className="flex flex-col items-center">
-                  <span className="text-xl font-bold font-mono text-cyan-400">{shieldStats.totalBlocked}</span>
-                  <span className="text-[11px] text-slate-400">Trackers & Ads Blocked</span>
+                  <span className="text-xl font-bold font-mono text-[var(--lunar-primary)]">{shieldStats.totalBlocked}</span>
+                  <span className="text-[11px] text-[var(--lunar-text-muted)]">Trackers & Ads Blocked</span>
                 </div>
                 <div className="flex flex-col items-center">
-                  <span className="text-xl font-bold font-mono text-violet-400">100%</span>
-                  <span className="text-[11px] text-slate-400">Local Privacy</span>
+                  <span className="text-xl font-bold font-mono text-[var(--lunar-secondary)]">100%</span>
+                  <span className="text-[11px] text-[var(--lunar-text-muted)]">Local Privacy</span>
                 </div>
                 <div className="flex flex-col items-center">
-                  <span className="text-xl font-bold font-mono text-lime-400">Active</span>
-                  <span className="text-[11px] text-slate-400">Lunar Shield</span>
+                  <span className="text-xl font-bold font-mono text-[var(--lunar-accent)]">Active</span>
+                  <span className="text-[11px] text-[var(--lunar-text-muted)]">Lunar Shield</span>
                 </div>
               </div>
 
@@ -452,10 +471,10 @@ export const App: React.FC = () => {
                   <button
                     key={site.name}
                     onClick={() => window.lunarAPI?.navigateTab(activeTabId, site.url)}
-                    className="flex flex-col items-center gap-2 p-3 w-20 rounded-xl bg-white/5 border border-white/5 hover:border-cyan-500/40 hover:bg-cyan-500/10 transition group"
+                    className="flex flex-col items-center gap-2 p-3 w-20 rounded-xl bg-[var(--lunar-surface)] border border-[var(--lunar-border)] hover:border-[var(--lunar-primary)] transition group"
                   >
                     <span className="text-2xl group-hover:scale-110 transition">{site.icon}</span>
-                    <span className="text-xs text-slate-300">{site.name}</span>
+                    <span className="text-xs text-[var(--lunar-text-muted)]">{site.name}</span>
                   </button>
                 ))}
               </div>
@@ -466,9 +485,9 @@ export const App: React.FC = () => {
         ) : activePage === 'extensions' ? (
           <ExtensionsView />
         ) : activePage === 'history' ? (
-          <div className="flex-1 bg-[#050508] p-8 overflow-y-auto">
+          <div className="flex-1 bg-[var(--lunar-bg)] p-8 overflow-y-auto">
             <div className="max-w-4xl mx-auto space-y-6">
-              <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div className="flex items-center justify-between border-b border-[var(--lunar-border)] pb-4">
                 <h1 className="text-xl font-bold flex items-center gap-2">
                   <span>📜</span> Browsing History
                 </h1>
@@ -483,20 +502,20 @@ export const App: React.FC = () => {
                 </button>
               </div>
               {history.length === 0 ? (
-                <p className="text-xs text-slate-500">No browsing history yet.</p>
+                <p className="text-xs text-[var(--lunar-text-muted)]">No browsing history yet.</p>
               ) : (
                 <div className="space-y-2">
                   {history.map((h) => (
                     <div
                       key={h.id}
                       onClick={() => window.lunarAPI?.navigateTab(activeTabId, h.url)}
-                      className="p-3 rounded-lg bg-[#0d0f17] border border-white/5 hover:border-cyan-500/30 flex items-center justify-between cursor-pointer transition"
+                      className="p-3 rounded-lg bg-[var(--lunar-surface)] border border-[var(--lunar-border)] hover:border-[var(--lunar-primary)] flex items-center justify-between cursor-pointer transition"
                     >
                       <div>
-                        <h4 className="text-xs font-bold text-slate-200">{h.title || h.url}</h4>
-                        <p className="text-[11px] text-cyan-400">{h.url}</p>
+                        <h4 className="text-xs font-bold">{h.title || h.url}</h4>
+                        <p className="text-[11px] text-[var(--lunar-primary)]">{h.url}</p>
                       </div>
-                      <span className="text-[10px] text-slate-500 font-mono">
+                      <span className="text-[10px] text-[var(--lunar-text-muted)] font-mono">
                         {new Date(h.visitTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
@@ -506,9 +525,9 @@ export const App: React.FC = () => {
             </div>
           </div>
         ) : activePage === 'bookmarks' ? (
-          <div className="flex-1 bg-[#050508] p-8 overflow-y-auto">
+          <div className="flex-1 bg-[var(--lunar-bg)] p-8 overflow-y-auto">
             <div className="max-w-4xl mx-auto space-y-6">
-              <h1 className="text-xl font-bold flex items-center gap-2 border-b border-white/10 pb-4">
+              <h1 className="text-xl font-bold flex items-center gap-2 border-b border-[var(--lunar-border)] pb-4">
                 <span>🔖</span> Bookmarks Manager
               </h1>
               <div className="grid grid-cols-2 gap-3">
@@ -516,11 +535,11 @@ export const App: React.FC = () => {
                   <div
                     key={bm.id}
                     onClick={() => window.lunarAPI?.navigateTab(activeTabId, bm.url)}
-                    className="p-4 rounded-xl bg-[#0d0f17] border border-white/10 hover:border-cyan-500/30 flex items-center justify-between cursor-pointer transition"
+                    className="p-4 rounded-xl bg-[var(--lunar-surface)] border border-[var(--lunar-border)] hover:border-[var(--lunar-primary)] flex items-center justify-between cursor-pointer transition"
                   >
                     <div>
-                      <h4 className="text-xs font-bold text-slate-200">{bm.title}</h4>
-                      <p className="text-[11px] text-slate-400">{bm.url}</p>
+                      <h4 className="text-xs font-bold">{bm.title}</h4>
+                      <p className="text-[11px] text-[var(--lunar-text-muted)]">{bm.url}</p>
                     </div>
                   </div>
                 ))}
@@ -528,24 +547,24 @@ export const App: React.FC = () => {
             </div>
           </div>
         ) : activePage === 'downloads' ? (
-          <div className="flex-1 bg-[#050508] p-8 overflow-y-auto">
+          <div className="flex-1 bg-[var(--lunar-bg)] p-8 overflow-y-auto">
             <div className="max-w-4xl mx-auto space-y-6">
-              <h1 className="text-xl font-bold flex items-center gap-2 border-b border-white/10 pb-4">
+              <h1 className="text-xl font-bold flex items-center gap-2 border-b border-[var(--lunar-border)] pb-4">
                 <span>📥</span> Download Manager
               </h1>
               {downloads.length === 0 ? (
-                <p className="text-xs text-slate-500">No recent downloads.</p>
+                <p className="text-xs text-[var(--lunar-text-muted)]">No recent downloads.</p>
               ) : (
                 <div className="space-y-3">
                   {downloads.map((dl) => (
-                    <div key={dl.id} className="p-4 rounded-xl bg-[#0d0f17] border border-white/10 space-y-2">
-                      <div className="flex items-center justify-between text-xs font-bold text-slate-200">
+                    <div key={dl.id} className="p-4 rounded-xl bg-[var(--lunar-surface)] border border-[var(--lunar-border)] space-y-2">
+                      <div className="flex items-center justify-between text-xs font-bold">
                         <span>{dl.filename}</span>
-                        <span className="text-cyan-400 uppercase font-mono text-[10px]">{dl.status}</span>
+                        <span className="text-[var(--lunar-primary)] uppercase font-mono text-[10px]">{dl.status}</span>
                       </div>
                       <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
                         <div
-                          className="h-full bg-cyan-400 transition-all"
+                          className="h-full bg-[var(--lunar-primary)] transition-all"
                           style={{
                             width: `${dl.totalBytes > 0 ? (dl.receivedBytes / dl.totalBytes) * 100 : 0}%`,
                           }}

@@ -1,4 +1,4 @@
-import { BrowserWindow, WebContentsView, Rectangle, ipcMain } from 'electron';
+import { BrowserWindow, WebContentsView, Rectangle } from 'electron';
 import { TabInfo } from '../types';
 import { formatSearchOrUrl } from '../security';
 
@@ -6,13 +6,14 @@ export interface TabViewItem {
   id: string;
   view: WebContentsView;
   info: TabInfo;
+  customBounds?: Rectangle;
 }
 
 export class TabManager {
   private window: BrowserWindow;
   private tabs: Map<string, TabViewItem> = new Map();
   private activeTabId: string | null = null;
-  private secondaryTabId: string | null = null; // Split view
+  private secondaryTabId: string | null = null;
   private isSplitView: boolean = false;
   private sidebarOpen: boolean = false;
   private contentBounds: Rectangle = { x: 0, y: 88, width: 1280, height: 712 };
@@ -29,6 +30,16 @@ export class TabManager {
     this.updateViewBounds();
   }
 
+  public updateTabBounds(tabId: string, bounds: Rectangle) {
+    const tab = this.tabs.get(tabId);
+    if (tab) {
+      tab.customBounds = bounds;
+      if (tabId === this.activeTabId || tabId === this.secondaryTabId) {
+        this.updateViewBounds();
+      }
+    }
+  }
+
   public setSidebarOpen(open: boolean) {
     this.sidebarOpen = open;
     this.updateViewBounds();
@@ -37,7 +48,6 @@ export class TabManager {
   private setupListeners() {
     this.window.on('resize', () => {
       const { width, height } = this.window.getContentBounds();
-      // Keep height above top UI navbar (height 88px)
       this.contentBounds = {
         x: 0,
         y: 88,
@@ -51,7 +61,6 @@ export class TabManager {
   public createTab(url?: string): TabInfo {
     const id = `tab_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
-    // Create modern WebContentsView
     const view = new WebContentsView({
       webPreferences: {
         contextIsolation: true,
@@ -78,7 +87,6 @@ export class TabManager {
     const tabItem: TabViewItem = { id, view, info };
     this.tabs.set(id, tabItem);
 
-    // Attach WebContents event handlers
     const wc = view.webContents;
 
     wc.setWindowOpenHandler(({ url: targetUrl }) => {
@@ -99,7 +107,6 @@ export class TabManager {
       info.canGoForward = wc.canGoForward();
       this.notifyTabsUpdated();
 
-      // Record History
       if (!info.url.startsWith('lunar://') && this.onPageNavigateCallback) {
         this.onPageNavigateCallback({
           url: info.url,
@@ -138,7 +145,6 @@ export class TabManager {
       }
     });
 
-    // Load URL if not lunar:// page
     if (initialUrl.startsWith('http://') || initialUrl.startsWith('https://') || initialUrl.startsWith('file://')) {
       wc.loadURL(initialUrl);
     }
@@ -150,7 +156,6 @@ export class TabManager {
   public switchTab(tabId: string) {
     if (!this.tabs.has(tabId)) return;
 
-    // Remove current views from content view
     if (this.activeTabId && this.tabs.has(this.activeTabId)) {
       const prev = this.tabs.get(this.activeTabId)!;
       try {
@@ -168,7 +173,6 @@ export class TabManager {
     this.activeTabId = tabId;
     const current = this.tabs.get(tabId)!;
 
-    // Add view to window content view if real webpage (non lunar://)
     if (!current.info.url.startsWith('lunar://')) {
       this.window.contentView.addChildView(current.view);
     }
@@ -195,7 +199,6 @@ export class TabManager {
 
     this.tabs.delete(tabId);
 
-    // If active tab closed, switch to another
     if (this.activeTabId === tabId) {
       const remainingIds = Array.from(this.tabs.keys());
       if (remainingIds.length > 0) {
@@ -306,37 +309,36 @@ export class TabManager {
     if (!this.activeTabId || !this.tabs.has(this.activeTabId)) return;
 
     const activeTab = this.tabs.get(this.activeTabId)!;
-    const sidebarWidth = this.sidebarOpen ? 320 : 0;
-    const effectiveWidth = Math.max(100, this.contentBounds.width - sidebarWidth);
+    const bounds = activeTab.customBounds || this.contentBounds;
 
     if (this.isSplitView && this.secondaryTabId && this.tabs.has(this.secondaryTabId)) {
       const secondaryTab = this.tabs.get(this.secondaryTabId)!;
-      const halfWidth = Math.floor(effectiveWidth / 2);
+      const halfWidth = Math.floor(bounds.width / 2);
 
       if (!activeTab.info.url.startsWith('lunar://')) {
         activeTab.view.setBounds({
-          x: this.contentBounds.x,
-          y: this.contentBounds.y,
+          x: bounds.x,
+          y: bounds.y,
           width: halfWidth,
-          height: this.contentBounds.height,
+          height: bounds.height,
         });
       }
 
       if (!secondaryTab.info.url.startsWith('lunar://')) {
         secondaryTab.view.setBounds({
-          x: this.contentBounds.x + halfWidth,
-          y: this.contentBounds.y,
-          width: effectiveWidth - halfWidth,
-          height: this.contentBounds.height,
+          x: bounds.x + halfWidth,
+          y: bounds.y,
+          width: bounds.width - halfWidth,
+          height: bounds.height,
         });
       }
     } else {
       if (!activeTab.info.url.startsWith('lunar://')) {
         activeTab.view.setBounds({
-          x: this.contentBounds.x,
-          y: this.contentBounds.y,
-          width: effectiveWidth,
-          height: this.contentBounds.height,
+          x: bounds.x,
+          y: bounds.y,
+          width: bounds.width,
+          height: bounds.height,
         });
       }
     }

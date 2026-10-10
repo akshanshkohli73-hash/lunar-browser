@@ -17,24 +17,23 @@ A private, intelligent, beautiful Chromium desktop browser built with Electron, 
 
 ---
 
-## Getting Started & Running Locally
+## Building and Packaging Executables
+
+To build the project and package standalone binaries/installers:
 
 ### 1. Install Dependencies
 ```bash
 npm install
 ```
 
-### 2. Run in Development Mode
+### 2. Build Web and Main Bundles
 ```bash
-npm run dev
+npm run build
 ```
 
-### 3. Build & Package an Executable / Installer (.exe / .dmg / .AppImage)
-
-To generate a standalone setup file (`.exe` on Windows, `.dmg` on macOS, or `.AppImage` on Linux), run:
-
+### 3. Build & Package Release (.exe / .AppImage / .dmg)
 ```bash
 npm run dist
 ```
 
-The installer setup files will be generated inside the `release/` directory!
+Packaging artifacts are created under `release/` when running `npm run dist`.

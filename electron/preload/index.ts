@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 const api = {
-  // Tab Management
+  // Tab Management & Geometry Bounds
   createTab: (url?: string) => ipcRenderer.invoke('tab:create', url),
   closeTab: (tabId: string) => ipcRenderer.invoke('tab:close', tabId),
   switchTab: (tabId: string) => ipcRenderer.invoke('tab:switch', tabId),
@@ -13,6 +13,8 @@ const api = {
   togglePinTab: (tabId: string) => ipcRenderer.invoke('tab:togglePin', tabId),
   duplicateTab: (tabId: string) => ipcRenderer.invoke('tab:duplicate', tabId),
   reorderTabs: (tabIds: string[]) => ipcRenderer.invoke('tab:reorder', tabIds),
+  updateTabBounds: (tabId: string, bounds: { x: number; y: number; width: number; height: number }) =>
+    ipcRenderer.invoke('tab:updateBounds', tabId, bounds),
 
   // Tab Events
   onTabsUpdated: (callback: (tabs: any[], activeTabId: string) => void) => {
