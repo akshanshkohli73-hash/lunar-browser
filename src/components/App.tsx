@@ -46,12 +46,48 @@ export const App: React.FC = () => {
   const [downloads, setDownloads] = useState<DownloadItemInfo[]>([]);
 
   const omniboxInputRef = useRef<HTMLInputElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
   useEffect(() => {
     applyThemeTokens(currentTheme);
   }, [currentTheme]);
+
+
+  useEffect(() => {
+    if (!viewportRef.current || !activeTabId || !window.lunarAPI?.updateTabBounds) return;
+
+    let animId: number;
+    let lastRect = { left: -1, top: -1, width: -1, height: -1 };
+
+    const checkGeometry = () => {
+      if (viewportRef.current) {
+        const rect = viewportRef.current.getBoundingClientRect();
+        if (
+          Math.abs(rect.left - lastRect.left) > 0.5 ||
+          Math.abs(rect.top - lastRect.top) > 0.5 ||
+          Math.abs(rect.width - lastRect.width) > 0.5 ||
+          Math.abs(rect.height - lastRect.height) > 0.5
+        ) {
+          lastRect = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+          window.lunarAPI.updateTabBounds(activeTabId, {
+            x: Math.round(rect.left),
+            y: Math.round(rect.top),
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+          });
+        }
+      }
+      animId = requestAnimationFrame(checkGeometry);
+    };
+
+    animId = requestAnimationFrame(checkGeometry);
+
+    return () => {
+      cancelAnimationFrame(animId);
+    };
+  }, [activeTabId, activePage, showAISidebar]);
 
   useEffect(() => {
     if (!window.lunarAPI) return;
@@ -367,7 +403,7 @@ export const App: React.FC = () => {
       </div>
 
       {/* MAIN CONTAINER */}
-      <div className="flex-1 relative flex overflow-hidden">
+      <div ref={viewportRef} className="flex-1 relative flex overflow-hidden">
         {isReaderMode ? (
           <ReaderModeView
             title={activeTab?.title || 'Article View'}

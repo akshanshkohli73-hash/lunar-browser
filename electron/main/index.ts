@@ -21,9 +21,9 @@ function createWindow() {
     height: 800,
     minWidth: 800,
     minHeight: 600,
-    frame: false, // Custom sleek Lunar title bar
+    frame: false,
     titleBarStyle: 'hidden',
-    backgroundColor: '#050508',
+    backgroundColor: '#FAF7F2',
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -84,6 +84,16 @@ ipcMain.handle('tab:toggleMute', (_, tabId: string) => tabManager?.toggleMute(ta
 ipcMain.handle('tab:togglePin', (_, tabId: string) => tabManager?.togglePin(tabId));
 ipcMain.handle('tab:duplicate', (_, tabId: string) => tabManager?.duplicateTab(tabId));
 ipcMain.handle('tab:reorder', (_, orderedIds: string[]) => tabManager?.reorderTabs(orderedIds));
+ipcMain.handle('tab:updateBounds', (_, tabId: string, bounds: { x: number; y: number; width: number; height: number }) => {
+  if (!tabManager || !bounds) return;
+  // Sanitize and validate geometry inputs
+  const x = Math.round(Number(bounds.x) || 0);
+  const y = Math.round(Number(bounds.y) || 0);
+  const width = Math.max(10, Math.round(Number(bounds.width) || 100));
+  const height = Math.max(10, Math.round(Number(bounds.height) || 100));
+  tabManager.updateTabBounds(tabId, { x, y, width, height });
+});
+
 ipcMain.handle('splitView:set', (_, enabled: boolean, secondaryTabId?: string) => tabManager?.setSplitView(enabled, secondaryTabId));
 
 // Lunar Shield IPC
@@ -121,8 +131,8 @@ ipcMain.handle('extensions:toggle', (_, id, enabled) => extensionManager?.toggle
 ipcMain.handle('extensions:remove', (_, id) => extensionManager?.removeExtension(id));
 
 // AI Content Extraction IPC
-ipcMain.handle('ai:getPageText', (_, tabId?: string) => tabManager ? getPageText(tabManager, tabId) : '');
-ipcMain.handle('ai:captureScreenshot', (_, tabId?: string) => tabManager ? captureTabScreenshot(tabManager, tabId) : '');
+ipcMain.handle('ai:getPageText', (_, tabId?: string) => (tabManager ? getPageText(tabManager, tabId) : ''));
+ipcMain.handle('ai:captureScreenshot', (_, tabId?: string) => (tabManager ? captureTabScreenshot(tabManager, tabId) : ''));
 
 // Workspaces IPC
 ipcMain.handle('workspace:get', () => storageService?.getWorkspaces());
