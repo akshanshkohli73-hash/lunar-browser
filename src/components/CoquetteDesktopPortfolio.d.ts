@@ -2,6 +2,10 @@ import React from 'react';
 
 export interface CoquetteDesktopPortfolioProps {
   browserComponent?: React.ComponentType<any>;
+  themeStudioComponent?: React.ComponentType<any>;
+  settingsComponent?: React.ComponentType<any>;
+  notesComponent?: React.ComponentType<any>;
+  extensionsComponent?: React.ComponentType<any>;
   name?: string;
   eyebrow?: string;
   headline?: string;

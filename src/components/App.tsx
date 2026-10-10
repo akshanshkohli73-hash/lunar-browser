@@ -208,7 +208,7 @@ export const App: React.FC = () => {
                 {tab.favicon ? (
                   <img src={tab.favicon} alt="" className="w-3.5 h-3.5 rounded-sm" />
                 ) : (
-                  <span className="text-[10px]">🌐</span>
+                  <svg className="w-3.5 h-3.5 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg>
                 )}
                 <span className="truncate flex-1 font-medium">
                   {tab.url === 'lunar://newtab' ? 'New Tab' : tab.title || 'Loading...'}
@@ -267,11 +267,9 @@ export const App: React.FC = () => {
         <form onSubmit={handleNavigate} className="flex-1 relative flex items-center">
           <div className="absolute left-3 flex items-center gap-1.5 text-xs">
             {activeTab?.url.startsWith('https://') ? (
-              <span className="text-[var(--lunar-primary)] text-[11px]" title="Secure Connection">
-                🔒
-              </span>
+              <span className="text-[11px]" title="Secure Connection"><svg className="w-3.5 h-3.5 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
             ) : (
-              <span className="text-[11px]">🌐</span>
+              <svg className="w-3.5 h-3.5 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg>
             )}
           </div>
           <input
