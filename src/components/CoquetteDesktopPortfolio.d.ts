@@ -1,6 +1,7 @@
 import React from 'react';
 
 export interface CoquetteDesktopPortfolioProps {
+  browserComponent?: React.ComponentType<any>;
   name?: string;
   eyebrow?: string;
   headline?: string;
