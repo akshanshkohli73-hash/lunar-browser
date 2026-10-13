@@ -58,34 +58,36 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (!viewportRef.current || !activeTabId || !window.lunarAPI?.updateTabBounds) return;
 
-    let animId: number;
     let lastRect = { left: -1, top: -1, width: -1, height: -1 };
 
-    const checkGeometry = () => {
-      if (viewportRef.current) {
-        const rect = viewportRef.current.getBoundingClientRect();
-        if (
-          Math.abs(rect.left - lastRect.left) > 0.5 ||
-          Math.abs(rect.top - lastRect.top) > 0.5 ||
-          Math.abs(rect.width - lastRect.width) > 0.5 ||
-          Math.abs(rect.height - lastRect.height) > 0.5
-        ) {
-          lastRect = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
-          window.lunarAPI.updateTabBounds(activeTabId, {
-            x: Math.round(rect.left),
-            y: Math.round(rect.top),
-            width: Math.round(rect.width),
-            height: Math.round(rect.height),
-          });
-        }
+    const updateGeometry = () => {
+      if (!viewportRef.current) return;
+      const rect = viewportRef.current.getBoundingClientRect();
+      if (
+        Math.abs(rect.left - lastRect.left) > 0.5 ||
+        Math.abs(rect.top - lastRect.top) > 0.5 ||
+        Math.abs(rect.width - lastRect.width) > 0.5 ||
+        Math.abs(rect.height - lastRect.height) > 0.5
+      ) {
+        lastRect = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+        window.lunarAPI.updateTabBounds(activeTabId, {
+          x: Math.round(rect.left),
+          y: Math.round(rect.top),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+        });
       }
-      animId = requestAnimationFrame(checkGeometry);
     };
 
-    animId = requestAnimationFrame(checkGeometry);
+    updateGeometry();
+
+    const resizeObserver = new ResizeObserver(updateGeometry);
+    resizeObserver.observe(viewportRef.current);
+    window.addEventListener("resize", updateGeometry);
 
     return () => {
-      cancelAnimationFrame(animId);
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateGeometry);
     };
   }, [activeTabId, activePage, showAISidebar]);
 
@@ -352,7 +354,7 @@ export const App: React.FC = () => {
                 : 'bg-[var(--lunar-surface)] border-[var(--lunar-border)] text-[var(--lunar-text-muted)]'
             }`}
           >
-            <span>🛡️</span>
+            <svg className="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             <span className="font-mono text-[11px]">{shieldStats.totalBlocked}</span>
           </button>
 
@@ -360,7 +362,7 @@ export const App: React.FC = () => {
             <div className="absolute right-0 top-10 w-72 bg-[var(--lunar-bg-secondary)] border border-[var(--lunar-border)] rounded-lg p-4 shadow-2xl z-50 backdrop-blur-md">
               <div className="flex items-center justify-between border-b border-[var(--lunar-border)] pb-2 mb-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-lg">🛡️</span>
+                  <svg className="w-5 h-5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                   <div>
                     <h3 className="text-xs font-bold text-[var(--lunar-primary)] tracking-wider">LUNAR SHIELD</h3>
                     <p className="text-[10px] text-[var(--lunar-text-muted)]">Active Protection</p>
@@ -397,7 +399,7 @@ export const App: React.FC = () => {
               : 'bg-[var(--lunar-surface)] border-[var(--lunar-border)]'
           }`}
         >
-          <span>✨</span>
+          <svg className="w-3.5 h-3.5 text-amber-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg>
           <span>Lunar AI</span>
         </button>
       </div>
@@ -443,7 +445,7 @@ export const App: React.FC = () => {
                   placeholder="Search the web or enter URL..."
                   className="w-full h-12 pl-12 pr-4 bg-[var(--lunar-surface)] text-sm text-[var(--lunar-text)] placeholder-[var(--lunar-text-muted)] rounded-xl border border-[var(--lunar-border)] focus:border-[var(--lunar-primary)] focus:shadow-[0_0_20px_var(--lunar-glow)] focus:outline-none backdrop-blur-md transition"
                 />
-                <span className="absolute left-4 top-3.5 text-base">🔍</span>
+                <svg className="absolute left-4 top-3.5 w-5 h-5 text-[var(--lunar-text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               </form>
 
               <div className="w-full grid grid-cols-3 gap-4 p-4 rounded-xl bg-[var(--lunar-surface)] border border-[var(--lunar-border)] backdrop-blur-md">

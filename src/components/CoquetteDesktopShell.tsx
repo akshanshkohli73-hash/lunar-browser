@@ -25,7 +25,8 @@ export const CoquetteDesktopShell: React.FC = () => {
   );
 
   return (
-    <div className="w-screen h-screen overflow-hidden bg-[#faf7f2] font-sans select-none relative">
+    <div className="w-screen h-screen overflow-hidden bg-[#faf7f2] font-sans select-none relative flex flex-col">
+      {/* COQUETTE DESKTOP SHELL WITH INTEGRATED LUNAR BROWSER WORKSPACE */}
       <CoquetteDesktopPortfolio
         browserComponent={App}
         themeStudioComponent={ThemeStudioWrapper}
