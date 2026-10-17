@@ -26,7 +26,7 @@ class Item extends EventEmitter {
     return this.received;
   }
   getSavePath() {
-    return "/downloads/chosen-file.txt";
+    return path.join(downloadDirectory, "chosen-file.txt");
   }
   isPaused() {
     return this.paused;
@@ -49,18 +49,21 @@ class Item extends EventEmitter {
   }
 }
 let profile: string,
+  downloadDirectory: string,
   session: EventEmitter,
   storage: StorageService,
   manager: InstanceType<typeof DownloadManager>;
 beforeEach(() => {
   profile = fs.mkdtempSync(path.join(os.tmpdir(), "lunar-download-"));
+  downloadDirectory = path.join(profile, "downloads");
+  fs.mkdirSync(downloadDirectory);
   session = new EventEmitter();
   storage = new StorageService(profile);
   manager = new DownloadManager(session as unknown as Session, storage, {
     owns: (id) => id === 7,
     notify: () => {},
     error: () => {},
-    downloadsPath: "/downloads",
+    downloadsPath: downloadDirectory,
     onStart: () => {},
   });
 });
@@ -85,7 +88,7 @@ describe("download lifecycle", () => {
       { id: 7 },
     );
     expect(item.dialog).toMatchObject({
-      defaultPath: "/downloads/_CON.exe",
+      defaultPath: path.join(downloadDirectory, "_CON.exe"),
       properties: ["showOverwriteConfirmation", "createDirectory"],
     });
     expect(manager.getDownloads()[0].status).toBe("progressing");
@@ -105,7 +108,7 @@ describe("download lifecycle", () => {
     item.emit("done", {}, "completed");
     expect(manager.getDownloads()[0]).toMatchObject({
       status: "completed",
-      savePath: "/downloads/chosen-file.txt",
+      savePath: path.join(downloadDirectory, "chosen-file.txt"),
       receivedBytes: 200,
       speed: 0,
     });

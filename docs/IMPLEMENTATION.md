@@ -130,3 +130,14 @@ The core implementation and release-gate definition were committed on the assign
 The remote branch lookup was empty, and `gh run list --branch arena/8b00471f-lunar-browser` returned no runs. This is a **workflow-write permission blocker**, not a passing Windows test or an installer result. No default branch was merged, no release was published, and no native gate was removed to bypass the restriction. The follow-up fixes are also retained on the same local session branch.
 
 To unblock: update/reconnect the Arena GitHub integration with permission to write workflow files, or push the same branch using an already authorized normal Git setup. Then review the real Windows CI outcome and continue the manual release checklist. Never paste tokens, signing keys or passwords into chat. Native Windows runtime, installed-app workflows and live AI remain unverified until their gates actually execute.
+
+## Windows CI permission resolved and first run — 2026-10-17
+
+The next assigned-branch push succeeded, publishing `eea5ada960d842811a4fad6d19d77b3a316d5a7d`. The workflow was registered and [run 39013794819](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39013794819) actually executed:
+
+- **Linux renderer/regressions: success.** Clean install, strict check (76 tests), production audit, real Chromium renderer smoke and evidence upload all completed.
+- **Windows: regression failure.** Normal `npm ci` succeeded, but `tests/downloads.test.ts:87` compared the production native path `\downloads\_CON.exe` with a hard-coded POSIX string `/downloads/_CON.exe`. This was a platform-specific test-fixture defect, not justification for changing the production path API or weakening the assertion. Native integration, installer packaging and installer upload were correctly skipped.
+- Fixed all download-fixture destinations to use a real temporary directory and `path.join`, retaining exact safe-name, destination, overwrite-confirmation and final-save-path assertions. Latest local `npm run check` exited 0 with **76 tests across 14 files**, all production builds and packaging-input validation; `npm audit --omit=dev` exited 0.
+- Full CI log downloads redirected to an inaccessible Actions-hosted log server in this sandbox. Native failures now also emit escaped GitHub check annotations and remain hard failures, so the actual diagnostic is available through the GitHub API without bypassing network or application security restrictions.
+
+A follow-up CI run is required for these corrections. The earlier permission error is historical/resolved; native Windows and installer results remain pending, not successful.

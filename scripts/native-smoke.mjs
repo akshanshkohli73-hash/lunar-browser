@@ -360,6 +360,19 @@ if (!fs.existsSync(marker)) {
     console.log(
       "Manual Windows DPI, maximize/restore, device permissions, installer and signed-release checks are still required.",
     );
+  } catch (error) {
+    // CI log downloads may be inaccessible to API clients; expose the actual
+    // failure in the check annotations too, without turning failures into passes.
+    if (process.env.GITHUB_ACTIONS === "true") {
+      const detail =
+        error instanceof Error ? (error.stack ?? error.message) : String(error);
+      const escaped = detail
+        .replaceAll("%", "%25")
+        .replaceAll("\r", "%0D")
+        .replaceAll("\n", "%0A");
+      console.error(`::error file=scripts/native-smoke.mjs::${escaped}`);
+    }
+    throw error;
   } finally {
     await electron?.close();
     await new Promise((resolve) => server.close(resolve));

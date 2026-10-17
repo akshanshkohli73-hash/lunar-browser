@@ -2,9 +2,9 @@
 
 The project is not release-complete just because `npm run build` passes. Record machine/OS, Electron version, display scale, commands, actual outcomes and defects for each gate below.
 
-## Current execution blocker (2026-10-17)
+## CI execution status (2026-10-17)
 
-The local strict checks and 76 regression tests pass, but the Windows workflow has **not run**. GitHub rejected the assigned-branch push because the Arena GitHub App lacks `workflows` permission to write `.github/workflows/verify.yml`. No installer or Windows CI result is available. Update/reconnect GitHub in Arena with workflow-file write permission, or push the same branch from an authorized Git setup; do not share credentials or bypass the native gate. The checklist below intentionally remains unchecked.
+The workflow-write permission blocker is resolved and the assigned branch is published. [Run 39013794819](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39013794819) passed the Linux regression/build/Chromium-renderer job. Windows dependency installation succeeded, but a hard-coded POSIX path in a download-test assertion failed the regression check; native integration and packaging were skipped. The fixture has been made portable and the full local 76-test gate passes. The Windows rerun is still required; there is not yet a native pass or installer artifact. Manual release gates remain unchecked.
 
 ## Automated gates
 
