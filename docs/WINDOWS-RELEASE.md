@@ -4,11 +4,11 @@ The project is not release-complete just because `npm run build` passes. Record 
 
 ## CI execution status (2026-10-17)
 
-Workflow access is restored. [Run 39014043940](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39014043940) passed strict checks on Windows and the Linux regression/build/Chromium job. Native preflight stopped because Electron 44 does not install its runtime during `npm ci`; CI now has an explicit `npm run install:electron` step. A follow-up native/installer run is required. No installer or native pass is claimed; manual release gates remain unchecked.
+Workflow access is restored. [Run 39014362217](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39014362217) installed the pinned runtime with normal verification and passed strict Windows checks. Native launch then timed out. The shell awaited renderer-side visual zoom IPC before loading its page; startup ordering has been corrected and three new regressions pass locally (79 total). A follow-up native/installer run is required. No installer/native pass is claimed; manual release gates remain unchecked.
 
 ## Automated gates
 
-- [ ] `npm ci` and `npm run install:electron` complete with normal TLS/checksum verification, including the real Electron runtime.
+- [x] `npm ci` and `npm run install:electron` complete with normal TLS/checksum verification, including the real Electron runtime (run 39014362217).
 - [ ] `npm run check` passes on Windows.
 - [ ] `npm run test:native` executes and passes (an explicit BLOCKED result is not a pass).
 - [ ] Native test: different pages in independent tabs; back/forward/reload/stop; shell/page API isolation; geometry and utility occlusion; controlled Shield request blocked when enabled and received by the loopback server when disabled; actual unpacked content script/unload; downloaded bytes; malformed/unauthorized IPC rejection; restart and repeated tab cleanup.

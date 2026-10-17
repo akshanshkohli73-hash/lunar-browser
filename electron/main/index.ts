@@ -11,6 +11,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { ZodError } from "zod";
 import { TabManager } from "../browser/tab-manager";
+import { loadShellWindow } from "./shell-loader";
 import { LunarShield } from "../blocker/shield";
 import { StorageService } from "../services/storage";
 import { DownloadManager } from "../downloads/download-manager";
@@ -239,8 +240,6 @@ async function createWindow() {
     },
   });
   window.setMenuBarVisibility(false);
-  window.webContents.setZoomFactor(1);
-  await window.webContents.setVisualZoomLevelLimits(1, 1);
   const devUrl = !app.isPackaged ? process.env.VITE_DEV_SERVER_URL : undefined;
   if (
     devUrl &&
@@ -438,7 +437,7 @@ async function createWindow() {
   window.once("closed", () => {
     if (context?.window === window) context = null;
   });
-  await window.loadURL(entryUrl);
+  await loadShellWindow(window, entryUrl);
 }
 const lock = app.requestSingleInstanceLock();
 if (!lock) app.quit();
