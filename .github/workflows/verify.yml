@@ -66,11 +66,27 @@ jobs:
           }
           exit $code
       - name: Package unsigned Windows x64 installer
-        run: npm run dist:win
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          npm run dist:win 2>&1 | Tee-Object -Variable packageOutput
+          $code = $LASTEXITCODE
+          if ($code -ne 0) {
+            $detail = (($packageOutput | Select-Object -Last 100) -join "`n").Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+            Write-Output "::error title=Windows installer packaging failed::$detail"
+          }
+          exit $code
       - name: Hash produced installers
         shell: pwsh
         run: |
-          Get-ChildItem release/*.exe | Get-FileHash -Algorithm SHA256 | Format-List | Out-File release/SHA256.txt
+          $installers = @(Get-ChildItem release/*.exe -ErrorAction Stop)
+          if ($installers.Count -eq 0) { throw "No installer was produced" }
+          $hashes = @($installers | Get-FileHash -Algorithm SHA256)
+          $hashes | Format-List | Out-File release/SHA256.txt
+          foreach ($entry in $hashes) {
+            $name = Split-Path $entry.Path -Leaf
+            Write-Output "::notice title=Windows installer SHA256::$name $($entry.Hash)"
+          }
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: lunar-windows-x64-unsigned

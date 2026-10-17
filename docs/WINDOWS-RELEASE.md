@@ -4,13 +4,13 @@ The project is not release-complete just because `npm run build` passes. Record 
 
 ## CI execution status (2026-10-17)
 
-Workflow access is restored. [Run 39014362217](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39014362217) installed the pinned runtime with normal verification and passed strict Windows checks. Native launch then timed out. The shell awaited renderer-side visual zoom IPC before loading its page; startup ordering has been corrected and three new regressions pass locally (79 total). A follow-up native/installer run is required. No installer/native pass is claimed; manual release gates remain unchecked.
+[Run 39015206061](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39015206061), revision `e1687ad`, passed all 79 Windows regression tests, the complete current native Electron suite, and the Linux regression/Chromium-renderer job. NSIS packaging then failed, so no installer/hash/upload success is claimed. The native suite covers actual tab pages/navigation, isolated APIs, measured geometry/resize/maximize/restore/occlusion, real Shield on/off, real unpacked content-script load/unload, downloaded bytes, unauthorized/malformed IPC, restart/persistence and repeated closure. Additional native loading/stop/focus/leak-count coverage and the manual workflows below remain explicit release gates.
 
 ## Automated gates
 
 - [x] `npm ci` and `npm run install:electron` complete with normal TLS/checksum verification, including the real Electron runtime (run 39014362217).
-- [ ] `npm run check` passes on Windows.
-- [ ] `npm run test:native` executes and passes (an explicit BLOCKED result is not a pass).
+- [x] `npm run check` passes on Windows: 79 tests / 15 files (run 39015206061).
+- [x] `npm run test:native` actually executes and passes on Windows (run 39015206061; not a BLOCKED result).
 - [ ] Native test: different pages in independent tabs; back/forward/reload/stop; shell/page API isolation; geometry and utility occlusion; controlled Shield request blocked when enabled and received by the loopback server when disabled; actual unpacked content script/unload; downloaded bytes; malformed/unauthorized IPC rejection; restart and repeated tab cleanup.
 - [ ] `npm run dist:win` creates the NSIS x64 installer and SHA-256 is recorded.
 - [ ] CI logs/artifacts are reviewed. Unsigned CI installers are internal validation builds, not signed public releases.

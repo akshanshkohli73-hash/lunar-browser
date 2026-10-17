@@ -2,7 +2,7 @@
 
 An Electron desktop browser inside the original Coquette desktop: one browser workspace, native Chromium `WebContentsView` tabs, pastel utilities, and a persistent local profile. Webpages are **not** iframes or screenshots.
 
-**Release status:** implementation and local automated checks are in place; native Windows/installer validation is a separate release gate. See [implementation evidence](docs/IMPLEMENTATION.md) and the [Windows release checklist](docs/WINDOWS-RELEASE.md). Do not treat a successful web build as proof of Windows runtime correctness.
+**Release status:** the automated native Windows integration suite passes; NSIS installer packaging is still being diagnosed and manual release gates remain. See [implementation evidence](docs/IMPLEMENTATION.md) and the [Windows release checklist](docs/WINDOWS-RELEASE.md). Do not treat a successful web build as proof of Windows runtime correctness.
 
 ## Run the desktop application
 
@@ -105,4 +105,4 @@ The Windows workflow requires native tests to pass **before** packaging/upload. 
 
 At the last local gate (2026-10-17): 79 automated tests passed across 15 files, all compiler/lint/build checks passed, and the headless Chromium renderer smoke passed. Native testing was blocked by an unavailable Electron runtime; Windows packaging reached binary acquisition and failed certificate validation. The full dependency audit still reports 15 development-tooling advisories (10 moderate, 5 high), notably Tailwind 3's transitive glob/parser tooling; `npm audit --omit=dev` reported zero. This is not a claim that compilation or an audit alone proves the browser secure.
 
-**CI access is working (2026-10-17):** Windows strict checks and the Linux regression/Chromium job passed. [Run 39014362217](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39014362217) also installed the real pinned Electron binary, then exposed a native startup timeout: renderer-side visual zoom IPC was awaited before loading the shell page. Startup now loads the renderer first, with three ordering/failure regressions (79 local tests total). Native integration and packaging are being rerun; no installer/native pass is claimed yet.
+**Native Windows CI passes (2026-10-17):** [run 39015206061](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39015206061), revision `e1687ad`, passed all 79 Windows regression tests and the complete current real-Electron suite: native page isolation/navigation, measured resize/maximize/restore/overlay bounds, actual Shield on/off interception, MV3 content-script load/unload, downloaded file bytes, sender/schema rejection, restart persistence and repeated tab closure. Linux regression/Chromium UI also passed. NSIS packaging then failed; diagnostics are being collected and no installer is claimed yet. This does not replace manual installed-app/DPI/device/live-AI/signing gates.
