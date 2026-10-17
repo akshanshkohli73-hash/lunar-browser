@@ -2,6 +2,10 @@
 
 The project is not release-complete just because `npm run build` passes. Record machine/OS, Electron version, display scale, commands, actual outcomes and defects for each gate below.
 
+## Current execution blocker (2026-10-17)
+
+The local strict checks and 76 regression tests pass, but the Windows workflow has **not run**. GitHub rejected the assigned-branch push because the Arena GitHub App lacks `workflows` permission to write `.github/workflows/verify.yml`. No installer or Windows CI result is available. Update/reconnect GitHub in Arena with workflow-file write permission, or push the same branch from an authorized Git setup; do not share credentials or bypass the native gate. The checklist below intentionally remains unchecked.
+
 ## Automated gates
 
 - [ ] `npm ci` completes with normal TLS verification, including the real Electron runtime.

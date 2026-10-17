@@ -19,18 +19,28 @@ export class AtomicFile<T> {
     try {
       this.value = this.parse(filename, migrate);
     } catch {
-      const quarantine = `${filename}.corrupt-${Date.now()}`;
+      const quarantine = `${filename}.corrupt-${Date.now()}-${randomUUID()}`;
+      let preserved = false;
       try {
         fs.renameSync(filename, quarantine);
-        fs.chmodSync(quarantine, 0o600);
+        preserved = true;
       } catch {
         this.warn(
-          `Could not preserve the damaged ${path.basename(filename)} file.`,
+          `Could not load ${path.basename(filename)} or move the original to a recovery copy. Check profile permissions.`,
         );
       }
-      this.warn(
-        `${path.basename(filename)} was damaged. The original was preserved for recovery.`,
-      );
+      if (preserved) {
+        try {
+          fs.chmodSync(quarantine, 0o600);
+        } catch {
+          this.warn(
+            `Could not restrict permissions on the recovery copy of ${path.basename(filename)}.`,
+          );
+        }
+        this.warn(
+          `${path.basename(filename)} could not be loaded. The original was preserved for recovery.`,
+        );
+      }
       if (fs.existsSync(`${filename}.bak`)) {
         try {
           this.value = this.parse(`${filename}.bak`, migrate);
@@ -62,7 +72,10 @@ export class AtomicFile<T> {
       for (const name of fs.readdirSync(directory)) {
         if (
           !name.startsWith(prefix) ||
-          !/^\d+$/u.test(name.slice(prefix.length))
+          // Accept legacy timestamps and the collision-resistant UUID-suffixed format.
+          !/^\d+(?:-[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})?$/iu.test(
+            name.slice(prefix.length),
+          )
         )
           continue;
         const filename = path.join(directory, name);

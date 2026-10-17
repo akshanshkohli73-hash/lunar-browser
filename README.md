@@ -6,7 +6,7 @@ An Electron desktop browser inside the original Coquette desktop: one browser wo
 
 ## Run the desktop application
 
-Use Node **22.13+ or Node 24 LTS** (the checked development-tooling ranges are declared in `package.json`). Windows x64 is the primary packaging target.
+Use **Node 22.13+ within 22.x, or Node 24 LTS** (the checked development-tooling ranges are declared in `package.json`). Windows x64 is the primary packaging target.
 
 ```powershell
 npm ci
@@ -67,7 +67,7 @@ Files live in Electron's `app.getPath('userData')` (normally the application's f
 | Website storage                                       | Chromium's separate persistent webpage session                                            |
 | Quick Notes                                           | Local storage in the trusted shell's session                                              |
 
-Validated recovery copies use `.bak`; damaged inputs are preserved as `.corrupt-<timestamp>` with restrictive permissions where supported. Clearing all history clears its normal backup and removes its quarantined recovery copies. Individual deletions sanitize the normal backup; older corrupt copies are removed by Clear All. Clearing records is logical deletion, not a guarantee of forensic erasure from OS/disk backups.
+Validated recovery copies use `.bak`; damaged inputs are preserved as `.corrupt-<timestamp>-<uuid>` with restrictive permissions where supported. Failed quarantine/permission operations produce warnings instead of a false preservation claim; UUID suffixes avoid overwriting recovery copies with the same timestamp. Clearing all history clears its normal backup and removes its quarantined recovery copies. Individual deletions sanitize the normal backup; older corrupt copies are removed by Clear All. Clearing records is logical deletion, not a guarantee of forensic erasure from OS/disk backups.
 
 Clearing site data removes webpage-session cookies, storage, cache and authentication state (including extension storage), not bookmarks/history/notes. Clearing finished download records does not delete downloaded files. Turning history off does not remove earlier visits. Uninstall is configured not to delete the profile automatically.
 
@@ -101,4 +101,6 @@ npm run dist:win        # Windows x64 NSIS installer, under release/
 
 The Windows workflow requires native tests to pass **before** packaging/upload. CI artifacts are unsigned internal builds, not signed public releases. Authenticode signing, installer GUI testing and the manual [release checklist](docs/WINDOWS-RELEASE.md) remain required before distribution.
 
-At the last local gate: 70 automated tests passed, all compiler/lint/build checks passed, and the headless Chromium renderer smoke passed. Native testing was blocked by an unavailable Electron runtime; Windows packaging reached binary acquisition and failed certificate validation. The full dependency audit still reports 15 development-tooling advisories (10 moderate, 5 high), notably Tailwind 3's transitive glob/parser tooling; `npm audit --omit=dev` reported zero. This is not a claim that compilation or an audit alone proves the browser secure.
+At the last local gate (2026-10-17): 76 automated tests passed across 14 files, all compiler/lint/build checks passed, and the headless Chromium renderer smoke passed. Native testing was blocked by an unavailable Electron runtime; Windows packaging reached binary acquisition and failed certificate validation. The full dependency audit still reports 15 development-tooling advisories (10 moderate, 5 high), notably Tailwind 3's transitive glob/parser tooling; `npm audit --omit=dev` reported zero. This is not a claim that compilation or an audit alone proves the browser secure.
+
+**CI access blocker:** pushing `arena/8b00471f-lunar-browser` was rejected because the Arena GitHub App cannot create/update `.github/workflows/verify.yml` without `workflows` permission. The implementation and CI definition remain committed locally; no remote branch or Actions run was created, and no installer was uploaded. Update/reconnect GitHub in Arena with workflow-file write permission (or push the same branch from your own authorized Git setup), then run/review the Windows gate. Do not remove the native gate or share credentials to work around this restriction.

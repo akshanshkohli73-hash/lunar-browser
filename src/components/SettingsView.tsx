@@ -42,7 +42,7 @@ function Toggle({
   );
 }
 export default function SettingsView() {
-  const { api, settings, shield, updateSettings } = useBrowser();
+  const { api, ready, settings, shield, updateSettings } = useBrowser();
   const [section, setSection] = useState("general"),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
@@ -122,7 +122,7 @@ export default function SettingsView() {
             {message}
           </p>
         )}
-        <fieldset disabled={busy || !api}>
+        <fieldset disabled={busy || !api || !ready}>
           {section === "general" && (
             <>
               <h2>Everyday browsing</h2>

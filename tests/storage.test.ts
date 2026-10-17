@@ -71,6 +71,45 @@ describe("validated and durable profile data", () => {
       fs.readdirSync(profile).some((file) => file.includes(".corrupt-")),
     ).toBe(true);
   });
+  it("does not claim recovery preservation when quarantine is denied", () => {
+    const filename = path.join(profile, "history.json");
+    fs.writeFileSync(filename, "damaged history");
+    const rename = fs.renameSync;
+    vi.spyOn(fs, "renameSync").mockImplementation((source, destination) => {
+      if (String(source) === filename) throw new Error("EACCES");
+      return rename(source, destination);
+    });
+    const store = new StorageService(profile);
+    expect(store.getHistory()).toEqual([]);
+    expect(store.warnings.join(" ")).toContain("Check profile permissions");
+    expect(store.warnings.join(" ")).not.toContain(
+      "The original was preserved",
+    );
+    expect(fs.readFileSync(filename, "utf8")).toBe("damaged history");
+  });
+  it("preserves separate corrupt originals even with the same timestamp and clears owned recovery formats", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1792195200000);
+    const filename = path.join(profile, "history.json");
+    fs.writeFileSync(filename, "first damaged history");
+    new StorageService(profile);
+    fs.writeFileSync(filename, "second damaged history");
+    const store = new StorageService(profile);
+    const copies = fs
+      .readdirSync(profile)
+      .filter((name) => name.startsWith("history.json.corrupt-"));
+    expect(copies).toHaveLength(2);
+    expect(
+      copies
+        .map((name) => fs.readFileSync(path.join(profile, name), "utf8"))
+        .sort(),
+    ).toEqual(["first damaged history", "second damaged history"]);
+    store.clearHistory();
+    expect(
+      fs
+        .readdirSync(profile)
+        .filter((name) => name.startsWith("history.json.corrupt-")),
+    ).toEqual([]);
+  });
   it("rejects invalid destinations and does not report success or change memory on failed writes", () => {
     const store = new StorageService(profile);
     expect(() =>

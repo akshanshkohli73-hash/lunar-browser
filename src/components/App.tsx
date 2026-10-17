@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useBrowser } from "../state/BrowserContext";
 import { isInternalUrl, isWebUrl } from "../../shared/navigation";
 import { useNativeViewport } from "./useNativeViewport";
+import { useMinuteClock } from "./useMinuteClock";
 import { Icon } from "./ui/Icon";
 import { BookmarkEditor } from "./BookmarkEditor";
 import { Modal } from "./ui/Modal";
@@ -45,13 +46,15 @@ export default function App({
   const [editingBookmark, setEditingBookmark] = useState(false),
     [reader, setReader] = useState<string | null>(null),
     [readerLoading, setReaderLoading] = useState(false);
-  const [now, setNow] = useState(new Date());
   const address = useRef<HTMLInputElement>(null),
     pageRef = useRef<HTMLDivElement>(null),
     focused = useRef(false),
     dragId = useRef<string | null>(null);
   const internalPage =
     active && isInternalUrl(active.url) ? active.url.slice(8) : "browser";
+  const now = useMinuteClock(
+    ready && isVisible && !isOccluded && (internalPage === "newtab" || !active),
+  );
   const loadedRuleCount =
     shield?.lists
       .filter((list) =>
@@ -84,10 +87,6 @@ export default function App({
     setTabMenu(null);
     setEditingBookmark(false);
   }, [activeId, active?.url]);
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
   useEffect(
     () =>
       api?.onShortcut((shortcut) => {

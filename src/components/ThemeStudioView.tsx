@@ -4,7 +4,7 @@ import { themeSchema, type ThemeTokens } from "../../shared/schemas";
 import { useBrowser } from "../state/BrowserContext";
 import { Icon } from "./ui/Icon";
 export default function ThemeStudioView() {
-  const { api, settings, updateSettings } = useBrowser();
+  const { api, ready, settings, updateSettings } = useBrowser();
   const current =
     settings.customTheme ??
     BUILTIN_THEMES[settings.themeId] ??
@@ -94,7 +94,7 @@ export default function ThemeStudioView() {
             <button
               className={`theme-preset ${settings.themeId === preset.id && !settings.customTheme ? "is-selected" : ""}`}
               key={preset.id}
-              disabled={!api || busy}
+              disabled={!api || !ready || busy}
               aria-pressed={
                 settings.themeId === preset.id && !settings.customTheme
               }
@@ -272,7 +272,7 @@ export default function ThemeStudioView() {
           <div className="button-row">
             <button
               className="primary-button"
-              disabled={busy || !api}
+              disabled={busy || !api || !ready}
               onClick={() =>
                 void save({
                   ...draft,

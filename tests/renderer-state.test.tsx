@@ -14,7 +14,11 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { LunarAPI } from "../shared/api";
-import type { BrowserSettings, TabsSnapshot } from "../electron/types";
+import type {
+  BrowserBootstrap,
+  BrowserSettings,
+  TabsSnapshot,
+} from "../electron/types";
 import { StorageService } from "../electron/services/storage";
 import { BrowserProvider } from "../src/state/BrowserContext";
 import ThemeStudio from "../src/components/ThemeStudioView";
@@ -118,6 +122,56 @@ afterEach(() => {
   fs.rmSync(profile, { recursive: true, force: true });
 });
 describe("renderer connected to the real validated profile service", () => {
+  it("blocks profile writes until saved preferences have finished loading", async () => {
+    storage.updateSettings({ themeId: "pastel-forest" });
+    let finish: (state: BrowserBootstrap) => void = () => {
+      throw new Error("Bootstrap was not requested");
+    };
+    bootstrap.mockImplementation(
+      () =>
+        new Promise<BrowserBootstrap>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const update = vi.spyOn(storage, "updateSettings");
+    render(
+      <BrowserProvider>
+        <ThemeStudio />
+      </BrowserProvider>,
+    );
+    const preset = screen.getByRole("button", { name: /^Lunar Dark/ });
+    expect(preset.hasAttribute("disabled")).toBe(true);
+    fireEvent.click(preset);
+    expect(update).not.toHaveBeenCalled();
+    expect(storage.getSettings().themeId).toBe("pastel-forest");
+    await act(async () =>
+      finish({
+        tabs: current,
+        settings: storage.getSettings(),
+        bookmarks: storage.getBookmarks(),
+        shield: {
+          settings: storage.getSettings().shield,
+          stats: {
+            totalBlocked: 0,
+            adsBlocked: 0,
+            trackersBlocked: 0,
+            telemetryBlocked: 0,
+            socialBlocked: 0,
+            cryptominersBlocked: 0,
+            popupsBlocked: 0,
+          },
+          lists: [],
+        },
+        warnings: [],
+      }),
+    );
+    expect(preset.hasAttribute("disabled")).toBe(false);
+    expect(storage.getSettings().themeId).toBe("pastel-forest");
+    fireEvent.click(preset);
+    await waitFor(() =>
+      expect(storage.getSettings().themeId).toBe("lunar-dark"),
+    );
+  });
   it("applies one shared preset and persists customized tokens instead of just changing decorative state", async () => {
     const user = userEvent.setup();
     render(
