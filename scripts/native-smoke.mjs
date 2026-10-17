@@ -210,7 +210,7 @@ if (!fs.existsSync(marker)) {
         .isLoading,
       false,
     );
-    await api("stopLoading", a.id);
+    await api("stopTab", a.id);
     await expect.poll(nativeLoading).toBe(false);
     await waitTab(a.id, `${origin}/slow`);
     await api("navigateTab", a.id, `${origin}/next`);
