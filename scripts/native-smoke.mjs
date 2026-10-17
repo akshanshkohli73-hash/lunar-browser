@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import http from "node:http";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { _electron } from "playwright-core";
 import { expect } from "@playwright/test";
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -56,7 +56,19 @@ if (!fs.existsSync(marker)) {
       env: { ...process.env, LUNAR_TEST_PROFILE: profile },
       timeout: 30000,
     });
-    ui = await electron.firstWindow();
+    // WebContentsView tabs are also exposed as Playwright pages, and their
+    // about:blank target can initialize before the shell. Never choose by order.
+    const shellUrl = pathToFileURL(
+      path.join(repo, "dist/renderer/index.html"),
+    ).href;
+    const findShell = () =>
+      electron.windows().find((page) => page.url() === shellUrl);
+    await expect.poll(() => !!findShell(), { timeout: 30000 }).toBe(true);
+    ui = findShell();
+    assert.ok(
+      ui,
+      "The test must target the actual shell, not an unprivileged native tab",
+    );
     await ui.waitForFunction(() => !!window.lunarAPI);
     await ui.getByRole("main", { name: "Lunar browser workspace" }).waitFor();
   };
