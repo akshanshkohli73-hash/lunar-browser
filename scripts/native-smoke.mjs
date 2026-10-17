@@ -282,17 +282,48 @@ if (!fs.existsSync(marker)) {
     await expect.poll(fixtureAttribute).toBe(null);
     await api("removeExtension", fixture.id);
     const savePath = path.join(profile, "lunar-native.txt");
-    await electron.evaluate(({ session }, savePath) => {
-      session
-        .fromPartition("persist:lunar-web")
-        .once("will-download", (_event, item) => item.setSavePath(savePath));
-    }, savePath);
+    const downloadProbe = await electron.evaluateHandle(
+      ({ session }, savePath) => {
+        const observed = {
+          received: false,
+          requestedPath: savePath,
+          initialPath: "",
+          finalPath: "",
+          state: "",
+        };
+        session
+          .fromPartition("persist:lunar-web")
+          .once("will-download", (_event, item) => {
+            observed.received = true;
+            item.setSavePath(savePath);
+            observed.initialPath = item.getSavePath();
+            item.once("done", (_event, state) => {
+              observed.finalPath = item.getSavePath();
+              observed.state = state;
+            });
+          });
+        return observed;
+      },
+      savePath,
+    );
     await api("navigateTab", b.id, `${origin}/download`);
     await ui.waitForFunction(async () =>
       (await window.lunarAPI.getDownloads()).some(
         (item) => item.status === "completed",
       ),
     );
+    const downloadDiagnostic = {
+      native: await downloadProbe.jsonValue(),
+      records: await api("getDownloads"),
+      profileFiles: fs.readdirSync(profile),
+    };
+    await downloadProbe.dispose();
+    await expect
+      .poll(() => fs.existsSync(savePath), {
+        timeout: 5000,
+        message: `The completed native download must reach its chosen destination: ${JSON.stringify(downloadDiagnostic)}`,
+      })
+      .toBe(true);
     assert.equal(
       fs.readFileSync(savePath, "utf8"),
       "Lunar native download fixture",
