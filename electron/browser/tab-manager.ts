@@ -1,364 +1,606 @@
-import { BrowserWindow, WebContentsView, Rectangle } from 'electron';
-import { TabInfo } from '../types';
-import { formatSearchOrUrl } from '../security';
+import {
+  WebContentsView,
+  type BrowserWindow,
+  type Session,
+  type Input,
+} from "electron";
+import { randomUUID } from "node:crypto";
+import {
+  isInternalUrl,
+  isWebUrl,
+  normalizeNavigation,
+  sanitizeFavicon,
+  nativeNavigationUrl,
+  displayNavigationUrl,
+} from "../../shared/navigation";
+import {
+  clampBounds,
+  isPermutation,
+  nextActiveAfterClose,
+  sameBounds,
+  type ViewBounds,
+} from "./geometry";
+import type {
+  BrowserSettings,
+  SessionState,
+  TabInfo,
+  TabsSnapshot,
+  WorkspaceLayout,
+} from "../types";
+import type { Shortcut } from "../../shared/api";
 
 export interface TabViewItem {
   id: string;
   view: WebContentsView;
   info: TabInfo;
-  customBounds?: Rectangle;
+  lastBounds: ViewBounds | null;
 }
-
+interface TabOptions {
+  session: Session;
+  settings: () => BrowserSettings;
+  onNavigate: (item: { url: string; title: string }) => void;
+  onChanged?: (state: SessionState) => void;
+  onError: (message: string) => void;
+  onExternal: (url: string) => Promise<void>;
+  onPopupBlocked: () => void;
+  onShortcut: (shortcut: Shortcut) => void;
+}
 export class TabManager {
-  private window: BrowserWindow;
-  private tabs: Map<string, TabViewItem> = new Map();
+  private tabs = new Map<string, TabViewItem>();
   private activeTabId: string | null = null;
-  private secondaryTabId: string | null = null;
-  private isSplitView: boolean = false;
-  private sidebarOpen: boolean = false;
-  private contentBounds: Rectangle = { x: 0, y: 88, width: 1280, height: 712 };
-  private onPageNavigateCallback?: (item: { url: string; title: string; favicon?: string }) => void;
-
-  constructor(window: BrowserWindow, onPageNavigate?: (item: { url: string; title: string; favicon?: string }) => void) {
-    this.window = window;
-    this.onPageNavigateCallback = onPageNavigate;
-    this.setupListeners();
+  private attached = new Set<string>();
+  private contentsIds = new Map<number, string>();
+  private focusOnAttach = false;
+  private layout: WorkspaceLayout | null = null;
+  private disposed = false;
+  private revision = 0;
+  private onResize = () => this.reconcileViews();
+  constructor(
+    private window: BrowserWindow,
+    private options: TabOptions,
+  ) {
+    window.on("resize", this.onResize);
+    window.on("enter-full-screen", this.onResize);
+    window.on("leave-full-screen", this.onResize);
   }
-
-  public setContentBounds(bounds: Rectangle) {
-    this.contentBounds = bounds;
-    this.updateViewBounds();
-  }
-
-  public updateTabBounds(tabId: string, bounds: Rectangle) {
-    const tab = this.tabs.get(tabId);
-    if (tab) {
-      tab.customBounds = bounds;
-      if (tabId === this.activeTabId || tabId === this.secondaryTabId) {
-        this.updateViewBounds();
-      }
-    }
-  }
-
-  public setSidebarOpen(open: boolean) {
-    this.sidebarOpen = open;
-    this.updateViewBounds();
-  }
-
-  private setupListeners() {
-    this.window.on('resize', () => {
-      const { width, height } = this.window.getContentBounds();
-      this.contentBounds = {
-        x: 0,
-        y: 88,
-        width,
-        height: Math.max(100, height - 88),
-      };
-      this.updateViewBounds();
-    });
-  }
-
-  public createTab(url?: string): TabInfo {
-    const id = `tab_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-
+  public createTab(input = "lunar://newtab", pinned = false): TabInfo {
+    if (this.disposed) throw new Error("The browser is closing.");
+    if (this.tabs.size >= 100)
+      throw new Error("The 100-tab limit has been reached. Close a tab first.");
+    const url = normalizeNavigation(
+      input,
+      this.options.settings().searchEngine,
+    );
+    const id = `tab_${randomUUID()}`;
     const view = new WebContentsView({
       webPreferences: {
+        session: this.options.session,
         contextIsolation: true,
         nodeIntegration: false,
+        nodeIntegrationInSubFrames: false,
         sandbox: true,
         webSecurity: true,
+        allowRunningInsecureContent: false,
+        webviewTag: false,
       },
     });
-
-    const initialUrl = url ? formatSearchOrUrl(url) : 'lunar://newtab';
-
+    view.setVisible(false);
     const info: TabInfo = {
       id,
-      url: initialUrl,
-      title: 'New Tab',
+      url,
+      title: isInternalUrl(url) ? this.internalTitle(url) : "Loading…",
       isLoading: false,
       canGoBack: false,
       canGoForward: false,
       isMuted: false,
-      isPinned: false,
+      isPinned: pinned,
       audible: false,
     };
-
-    const tabItem: TabViewItem = { id, view, info };
-    this.tabs.set(id, tabItem);
-
+    const tab: TabViewItem = { id, view, info, lastBounds: null };
+    this.tabs.set(id, tab);
+    this.contentsIds.set(view.webContents.id, id);
     const wc = view.webContents;
-
-    wc.setWindowOpenHandler(({ url: targetUrl }) => {
-      this.createTab(targetUrl);
-      return { action: 'deny' };
+    const sync = () => {
+      if (this.disposed || !this.tabs.has(id) || wc.isDestroyed()) return;
+      info.isLoading = wc.isLoading();
+      info.canGoBack = wc.navigationHistory.canGoBack();
+      info.canGoForward = wc.navigationHistory.canGoForward();
+    };
+    wc.setWindowOpenHandler((details) => {
+      if (
+        this.options.settings().shield.enabled &&
+        this.options.settings().shield.popups &&
+        details.disposition === "new-window"
+      ) {
+        this.options.onPopupBlocked();
+      } else if (isWebUrl(details.url)) {
+        try {
+          this.createTab(details.url);
+        } catch (error) {
+          this.options.onError(this.message(error));
+        }
+      } else {
+        void this.options
+          .onExternal(details.url)
+          .catch((error) => this.options.onError(this.message(error)));
+      }
+      return { action: "deny" };
     });
-
-    wc.on('did-start-loading', () => {
+    wc.on("will-navigate", (event, target) => {
+      if (!isWebUrl(target)) {
+        event.preventDefault();
+        void this.options
+          .onExternal(target)
+          .catch((error) => this.options.onError(this.message(error)));
+      }
+    });
+    // Untrusted pages cannot redirect a native view into file:, chrome:, or lunar:.
+    wc.on("will-redirect", (event, target) => {
+      if (!isWebUrl(target)) event.preventDefault();
+    });
+    wc.on("will-frame-navigate", (event) => {
+      // about:blank/srcdoc and blob frames are valid web content, but never privileged schemes.
+      if (
+        !isWebUrl(event.url) &&
+        !["about:blank", "about:srcdoc"].includes(event.url) &&
+        !event.url.startsWith("blob:") &&
+        !(displayNavigationUrl(event.url) && !event.initiator)
+      )
+        event.preventDefault();
+    });
+    wc.on("will-attach-webview", (event) => event.preventDefault());
+    wc.on("did-start-loading", () => {
       info.isLoading = true;
       this.notifyTabsUpdated();
     });
-
-    wc.on('did-finish-load', () => {
-      info.isLoading = false;
-      info.title = wc.getTitle() || 'Lunar Page';
-      info.url = wc.getURL();
-      info.canGoBack = wc.canGoBack();
-      info.canGoForward = wc.canGoForward();
+    wc.on("did-stop-loading", () => {
+      sync();
       this.notifyTabsUpdated();
-
-      if (!info.url.startsWith('lunar://') && this.onPageNavigateCallback) {
-        this.onPageNavigateCallback({
-          url: info.url,
-          title: info.title,
-          favicon: info.favicon,
-        });
+    });
+    wc.on("did-navigate", (_event, target) => {
+      const display = displayNavigationUrl(target);
+      if (!display) return;
+      info.url = display;
+      info.error = undefined;
+      info.crashed = false;
+      if (isInternalUrl(display)) {
+        info.title = this.internalTitle(display);
+        info.favicon = undefined;
       }
-    });
-
-    wc.on('page-title-updated', (_, title) => {
-      info.title = title;
+      sync();
+      this.reconcileViews();
       this.notifyTabsUpdated();
     });
-
-    wc.on('page-favicon-updated', (_, favicons) => {
-      if (favicons && favicons.length > 0) {
-        info.favicon = favicons[0];
+    wc.on("did-navigate-in-page", (_event, target, isMainFrame) => {
+      if (!isMainFrame) return;
+      const display = displayNavigationUrl(target);
+      if (!display) return;
+      info.url = display;
+      if (isInternalUrl(display)) {
+        info.title = this.internalTitle(display);
+        info.favicon = undefined;
+      }
+      sync();
+      this.record(tab);
+      this.reconcileViews();
+      this.notifyTabsUpdated();
+    });
+    wc.on("did-finish-load", () => {
+      if (wc.isDestroyed()) return;
+      const committed = displayNavigationUrl(wc.getURL());
+      if (!committed) return;
+      info.url = committed;
+      info.title = isInternalUrl(committed)
+        ? this.internalTitle(committed)
+        : wc.getTitle().slice(0, 500) || committed;
+      info.error = undefined;
+      info.crashed = false;
+      sync();
+      this.record(tab);
+      this.reconcileViews();
+      this.notifyTabsUpdated();
+    });
+    wc.on("did-fail-load", (_event, code, description, target, isMainFrame) => {
+      if (!isMainFrame || code === -3 || isInternalUrl(info.url)) return;
+      if (displayNavigationUrl(target) !== info.url) return; // A previous load can abort after a new navigation.
+      info.isLoading = false;
+      info.error = `Could not load this page (${code}): ${description.slice(0, 200)}`;
+      sync();
+      this.reconcileViews();
+      this.notifyTabsUpdated();
+    });
+    wc.on("page-title-updated", (_event, title) => {
+      if (!isInternalUrl(info.url)) {
+        info.title = title.slice(0, 500);
         this.notifyTabsUpdated();
       }
     });
-
-    wc.on('media-started-playing', () => {
+    wc.on("page-favicon-updated", (_event, icons) => {
+      info.favicon = icons.map(sanitizeFavicon).find(Boolean);
+      this.notifyTabsUpdated();
+    });
+    wc.on("media-started-playing", () => {
       info.audible = true;
       this.notifyTabsUpdated();
     });
-
-    wc.on('media-paused', () => {
+    wc.on("media-paused", () => {
       info.audible = false;
       this.notifyTabsUpdated();
     });
-
-    wc.on('render-process-gone', (_, details) => {
-      if (details.reason !== 'clean-exit') {
+    wc.on("render-process-gone", (_event, details) => {
+      if (details.reason !== "clean-exit") {
         info.crashed = true;
+        info.isLoading = false;
+        info.error = "This page stopped responding. Reload to try again.";
+        this.reconcileViews();
         this.notifyTabsUpdated();
       }
     });
-
-    if (initialUrl.startsWith('http://') || initialUrl.startsWith('https://') || initialUrl.startsWith('file://')) {
-      wc.loadURL(initialUrl);
-    }
-
+    wc.on("destroyed", () => {
+      if (this.tabs.has(id) && !this.disposed) this.removeTab(id, false);
+    });
+    wc.on("before-input-event", (event, input) => {
+      if (this.handleShortcut(input)) event.preventDefault();
+    });
     this.switchTab(id);
-    return info;
+    this.load(tab, url);
+    return { ...info };
   }
-
-  public switchTab(tabId: string) {
-    if (!this.tabs.has(tabId)) return;
-
-    if (this.activeTabId && this.tabs.has(this.activeTabId)) {
-      const prev = this.tabs.get(this.activeTabId)!;
-      try {
-        this.window.contentView.removeChildView(prev.view);
-      } catch (_) {}
-    }
-
-    if (this.secondaryTabId && this.tabs.has(this.secondaryTabId)) {
-      const prevSec = this.tabs.get(this.secondaryTabId)!;
-      try {
-        this.window.contentView.removeChildView(prevSec.view);
-      } catch (_) {}
-    }
-
-    this.activeTabId = tabId;
-    const current = this.tabs.get(tabId)!;
-
-    if (!current.info.url.startsWith('lunar://')) {
-      this.window.contentView.addChildView(current.view);
-    }
-
-    if (this.isSplitView && this.secondaryTabId && this.tabs.has(this.secondaryTabId)) {
-      const secondary = this.tabs.get(this.secondaryTabId)!;
-      if (!secondary.info.url.startsWith('lunar://')) {
-        this.window.contentView.addChildView(secondary.view);
-      }
-    }
-
-    this.updateViewBounds();
-    this.notifyTabsUpdated();
+  private internalTitle(url: string): string {
+    return (
+      (
+        {
+          newtab: "New Tab",
+          settings: "Preferences",
+          themestudio: "Theme Studio",
+          history: "History",
+          bookmarks: "Bookmarks",
+          downloads: "Downloads",
+          extensions: "Extensions",
+        } as Record<string, string>
+      )[url.slice(8)] ?? "Lunar"
+    );
   }
-
-  public closeTab(tabId: string) {
-    if (!this.tabs.has(tabId)) return;
-
-    const tabItem = this.tabs.get(tabId)!;
-    try {
-      this.window.contentView.removeChildView(tabItem.view);
-      (tabItem.view.webContents as any).destroy?.();
-    } catch (_) {}
-
-    this.tabs.delete(tabId);
-
-    if (this.activeTabId === tabId) {
-      const remainingIds = Array.from(this.tabs.keys());
-      if (remainingIds.length > 0) {
-        this.switchTab(remainingIds[remainingIds.length - 1]);
-      } else {
-        this.activeTabId = null;
-        this.createTab('lunar://newtab');
-      }
-    } else {
-      this.notifyTabsUpdated();
-    }
+  private message(error: unknown): string {
+    return error instanceof Error
+      ? error.message
+      : "A browser operation failed.";
   }
-
-  public navigate(tabId: string, inputUrl: string) {
-    const tab = this.tabs.get(tabId);
-    if (!tab) return;
-
-    const formatted = formatSearchOrUrl(inputUrl);
-    tab.info.url = formatted;
+  private load(tab: TabViewItem, url: string) {
+    tab.info.error = undefined;
     tab.info.crashed = false;
-
-    if (formatted.startsWith('lunar://')) {
-      try {
-        this.window.contentView.removeChildView(tab.view);
-      } catch (_) {}
-    } else {
-      if (this.activeTabId === tabId) {
-        try {
-          this.window.contentView.addChildView(tab.view);
-        } catch (_) {}
-      }
-      tab.view.webContents.loadURL(formatted);
-    }
-
-    this.updateViewBounds();
+    tab.info.isLoading = true;
+    void tab.view.webContents
+      .loadURL(nativeNavigationUrl(url))
+      .catch((error: unknown) => {
+        if (
+          !this.tabs.has(tab.id) ||
+          this.disposed ||
+          tab.info.url !== url ||
+          (error instanceof Error && error.message.includes("ERR_ABORTED"))
+        )
+          return;
+        tab.info.isLoading = false;
+        tab.info.error =
+          "The page could not be loaded. Check the address or your connection, then try again.";
+        this.reconcileViews();
+        this.notifyTabsUpdated();
+      });
+    this.reconcileViews();
     this.notifyTabsUpdated();
   }
-
-  public goBack(tabId: string) {
-    const tab = this.tabs.get(tabId);
-    if (tab && tab.view.webContents.canGoBack()) {
-      tab.view.webContents.goBack();
+  private record(tab: TabViewItem) {
+    if (!isWebUrl(tab.info.url) || tab.info.error) return;
+    try {
+      this.options.onNavigate({ url: tab.info.url, title: tab.info.title });
+    } catch (error) {
+      this.options.onError(this.message(error));
     }
   }
-
-  public goForward(tabId: string) {
-    const tab = this.tabs.get(tabId);
-    if (tab && tab.view.webContents.canGoForward()) {
-      tab.view.webContents.goForward();
-    }
+  public navigate(id: string, input: string): void {
+    const tab = this.requireTab(id),
+      url = normalizeNavigation(input, this.options.settings().searchEngine);
+    tab.view.webContents.stop();
+    tab.info.url = url;
+    tab.info.favicon = undefined;
+    tab.info.error = undefined;
+    tab.info.crashed = false;
+    if (isInternalUrl(url)) tab.info.title = this.internalTitle(url);
+    this.focusOnAttach = !isInternalUrl(url);
+    this.load(tab, url);
   }
 
-  public reload(tabId: string, ignoreCache: boolean = false) {
-    const tab = this.tabs.get(tabId);
-    if (tab) {
-      tab.info.crashed = false;
-      if (ignoreCache) {
-        tab.view.webContents.reloadIgnoringCache();
-      } else {
-        tab.view.webContents.reload();
-      }
+  public switchTab(id: string): void {
+    this.requireTab(id);
+    if (id !== this.activeTabId) {
+      this.activeTabId = id;
+      this.layout = null;
+      this.focusOnAttach = true;
     }
+    this.reconcileViews();
+    this.notifyTabsUpdated();
   }
-
-  public toggleMute(tabId: string) {
-    const tab = this.tabs.get(tabId);
-    if (tab) {
-      tab.info.isMuted = !tab.info.isMuted;
-      tab.view.webContents.setAudioMuted(tab.info.isMuted);
+  public closeTab(id: string): void {
+    this.requireTab(id);
+    this.removeTab(id, true);
+  }
+  private removeTab(id: string, close: boolean) {
+    const tab = this.tabs.get(id);
+    if (!tab) return;
+    const next = nextActiveAfterClose(
+      [...this.tabs.keys()],
+      this.activeTabId,
+      id,
+    );
+    this.detach(tab);
+    this.tabs.delete(id);
+    this.contentsIds.delete(tab.view.webContents.id);
+    if (close && !tab.view.webContents.isDestroyed())
+      tab.view.webContents.close({ waitForBeforeUnload: false });
+    tab.view.webContents.removeAllListeners();
+    if (this.activeTabId !== next) {
+      this.activeTabId = next;
+      this.layout = null;
+    }
+    if (!this.tabs.size && !this.disposed) this.createTab();
+    else {
+      this.reconcileViews();
       this.notifyTabsUpdated();
     }
   }
-
-  public togglePin(tabId: string) {
-    const tab = this.tabs.get(tabId);
-    if (tab) {
-      tab.info.isPinned = !tab.info.isPinned;
-      this.notifyTabsUpdated();
-    }
+  public updateWorkspace(layout: WorkspaceLayout): boolean {
+    if (
+      this.disposed ||
+      layout.tabId !== this.activeTabId ||
+      !this.tabs.has(layout.tabId)
+    )
+      return false;
+    if (layout.visible && !this.layout?.visible) this.focusOnAttach = true;
+    this.layout = layout;
+    this.reconcileViews();
+    return true;
   }
-
-  public duplicateTab(tabId: string) {
-    const tab = this.tabs.get(tabId);
-    if (tab) {
-      this.createTab(tab.info.url);
-    }
+  private detach(tab: TabViewItem) {
+    if (!tab.view.webContents.isDestroyed()) tab.view.setVisible(false);
+    if (this.attached.delete(tab.id) && !this.window.isDestroyed())
+      this.window.contentView.removeChildView(tab.view);
   }
-
-  public reorderTabs(orderedIds: string[]) {
-    const newMap = new Map<string, TabViewItem>();
-    for (const id of orderedIds) {
-      if (this.tabs.has(id)) {
-        newMap.set(id, this.tabs.get(id)!);
+  private reconcileViews() {
+    if (this.window.isDestroyed()) return;
+    for (const tab of this.tabs.values()) {
+      const show =
+        !this.disposed &&
+        this.activeTabId === tab.id &&
+        this.layout?.visible &&
+        this.layout.tabId === tab.id &&
+        isWebUrl(tab.info.url) &&
+        !tab.info.error &&
+        !tab.info.crashed &&
+        !tab.view.webContents.isDestroyed();
+      const bounds =
+        show && this.layout
+          ? clampBounds(this.layout.bounds, this.window.getContentBounds())
+          : null;
+      if (!bounds || bounds.width < 1 || bounds.height < 1) {
+        this.detach(tab);
+        continue;
+      }
+      if (!sameBounds(tab.lastBounds, bounds)) {
+        tab.view.setBounds(bounds);
+        tab.lastBounds = bounds;
+      }
+      if (!this.attached.has(tab.id)) {
+        this.window.contentView.addChildView(tab.view);
+        this.attached.add(tab.id);
+      }
+      tab.view.setVisible(true);
+      if (this.focusOnAttach) {
+        tab.view.webContents.focus();
+        this.focusOnAttach = false;
       }
     }
-    this.tabs = newMap;
+  }
+  private requireTab(id: string): TabViewItem {
+    const tab = this.tabs.get(id);
+    if (!tab || tab.view.webContents.isDestroyed())
+      throw new Error("That tab is no longer available.");
+    return tab;
+  }
+  public goBack(id: string) {
+    const t = this.requireTab(id);
+    if (t.view.webContents.navigationHistory.canGoBack())
+      t.view.webContents.navigationHistory.goBack();
+  }
+  public goForward(id: string) {
+    const t = this.requireTab(id);
+    if (t.view.webContents.navigationHistory.canGoForward())
+      t.view.webContents.navigationHistory.goForward();
+  }
+  public reload(id: string, ignoreCache = false) {
+    const t = this.requireTab(id);
+    t.info.error = undefined;
+    t.info.crashed = false;
+    t.info.isLoading = true;
+    this.notifyTabsUpdated();
+    // Retry the intended URL after a network failure (which may leave about:blank in wc).
+    if (displayNavigationUrl(t.view.webContents.getURL()) !== t.info.url)
+      this.load(t, t.info.url);
+    else {
+      if (ignoreCache) t.view.webContents.reloadIgnoringCache();
+      else t.view.webContents.reload();
+      this.reconcileViews();
+    }
+  }
+  public stopLoading(id: string) {
+    const t = this.requireTab(id);
+    t.view.webContents.stop();
+    t.info.isLoading = false;
     this.notifyTabsUpdated();
   }
-
-  public setSplitView(enabled: boolean, secondaryTabId?: string) {
-    this.isSplitView = enabled;
-    this.secondaryTabId = secondaryTabId || null;
-    this.updateViewBounds();
+  public toggleMute(id: string) {
+    const t = this.requireTab(id);
+    t.info.isMuted = !t.info.isMuted;
+    t.view.webContents.setAudioMuted(t.info.isMuted);
     this.notifyTabsUpdated();
   }
-
-  public updateViewBounds() {
-    if (!this.activeTabId || !this.tabs.has(this.activeTabId)) return;
-
-    const activeTab = this.tabs.get(this.activeTabId)!;
-    const bounds = activeTab.customBounds || this.contentBounds;
-
-    if (this.isSplitView && this.secondaryTabId && this.tabs.has(this.secondaryTabId)) {
-      const secondaryTab = this.tabs.get(this.secondaryTabId)!;
-      const halfWidth = Math.floor(bounds.width / 2);
-
-      if (!activeTab.info.url.startsWith('lunar://')) {
-        activeTab.view.setBounds({
-          x: bounds.x,
-          y: bounds.y,
-          width: halfWidth,
-          height: bounds.height,
-        });
-      }
-
-      if (!secondaryTab.info.url.startsWith('lunar://')) {
-        secondaryTab.view.setBounds({
-          x: bounds.x + halfWidth,
-          y: bounds.y,
-          width: bounds.width - halfWidth,
-          height: bounds.height,
-        });
-      }
-    } else {
-      if (!activeTab.info.url.startsWith('lunar://')) {
-        activeTab.view.setBounds({
-          x: bounds.x,
-          y: bounds.y,
-          width: bounds.width,
-          height: bounds.height,
-        });
-      }
-    }
+  public togglePin(id: string) {
+    const t = this.requireTab(id);
+    t.info.isPinned = !t.info.isPinned;
+    this.notifyTabsUpdated();
   }
-
+  public duplicateTab(id: string) {
+    return this.createTab(this.requireTab(id).info.url);
+  }
+  public reorderTabs(ids: string[]) {
+    if (!isPermutation([...this.tabs.keys()], ids))
+      throw new Error("A tab reorder must contain every tab exactly once.");
+    this.tabs = new Map(ids.map((id) => [id, this.requireTab(id)]));
+    this.notifyTabsUpdated();
+  }
+  public getTab(id: string): TabViewItem | null {
+    return this.tabs.get(id) ?? null;
+  }
   public getActiveTab(): TabViewItem | null {
-    if (!this.activeTabId) return null;
-    return this.tabs.get(this.activeTabId) || null;
+    return this.activeTabId ? this.getTab(this.activeTabId) : null;
   }
-
-  public getTab(tabId: string): TabViewItem | null {
-    return this.tabs.get(tabId) || null;
+  public ownsWebContents(id: number) {
+    return this.contentsIds.has(id);
   }
-
+  public downloadStarted(contentsId: number) {
+    const id = this.contentsIds.get(contentsId),
+      tab = id ? this.tabs.get(id) : undefined;
+    if (!tab || tab.view.webContents.isDestroyed()) return;
+    // An attachment response does not commit a webpage navigation. Keep the source address/title.
+    const committed =
+      displayNavigationUrl(tab.view.webContents.getURL()) ?? "lunar://newtab";
+    tab.info.url = committed;
+    tab.info.title = isInternalUrl(committed)
+      ? this.internalTitle(committed)
+      : tab.view.webContents.getTitle().slice(0, 500) || committed;
+    tab.info.isLoading = false;
+    tab.info.error = undefined;
+    tab.info.canGoBack = tab.view.webContents.navigationHistory.canGoBack();
+    tab.info.canGoForward =
+      tab.view.webContents.navigationHistory.canGoForward();
+    this.reconcileViews();
+    this.notifyTabsUpdated();
+  }
+  public urlForWebContents(id: number) {
+    const tabId = this.contentsIds.get(id);
+    return tabId ? (this.tabs.get(tabId)?.info.url ?? "") : "";
+  }
+  public isActiveWebContents(id: number) {
+    return (
+      this.getActiveTab()?.view.webContents.id === id &&
+      this.layout?.visible === true
+    );
+  }
   public getAllTabs(): TabInfo[] {
-    return Array.from(this.tabs.values()).map((t) => t.info);
+    return [...this.tabs.values()].map((tab) => ({ ...tab.info }));
   }
-
+  public snapshot(): TabsSnapshot {
+    return {
+      revision: this.revision,
+      tabs: this.getAllTabs(),
+      activeTabId: this.activeTabId,
+    };
+  }
+  public sessionState(): SessionState {
+    return {
+      tabs: this.getAllTabs().map(({ url, isPinned }) => ({ url, isPinned })),
+      activeIndex: Math.max(
+        0,
+        [...this.tabs.keys()].indexOf(this.activeTabId ?? ""),
+      ),
+    };
+  }
   public notifyTabsUpdated() {
-    const tabList = this.getAllTabs();
-    this.window.webContents.send('tabs:updated', tabList, this.activeTabId);
+    if (
+      this.disposed ||
+      this.window.isDestroyed() ||
+      this.window.webContents.isDestroyed()
+    )
+      return;
+    this.revision++;
+    this.window.webContents.send("tabs:updated", this.snapshot());
+    this.options.onChanged?.(this.sessionState());
+  }
+  /** Also called for native page key events; DOM-only shortcuts miss focused Chromium pages. */
+  public handleShortcut(
+    input: Pick<Input, "type" | "key" | "control" | "meta" | "shift" | "alt">,
+  ): boolean {
+    if (input.type !== "keyDown") return false;
+    const key = input.key.toLowerCase(),
+      ctrl = input.control || input.meta,
+      active = this.activeTabId;
+    try {
+      if (ctrl && key === "t") {
+        this.createTab();
+        return true;
+      }
+      if (ctrl && key === "w" && active) {
+        this.closeTab(active);
+        return true;
+      }
+      if (ctrl && [" ", "space"].includes(key)) {
+        this.window.webContents.focus();
+        this.options.onShortcut("spotlight");
+        return true;
+      }
+      if (ctrl && key === "r" && active) {
+        this.reload(active, input.shift);
+        return true;
+      }
+      if (key === "escape" && active) {
+        this.stopLoading(active);
+        return false;
+      }
+      if (ctrl && ["l", "k", "d", "j"].includes(key)) {
+        this.window.webContents.focus();
+        this.options.onShortcut(
+          ({ l: "address", k: "commands", d: "bookmark", j: "ai" } as const)[
+            key as "l" | "k" | "d" | "j"
+          ],
+        );
+        return true;
+      }
+      const ids = [...this.tabs.keys()],
+        index = ids.indexOf(active ?? "");
+      if (ctrl && key === "tab" && ids.length) {
+        this.switchTab(
+          ids[(index + (input.shift ? -1 : 1) + ids.length) % ids.length],
+        );
+        return true;
+      }
+      if (ctrl && /^[1-9]$/u.test(key)) {
+        const id = key === "9" ? ids.at(-1) : ids[Number(key) - 1];
+        if (id) this.switchTab(id);
+        return true;
+      }
+      if (input.alt && key === "arrowleft" && active) {
+        this.goBack(active);
+        return true;
+      }
+      if (input.alt && key === "arrowright" && active) {
+        this.goForward(active);
+        return true;
+      }
+      if (key === "f5" && active) {
+        this.reload(active, input.control);
+        return true;
+      }
+    } catch (error) {
+      this.options.onError(this.message(error));
+    }
+    return false;
+  }
+  public dispose() {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.window.removeListener("resize", this.onResize);
+    this.window.removeListener("enter-full-screen", this.onResize);
+    this.window.removeListener("leave-full-screen", this.onResize);
+    for (const id of [...this.tabs.keys()]) this.removeTab(id, true);
+    this.layout = null;
   }
 }

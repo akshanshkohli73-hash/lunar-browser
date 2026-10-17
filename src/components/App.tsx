@@ -1,607 +1,566 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { TabInfo, ShieldStats, Bookmark, HistoryItem, DownloadItemInfo } from '../../electron/types';
-import SettingsView from './SettingsView';
-import ExtensionsView from './ExtensionsView';
-import AISidebar from './AISidebar';
-import CommandPalette from './CommandPalette';
-import OnboardingModal from './OnboardingModal';
-import ReaderModeView from './ReaderModeView';
-import ThemeStudioView from './ThemeStudioView';
-import { BUILTIN_THEMES, applyThemeTokens, ThemeTokens } from '../styles/themes';
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useBrowser } from "../state/BrowserContext";
+import { isInternalUrl, isWebUrl } from "../../shared/navigation";
+import { useNativeViewport } from "./useNativeViewport";
+import { Icon } from "./ui/Icon";
+import { BookmarkEditor } from "./BookmarkEditor";
+import { Modal } from "./ui/Modal";
+import SettingsView from "./SettingsView";
+import ExtensionsView from "./ExtensionsView";
+import ThemeStudioView from "./ThemeStudioView";
+import LibraryView from "./LibraryView";
+import AISidebar from "./AISidebar";
+import ShieldPanel from "./ShieldPanel";
+import CommandPalette from "./CommandPalette";
+import OnboardingModal from "./OnboardingModal";
+import ReaderModeView from "./ReaderModeView";
 
-declare global {
-  interface Window {
-    lunarAPI?: any;
-  }
-}
-
-export const App: React.FC = () => {
-  const [tabs, setTabs] = useState<TabInfo[]>([]);
-  const [activeTabId, setActiveTabId] = useState<string>('');
-  const [urlInput, setUrlInput] = useState<string>('');
-  const [isOmniboxFocused, setIsOmniboxFocused] = useState<boolean>(false);
-  const [activePage, setActivePage] = useState<string>('newtab');
-  const [shieldStats, setShieldStats] = useState<ShieldStats>({
-    totalBlocked: 0,
-    adsBlocked: 0,
-    trackersBlocked: 0,
-    analyticsBlocked: 0,
-    telemetryBlocked: 0,
-    cryptominersBlocked: 0,
-    socialBlocked: 0,
-    popupsBlocked: 0,
-    annoyancesBlocked: 0,
-  });
-  const [showShieldPopup, setShowShieldPopup] = useState<boolean>(false);
-  const [showAISidebar, setShowAISidebar] = useState<boolean>(false);
-  const [showCommandPalette, setShowCommandPalette] = useState<boolean>(false);
-  const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
-  const [isReaderMode, setIsReaderMode] = useState<boolean>(false);
-  const [readerContent, setReaderContent] = useState<string>('');
-
-  const [currentTheme, setCurrentTheme] = useState<ThemeTokens>(BUILTIN_THEMES['lunar-coquette']);
-
-  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [downloads, setDownloads] = useState<DownloadItemInfo[]>([]);
-
-  const omniboxInputRef = useRef<HTMLInputElement>(null);
-  const viewportRef = useRef<HTMLDivElement>(null);
-
-  const activeTab = tabs.find((t) => t.id === activeTabId);
-
+export default function App({
+  isVisible = true,
+  isOccluded = false,
+}: {
+  isVisible?: boolean;
+  isOccluded?: boolean;
+}) {
+  const {
+    api,
+    ready,
+    tabs: state,
+    settings,
+    bookmarks,
+    shield,
+    errors,
+    report,
+    dismissError,
+    updateSettings,
+  } = useBrowser();
+  const tabs = state.tabs,
+    activeId = state.activeTabId,
+    active = tabs.find((tab) => tab.id === activeId);
+  const [url, setUrl] = useState(""),
+    [aiOpen, setAiOpen] = useState(false),
+    [commands, setCommands] = useState(false),
+    [shieldOpen, setShieldOpen] = useState(false),
+    [tabMenu, setTabMenu] = useState<string | null>(null);
+  const [editingBookmark, setEditingBookmark] = useState(false),
+    [reader, setReader] = useState<string | null>(null),
+    [readerLoading, setReaderLoading] = useState(false);
+  const [now, setNow] = useState(new Date());
+  const address = useRef<HTMLInputElement>(null),
+    pageRef = useRef<HTMLDivElement>(null),
+    focused = useRef(false),
+    dragId = useRef<string | null>(null);
+  const internalPage =
+    active && isInternalUrl(active.url) ? active.url.slice(8) : "browser";
+  const loadedRuleCount =
+    shield?.lists
+      .filter((list) =>
+        settings.shield.filterLists.includes(
+          list.id as "lunar-core" | "stevenblack",
+        ),
+      )
+      .reduce((sum, list) => sum + list.ruleCount, 0) ?? 0;
+  const onboarding = !!api && ready && settings.isFirstRun;
+  const showNative =
+    isVisible &&
+    !isOccluded &&
+    !commands &&
+    !shieldOpen &&
+    !tabMenu &&
+    !editingBookmark &&
+    !onboarding &&
+    reader === null &&
+    !readerLoading &&
+    !active?.error &&
+    internalPage === "browser";
+  useNativeViewport(pageRef, activeId, showNative, api, report);
   useEffect(() => {
-    applyThemeTokens(currentTheme);
-  }, [currentTheme]);
-
-
+    if (!focused.current)
+      setUrl(active?.url === "lunar://newtab" ? "" : (active?.url ?? ""));
+  }, [activeId, active?.url]);
   useEffect(() => {
-    if (!viewportRef.current || !activeTabId || !window.lunarAPI?.updateTabBounds) return;
-
-    let lastRect = { left: -1, top: -1, width: -1, height: -1 };
-
-    const updateGeometry = () => {
-      if (!viewportRef.current) return;
-      const rect = viewportRef.current.getBoundingClientRect();
-      if (
-        Math.abs(rect.left - lastRect.left) > 0.5 ||
-        Math.abs(rect.top - lastRect.top) > 0.5 ||
-        Math.abs(rect.width - lastRect.width) > 0.5 ||
-        Math.abs(rect.height - lastRect.height) > 0.5
-      ) {
-        lastRect = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
-        window.lunarAPI.updateTabBounds(activeTabId, {
-          x: Math.round(rect.left),
-          y: Math.round(rect.top),
-          width: Math.round(rect.width),
-          height: Math.round(rect.height),
-        });
-      }
-    };
-
-    updateGeometry();
-
-    const resizeObserver = new ResizeObserver(updateGeometry);
-    resizeObserver.observe(viewportRef.current);
-    window.addEventListener("resize", updateGeometry);
-
-    return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener("resize", updateGeometry);
-    };
-  }, [activeTabId, activePage, showAISidebar]);
-
+    setReader(null);
+    setShieldOpen(false);
+    setTabMenu(null);
+    setEditingBookmark(false);
+  }, [activeId, active?.url]);
   useEffect(() => {
-    if (!window.lunarAPI) return;
-
-    window.lunarAPI.getSettings().then((settings: any) => {
-      if (settings && settings.isFirstRun !== false) {
-        setShowOnboarding(true);
-      }
-      if (settings && settings.themeId && BUILTIN_THEMES[settings.themeId]) {
-        setCurrentTheme(BUILTIN_THEMES[settings.themeId]);
-      }
-    });
-
-    const unsubscribeTabs = window.lunarAPI.onTabsUpdated((updatedTabs: TabInfo[], activeId: string) => {
-      setTabs(updatedTabs);
-      setActiveTabId(activeId);
-      const current = updatedTabs.find((t) => t.id === activeId);
-      if (current) {
-        if (!isOmniboxFocused) {
-          setUrlInput(current.url === 'lunar://newtab' ? '' : current.url);
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  useEffect(
+    () =>
+      api?.onShortcut((shortcut) => {
+        if (shortcut === "spotlight") {
+          setCommands(false);
+          setShieldOpen(false);
+          setTabMenu(null);
+          setEditingBookmark(false);
+          window.dispatchEvent(new Event("lunar:spotlight"));
+          return;
         }
-        if (current.url.startsWith('lunar://')) {
-          setActivePage(current.url.replace('lunar://', ''));
-        } else {
-          setActivePage('browser');
+        window.dispatchEvent(new Event("lunar:activate-browser"));
+        if (shortcut === "address") {
+          address.current?.focus();
+          address.current?.select();
         }
-      }
-    });
-
-    const unsubscribeShield = window.lunarAPI.onShieldStatsUpdated((stats: ShieldStats) => {
-      setShieldStats(stats);
-    });
-
-    const unsubscribeDownloads = window.lunarAPI.onDownloadsUpdated((dls: DownloadItemInfo[]) => {
-      setDownloads(dls);
-    });
-
-    return () => {
-      unsubscribeTabs?.();
-      unsubscribeShield?.();
-      unsubscribeDownloads?.();
-    };
-  }, [isOmniboxFocused]);
-
-  // Global Keyboard Shortcuts
+        if (shortcut === "commands") setCommands((current) => !current);
+        if (shortcut === "bookmark") setEditingBookmark(true);
+        if (shortcut === "ai") setAiOpen((current) => !current);
+      }),
+    [api],
+  );
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const isCtrl = e.ctrlKey || e.metaKey;
-      const key = e.key.toLowerCase();
-
-      if (isCtrl) {
-        if (key === 't') {
-          e.preventDefault();
-          handleNewTab();
-        } else if (key === 'w') {
-          e.preventDefault();
-          handleCloseTab();
-        } else if (key === 'l') {
-          e.preventDefault();
-          omniboxInputRef.current?.focus();
-          omniboxInputRef.current?.select();
-        } else if (key === 'r') {
-          e.preventDefault();
-          if (activeTabId) window.lunarAPI?.reloadTab(activeTabId);
-        } else if (key === 'k' || e.code === 'Space') {
-          e.preventDefault();
-          setShowCommandPalette((prev) => !prev);
-        } else if (key === 'tab') {
-          e.preventDefault();
-          if (tabs.length > 1) {
-            const currIdx = tabs.findIndex((t) => t.id === activeTabId);
-            const nextIdx = e.shiftKey
-              ? (currIdx - 1 + tabs.length) % tabs.length
-              : (currIdx + 1) % tabs.length;
-            window.lunarAPI?.switchTab(tabs[nextIdx].id);
-          }
-        } else if (/^[1-9]$/.test(key)) {
-          e.preventDefault();
-          const targetIndex = parseInt(key, 10) - 1;
-          if (tabs[targetIndex]) {
-            window.lunarAPI?.switchTab(tabs[targetIndex].id);
-          }
-        }
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShieldOpen(false);
+        setTabMenu(null);
       }
     };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [tabs, activeTabId]);
-
-  useEffect(() => {
-    if (!window.lunarAPI) return;
-    if (activePage === 'history') {
-      window.lunarAPI.getHistory().then(setHistory);
-    } else if (activePage === 'bookmarks') {
-      window.lunarAPI.getBookmarks().then(setBookmarks);
-    } else if (activePage === 'downloads') {
-      window.lunarAPI.getDownloads().then(setDownloads);
-    }
-  }, [activePage]);
-
-  const handleNavigate = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeTabId || !urlInput.trim()) return;
-    window.lunarAPI?.navigateTab(activeTabId, urlInput);
-    setIsOmniboxFocused(false);
+    window.addEventListener("keydown", keydown);
+    return () => window.removeEventListener("keydown", keydown);
+  }, []);
+  const navigate = (input: string) => {
+    if (!api || !activeId) return;
+    void api
+      .navigateTab(activeId, input)
+      .then(() => {
+        focused.current = false;
+        address.current?.blur();
+      })
+      .catch(report);
   };
-
-  const handleNewTab = () => {
-    window.lunarAPI?.createTab('lunar://newtab');
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    navigate(url);
   };
-
-  const handleCloseTab = (tabId?: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    const targetId = tabId || activeTabId;
-    if (targetId) {
-      window.lunarAPI?.closeTab(targetId);
-    }
-  };
-
-  const handleSwitchTab = (tabId: string) => {
-    window.lunarAPI?.switchTab(tabId);
-  };
-
-  const handleOpenReaderMode = async () => {
-    if (!activeTabId) return;
+  const currentBookmark = bookmarks.find((item) => item.url === active?.url);
+  const readerTab = useRef(activeId);
+  readerTab.current = activeId;
+  const openReader = async () => {
+    if (!api || !activeId) return;
+    setReaderLoading(true);
     try {
-      const pageText = await window.lunarAPI?.getPageText(activeTabId);
-      setReaderContent(pageText || 'Could not extract article content.');
-      setIsReaderMode(true);
-    } catch (_) {
-      setReaderContent('Error extracting page text.');
-      setIsReaderMode(true);
+      const text = await api.getPageText(activeId);
+      if (readerTab.current === activeId) setReader(text);
+    } catch (error) {
+      report(error);
+    } finally {
+      setReaderLoading(false);
     }
   };
-
   return (
-    <div className="flex flex-col h-full w-full bg-[var(--lunar-bg)] text-[var(--lunar-text)] font-sans overflow-hidden select-none">
-      {/* BROWSER TABS BAR */}
-      <div className="flex items-center bg-[var(--lunar-bg-secondary)] h-9 px-2 border-b border-[var(--lunar-border)] select-none">
-        <div className="flex-1 flex items-center gap-1 overflow-x-auto scrollbar-none">
-          {tabs.map((tab) => {
-            const isActive = tab.id === activeTabId;
-            return (
-              <div
-                key={tab.id}
-                onClick={() => handleSwitchTab(tab.id)}
-                className={`group relative flex items-center gap-2 h-7 px-3 max-w-[200px] min-w-[120px] rounded-md text-xs transition-all cursor-pointer border ${
-                  isActive
-                    ? 'bg-[var(--lunar-surface)] text-[var(--lunar-primary)] border-[var(--lunar-border)] shadow-[0_0_10px_var(--lunar-glow)]'
-                    : 'bg-white/5 text-[var(--lunar-text-muted)] border-transparent hover:bg-white/10 hover:text-[var(--lunar-text)]'
-                }`}
+    <main className="browser-app" aria-label="Lunar browser workspace">
+      <div className="browser-tabstrip">
+        <div className="browser-tabs" role="tablist" aria-label="Browser tabs">
+          {tabs.map((tab) => (
+            <div
+              className={`browser-tab ${tab.id === activeId ? "is-active" : ""}`}
+              key={tab.id}
+              draggable
+              onDragEnd={() => {
+                dragId.current = null;
+              }}
+              onDragStart={() => {
+                dragId.current = tab.id;
+              }}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault();
+                const from = dragId.current;
+                dragId.current = null;
+                if (!api || !from || from === tab.id) return;
+                const ids = tabs
+                  .map((item) => item.id)
+                  .filter((id) => id !== from);
+                ids.splice(ids.indexOf(tab.id), 0, from);
+                void api.reorderTabs(ids).catch(report);
+              }}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                setTabMenu(tab.id);
+              }}
+            >
+              <button
+                role="tab"
+                aria-selected={tab.id === activeId}
+                aria-controls="page-viewport"
+                title={tab.url}
+                onClick={() => void api?.switchTab(tab.id).catch(report)}
               >
-                {tab.favicon ? (
-                  <img src={tab.favicon} alt="" className="w-3.5 h-3.5 rounded-sm" />
+                {tab.isLoading ? (
+                  <span className="loading-spinner" />
+                ) : tab.isPinned ? (
+                  <Icon name="pin" size={13} />
                 ) : (
-                  <svg className="w-3.5 h-3.5 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg>
+                  <Icon name="globe" size={13} />
                 )}
-                <span className="truncate flex-1 font-medium">
-                  {tab.url === 'lunar://newtab' ? 'New Tab' : tab.title || 'Loading...'}
-                </span>
-
-                {tab.audible && <span className="text-[10px] text-[var(--lunar-primary)] animate-pulse">🔊</span>}
-
-                <button
-                  onClick={(e) => handleCloseTab(tab.id, e)}
-                  className="opacity-0 group-hover:opacity-100 hover:bg-white/20 p-0.5 rounded transition"
-                >
-                  ✕
-                </button>
-              </div>
-            );
-          })}
-
-          <button
-            onClick={handleNewTab}
-            className="w-6 h-6 flex items-center justify-center rounded-md bg-white/5 hover:bg-[var(--lunar-surface-hover)] hover:text-[var(--lunar-primary)] transition"
-            title="New Tab (Ctrl+T)"
-          >
-            +
-          </button>
-        </div>
-      </div>
-
-      {/* NAVIGATION BAR & OMNIBOX */}
-      <div className="flex items-center gap-2 h-10 px-3 bg-[var(--lunar-bg)] border-b border-[var(--lunar-border)] select-none">
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => window.lunarAPI?.goBack(activeTabId)}
-            disabled={!activeTab?.canGoBack}
-            className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/10 disabled:opacity-30"
-            title="Back"
-          >
-            ←
-          </button>
-          <button
-            onClick={() => window.lunarAPI?.goForward(activeTabId)}
-            disabled={!activeTab?.canGoForward}
-            className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/10 disabled:opacity-30"
-            title="Forward"
-          >
-            →
-          </button>
-          <button
-            onClick={() => window.lunarAPI?.reloadTab(activeTabId)}
-            className="w-7 h-7 flex items-center justify-center rounded hover:bg-white/10"
-            title="Reload"
-          >
-            ↻
-          </button>
-        </div>
-
-        <form onSubmit={handleNavigate} className="flex-1 relative flex items-center">
-          <div className="absolute left-3 flex items-center gap-1.5 text-xs">
-            {activeTab?.url.startsWith('https://') ? (
-              <span className="text-[11px]" title="Secure Connection"><svg className="w-3.5 h-3.5 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
-            ) : (
-              <svg className="w-3.5 h-3.5 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg>
-            )}
-          </div>
-          <input
-            ref={omniboxInputRef}
-            type="text"
-            value={urlInput}
-            onChange={(e) => setUrlInput(e.target.value)}
-            onFocus={() => setIsOmniboxFocused(true)}
-            onBlur={() => setIsOmniboxFocused(false)}
-            placeholder="Search the web or type a URL..."
-            className="w-full h-8 pl-8 pr-20 bg-[var(--lunar-surface)] text-xs text-[var(--lunar-text)] placeholder-[var(--lunar-text-muted)] rounded-md border border-[var(--lunar-border)] focus:border-[var(--lunar-primary)] focus:shadow-[0_0_12px_var(--lunar-glow)] focus:outline-none transition"
-          />
-          <div className="absolute right-2 flex items-center gap-1 text-[10px]">
-            <span className="px-1.5 py-0.5 rounded bg-white/5 border border-[var(--lunar-border)] font-mono text-[var(--lunar-primary)]">
-              Ctrl+K
-            </span>
-          </div>
-        </form>
-
-        <button
-          onClick={() => window.lunarAPI?.navigateTab(activeTabId, 'lunar://themestudio')}
-          className="px-2 py-1 rounded-md bg-[var(--lunar-surface)] border border-[var(--lunar-border)] text-xs hover:border-[var(--lunar-primary)] transition"
-          title="Theme Studio"
-        >
-          🎨
-        </button>
-
-        {activePage === 'browser' && (
-          <button
-            onClick={handleOpenReaderMode}
-            className="w-8 h-8 flex items-center justify-center rounded-md bg-[var(--lunar-surface)] border border-[var(--lunar-border)] text-xs hover:text-[var(--lunar-primary)] transition"
-            title="Reader Mode"
-          >
-            📖
-          </button>
-        )}
-
-        <div className="relative">
-          <button
-            onClick={() => setShowShieldPopup(!showShieldPopup)}
-            className={`flex items-center gap-1.5 h-8 px-2.5 rounded-md border text-xs font-medium transition ${
-              shieldStats.totalBlocked > 0
-                ? 'bg-[var(--lunar-surface)] border-[var(--lunar-primary)] text-[var(--lunar-primary)]'
-                : 'bg-[var(--lunar-surface)] border-[var(--lunar-border)] text-[var(--lunar-text-muted)]'
-            }`}
-          >
-            <svg className="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            <span className="font-mono text-[11px]">{shieldStats.totalBlocked}</span>
-          </button>
-
-          {showShieldPopup && (
-            <div className="absolute right-0 top-10 w-72 bg-[var(--lunar-bg-secondary)] border border-[var(--lunar-border)] rounded-lg p-4 shadow-2xl z-50 backdrop-blur-md">
-              <div className="flex items-center justify-between border-b border-[var(--lunar-border)] pb-2 mb-3">
-                <div className="flex items-center gap-2">
-                  <svg className="w-5 h-5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                  <div>
-                    <h3 className="text-xs font-bold text-[var(--lunar-primary)] tracking-wider">LUNAR SHIELD</h3>
-                    <p className="text-[10px] text-[var(--lunar-text-muted)]">Active Protection</p>
-                  </div>
-                </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[var(--lunar-primary)] text-black">
-                  PROTECTED
-                </span>
-              </div>
-
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between items-center py-1 border-b border-[var(--lunar-border)]">
-                  <span className="text-[var(--lunar-text-muted)]">Ads Blocked</span>
-                  <span className="font-mono text-[var(--lunar-primary)] font-bold">{shieldStats.adsBlocked}</span>
-                </div>
-                <div className="flex justify-between items-center py-1 border-b border-[var(--lunar-border)]">
-                  <span className="text-[var(--lunar-text-muted)]">Trackers Blocked</span>
-                  <span className="font-mono text-[var(--lunar-secondary)] font-bold">{shieldStats.trackersBlocked}</span>
-                </div>
-                <div className="flex justify-between items-center py-1">
-                  <span className="text-[var(--lunar-text-muted)]">Total Intercepted</span>
-                  <span className="font-mono font-bold">{shieldStats.totalBlocked}</span>
-                </div>
-              </div>
+                <span>{tab.title}</span>
+                {tab.isMuted || tab.audible ? (
+                  <Icon name="volume" size={12} />
+                ) : null}
+              </button>
+              <button
+                className="tab-close"
+                aria-label={`Close ${tab.title}`}
+                onClick={() => void api?.closeTab(tab.id).catch(report)}
+              >
+                <Icon name="x" size={13} />
+              </button>
             </div>
-          )}
+          ))}
         </div>
-
         <button
-          onClick={() => setShowAISidebar(!showAISidebar)}
-          className={`flex items-center gap-1.5 h-8 px-2.5 rounded-md border text-xs font-medium transition ${
-            showAISidebar
-              ? 'bg-[var(--lunar-surface)] border-[var(--lunar-secondary)] text-[var(--lunar-secondary)]'
-              : 'bg-[var(--lunar-surface)] border-[var(--lunar-border)]'
-          }`}
+          className="icon-button"
+          aria-label="New tab"
+          title="New tab (Ctrl+T)"
+          disabled={!api || !ready}
+          onClick={() => void api?.createTab().catch(report)}
         >
-          <svg className="w-3.5 h-3.5 text-amber-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg>
-          <span>Lunar AI</span>
+          <Icon name="plus" />
         </button>
       </div>
-
-      {/* MAIN CONTAINER */}
-      <div ref={viewportRef} className="flex-1 relative flex overflow-hidden">
-        {isReaderMode ? (
-          <ReaderModeView
-            title={activeTab?.title || 'Article View'}
-            url={activeTab?.url || ''}
-            content={readerContent}
-            onClose={() => setIsReaderMode(false)}
+      <nav className="browser-toolbar" aria-label="Browser navigation">
+        <button
+          className="icon-button"
+          aria-label="Back"
+          disabled={!active?.canGoBack}
+          onClick={() => activeId && void api?.goBack(activeId).catch(report)}
+        >
+          <Icon name="back" />
+        </button>
+        <button
+          className="icon-button"
+          aria-label="Forward"
+          disabled={!active?.canGoForward}
+          onClick={() =>
+            activeId && void api?.goForward(activeId).catch(report)
+          }
+        >
+          <Icon name="forward" />
+        </button>
+        <button
+          className="icon-button"
+          aria-label={active?.isLoading ? "Stop loading" : "Reload"}
+          disabled={!activeId}
+          onClick={() =>
+            activeId &&
+            void (
+              active?.isLoading
+                ? api?.stopTab(activeId)
+                : api?.reloadTab(activeId)
+            )?.catch(report)
+          }
+        >
+          <Icon name={active?.isLoading ? "stop" : "reload"} />
+        </button>
+        <form className="address-bar" onSubmit={submit}>
+          <Icon
+            name={active?.url.startsWith("https:") ? "lock" : "globe"}
+            size={14}
           />
-        ) : activePage === 'themestudio' ? (
-          <ThemeStudioView
-            currentTheme={currentTheme}
-            onThemeChange={(newTheme) => {
-              setCurrentTheme(newTheme);
-              window.lunarAPI?.updateSettings({ themeId: newTheme.id });
+          <input
+            ref={address}
+            aria-label="Address and search"
+            value={url}
+            placeholder="Search or enter an address"
+            spellCheck={false}
+            autoComplete="off"
+            onFocus={() => {
+              focused.current = true;
             }}
+            onBlur={() => {
+              focused.current = false;
+            }}
+            onChange={(event) => setUrl(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                setUrl(
+                  active?.url === "lunar://newtab" ? "" : (active?.url ?? ""),
+                );
+                address.current?.blur();
+              }
+            }}
+            disabled={!api || !ready}
           />
-        ) : activePage === 'newtab' ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[var(--lunar-bg)] relative overflow-y-auto">
-            <div className="z-10 max-w-2xl w-full flex flex-col items-center text-center space-y-6">
-              <div>
-                <h1 className="text-6xl font-extralight tracking-tight text-[var(--lunar-text)]">
-                  {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </h1>
-                <p className="text-xs font-mono tracking-widest text-[var(--lunar-primary)] uppercase mt-2">
-                  {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
-                </p>
+          <button
+            type="button"
+            aria-label={
+              currentBookmark ? "Edit saved bookmark" : "Bookmark this page"
+            }
+            disabled={!active}
+            className={currentBookmark ? "is-saved" : ""}
+            onClick={() => setEditingBookmark(true)}
+          >
+            <Icon name="star" size={16} />
+          </button>
+        </form>
+        <button
+          className="icon-button"
+          aria-label="Lunar Shield"
+          aria-expanded={shieldOpen}
+          onClick={() => setShieldOpen((current) => !current)}
+          disabled={!api}
+        >
+          <Icon name="shield" />
+          <span className="shield-counter">
+            {!settings.shield.enabled
+              ? "Off"
+              : !loadedRuleCount
+                ? "No rules"
+                : (shield?.stats.totalBlocked ?? 0)}
+          </span>
+        </button>
+        <button
+          className="icon-button reader-button"
+          aria-label="Reader mode"
+          disabled={!active || !isWebUrl(active.url) || readerLoading}
+          onClick={() => void openReader()}
+        >
+          <Icon name="book" />
+        </button>
+        <button
+          className="icon-button"
+          aria-label="Toggle AI sidebar"
+          aria-expanded={aiOpen}
+          onClick={() => setAiOpen((current) => !current)}
+        >
+          <Icon name="sparkles" />
+        </button>
+        <button
+          className="icon-button"
+          aria-label="Browser commands"
+          onClick={() => setCommands(true)}
+        >
+          <Icon name="settings" />
+        </button>
+      </nav>
+      {settings.showBookmarksBar && bookmarks.length > 0 && (
+        <div className="bookmark-bar" aria-label="Bookmarks bar">
+          {bookmarks.map((bookmark) => (
+            <button
+              key={bookmark.id}
+              title={`${bookmark.folder ? bookmark.folder + " · " : ""}${bookmark.url}`}
+              onClick={() => navigate(bookmark.url)}
+            >
+              <Icon name="star" size={12} />
+              <span>{bookmark.title}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {!api && (
+        <div className="preview-banner">
+          Desktop shell preview · Chromium tabs and profile data require the
+          Electron application. This is not a web browser engine.
+        </div>
+      )}
+      {errors.length > 0 && (
+        <div className="error-banner" role="alert">
+          <Icon name="alert" size={15} />
+          <span>{errors[0]}</span>
+          <button aria-label="Dismiss error" onClick={dismissError}>
+            <Icon name="x" size={15} />
+          </button>
+        </div>
+      )}
+      <div className="browser-content">
+        <div ref={pageRef} id="page-viewport" className="page-viewport">
+          {!ready ? (
+            <div className="empty-state">Opening your space…</div>
+          ) : readerLoading ? (
+            <div className="empty-state">Reading page text locally…</div>
+          ) : reader !== null ? (
+            <ReaderModeView
+              title={active?.title ?? "Reader"}
+              url={active?.url ?? ""}
+              content={reader}
+              onClose={() => setReader(null)}
+            />
+          ) : active?.error ? (
+            <div className="navigation-error">
+              <Icon name="globe" size={36} />
+              <h1>This page couldn’t open</h1>
+              <p>{active.error}</p>
+              <small>{active.url}</small>
+              <button
+                className="primary-button"
+                onClick={() =>
+                  activeId && void api?.reloadTab(activeId).catch(report)
+                }
+              >
+                Try again
+              </button>
+            </div>
+          ) : internalPage === "settings" ? (
+            <SettingsView />
+          ) : internalPage === "themestudio" ? (
+            <ThemeStudioView />
+          ) : internalPage === "extensions" ? (
+            <ExtensionsView />
+          ) : ["history", "bookmarks", "downloads"].includes(internalPage) ? (
+            <LibraryView
+              page={internalPage as "history" | "bookmarks" | "downloads"}
+              navigate={navigate}
+            />
+          ) : internalPage === "newtab" || !active ? (
+            <section className="new-tab internal-page">
+              <div className="new-tab-monogram">
+                <Icon name="moon" size={30} />
               </div>
-
-              <h2 className="text-xl font-medium tracking-wide text-[var(--lunar-text-muted)]">
-                Browse beyond.
-              </h2>
-
-              <form onSubmit={handleNavigate} className="w-full relative">
+              <span className="eyebrow">A little space to explore</span>
+              <time className="new-tab-clock">
+                {now.toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </time>
+              <p className="new-tab-date">
+                {now.toLocaleDateString(undefined, {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </p>
+              <h1>Make room for curiosity.</h1>
+              <form className="new-tab-search" onSubmit={submit}>
+                <Icon name="search" />
                 <input
-                  type="text"
-                  value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                  placeholder="Search the web or enter URL..."
-                  className="w-full h-12 pl-12 pr-4 bg-[var(--lunar-surface)] text-sm text-[var(--lunar-text)] placeholder-[var(--lunar-text-muted)] rounded-xl border border-[var(--lunar-border)] focus:border-[var(--lunar-primary)] focus:shadow-[0_0_20px_var(--lunar-glow)] focus:outline-none backdrop-blur-md transition"
+                  aria-label="Search the web"
+                  placeholder="Where would you like to go?"
+                  value={url}
+                  onChange={(event) => setUrl(event.target.value)}
+                  disabled={!api}
                 />
-                <svg className="absolute left-4 top-3.5 w-5 h-5 text-[var(--lunar-text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <button
+                  className="icon-button"
+                  aria-label="Search"
+                  disabled={!api}
+                >
+                  <Icon name="forward" />
+                </button>
               </form>
-
-              <div className="w-full grid grid-cols-3 gap-4 p-4 rounded-xl bg-[var(--lunar-surface)] border border-[var(--lunar-border)] backdrop-blur-md">
-                <div className="flex flex-col items-center">
-                  <span className="text-xl font-bold font-mono text-[var(--lunar-primary)]">{shieldStats.totalBlocked}</span>
-                  <span className="text-[11px] text-[var(--lunar-text-muted)]">Trackers & Ads Blocked</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <span className="text-xl font-bold font-mono text-[var(--lunar-secondary)]">100%</span>
-                  <span className="text-[11px] text-[var(--lunar-text-muted)]">Local Privacy</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <span className="text-xl font-bold font-mono text-[var(--lunar-accent)]">Active</span>
-                  <span className="text-[11px] text-[var(--lunar-text-muted)]">Lunar Shield</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4 pt-2">
+              <div className="new-tab-sites">
                 {[
-                  { name: 'GitHub', url: 'https://github.com', icon: '💻' },
-                  { name: 'YouTube', url: 'https://youtube.com', icon: '📺' },
-                  { name: 'Wikipedia', url: 'https://wikipedia.org', icon: '📚' },
-                  { name: 'Reddit', url: 'https://reddit.com', icon: '💬' },
+                  { title: "GitHub", url: "https://github.com", icon: "globe" },
+                  {
+                    title: "Wikipedia",
+                    url: "https://wikipedia.org",
+                    icon: "book",
+                  },
+                  {
+                    title: "Bookmarks",
+                    url: "lunar://bookmarks",
+                    icon: "star",
+                  },
+                  { title: "History", url: "lunar://history", icon: "history" },
                 ].map((site) => (
                   <button
-                    key={site.name}
-                    onClick={() => window.lunarAPI?.navigateTab(activeTabId, site.url)}
-                    className="flex flex-col items-center gap-2 p-3 w-20 rounded-xl bg-[var(--lunar-surface)] border border-[var(--lunar-border)] hover:border-[var(--lunar-primary)] transition group"
+                    key={site.title}
+                    onClick={() => navigate(site.url)}
+                    disabled={!api}
                   >
-                    <span className="text-2xl group-hover:scale-110 transition">{site.icon}</span>
-                    <span className="text-xs text-[var(--lunar-text-muted)]">{site.name}</span>
+                    <Icon
+                      name={site.icon as "globe" | "book" | "star" | "history"}
+                      size={22}
+                    />
+                    <span>{site.title}</span>
                   </button>
                 ))}
               </div>
-            </div>
-          </div>
-        ) : activePage === 'settings' ? (
-          <SettingsView />
-        ) : activePage === 'extensions' ? (
-          <ExtensionsView />
-        ) : activePage === 'history' ? (
-          <div className="flex-1 bg-[var(--lunar-bg)] p-8 overflow-y-auto">
-            <div className="max-w-4xl mx-auto space-y-6">
-              <div className="flex items-center justify-between border-b border-[var(--lunar-border)] pb-4">
-                <h1 className="text-xl font-bold flex items-center gap-2">
-                  <span>📜</span> Browsing History
-                </h1>
-                <button
-                  onClick={() => {
-                    window.lunarAPI?.clearHistory();
-                    setHistory([]);
-                  }}
-                  className="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-medium hover:bg-red-500/30 transition"
-                >
-                  Clear All History
-                </button>
+              <p className="new-tab-status">
+                <Icon name="shield" size={14} />
+                {!api
+                  ? "Your Coquette desktop, made for the web."
+                  : settings.shield.enabled
+                    ? loadedRuleCount
+                      ? `Lunar Shield · ${shield?.stats.totalBlocked ?? 0} requests blocked this session`
+                      : "Lunar Shield · no filter rules available"
+                    : "Lunar Shield is paused"}
+              </p>
+            </section>
+          ) : (
+            !showNative && (
+              <div className="empty-state native-covered">
+                <Icon name="globe" size={30} />
+                <p>The webpage is hidden while desktop controls are open.</p>
+                <small>
+                  Close the utility or activate Lunar Browser in the dock to
+                  return.
+                </small>
               </div>
-              {history.length === 0 ? (
-                <p className="text-xs text-[var(--lunar-text-muted)]">No browsing history yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {history.map((h) => (
-                    <div
-                      key={h.id}
-                      onClick={() => window.lunarAPI?.navigateTab(activeTabId, h.url)}
-                      className="p-3 rounded-lg bg-[var(--lunar-surface)] border border-[var(--lunar-border)] hover:border-[var(--lunar-primary)] flex items-center justify-between cursor-pointer transition"
-                    >
-                      <div>
-                        <h4 className="text-xs font-bold">{h.title || h.url}</h4>
-                        <p className="text-[11px] text-[var(--lunar-primary)]">{h.url}</p>
-                      </div>
-                      <span className="text-[10px] text-[var(--lunar-text-muted)] font-mono">
-                        {new Date(h.visitTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        ) : activePage === 'bookmarks' ? (
-          <div className="flex-1 bg-[var(--lunar-bg)] p-8 overflow-y-auto">
-            <div className="max-w-4xl mx-auto space-y-6">
-              <h1 className="text-xl font-bold flex items-center gap-2 border-b border-[var(--lunar-border)] pb-4">
-                <span>🔖</span> Bookmarks Manager
-              </h1>
-              <div className="grid grid-cols-2 gap-3">
-                {bookmarks.map((bm) => (
-                  <div
-                    key={bm.id}
-                    onClick={() => window.lunarAPI?.navigateTab(activeTabId, bm.url)}
-                    className="p-4 rounded-xl bg-[var(--lunar-surface)] border border-[var(--lunar-border)] hover:border-[var(--lunar-primary)] flex items-center justify-between cursor-pointer transition"
-                  >
-                    <div>
-                      <h4 className="text-xs font-bold">{bm.title}</h4>
-                      <p className="text-[11px] text-[var(--lunar-text-muted)]">{bm.url}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        ) : activePage === 'downloads' ? (
-          <div className="flex-1 bg-[var(--lunar-bg)] p-8 overflow-y-auto">
-            <div className="max-w-4xl mx-auto space-y-6">
-              <h1 className="text-xl font-bold flex items-center gap-2 border-b border-[var(--lunar-border)] pb-4">
-                <span>📥</span> Download Manager
-              </h1>
-              {downloads.length === 0 ? (
-                <p className="text-xs text-[var(--lunar-text-muted)]">No recent downloads.</p>
-              ) : (
-                <div className="space-y-3">
-                  {downloads.map((dl) => (
-                    <div key={dl.id} className="p-4 rounded-xl bg-[var(--lunar-surface)] border border-[var(--lunar-border)] space-y-2">
-                      <div className="flex items-center justify-between text-xs font-bold">
-                        <span>{dl.filename}</span>
-                        <span className="text-[var(--lunar-primary)] uppercase font-mono text-[10px]">{dl.status}</span>
-                      </div>
-                      <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
-                        <div
-                          className="h-full bg-[var(--lunar-primary)] transition-all"
-                          style={{
-                            width: `${dl.totalBytes > 0 ? (dl.receivedBytes / dl.totalBytes) * 100 : 0}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        ) : null}
-
-        {showAISidebar && (
-          <AISidebar onClose={() => setShowAISidebar(false)} activeTabId={activeTabId} />
+            )
+          )}
+        </div>
+        {aiOpen && (
+          <AISidebar
+            onClose={() => setAiOpen(false)}
+            activeTabId={activeId ?? undefined}
+            url={active?.url ?? ""}
+          />
         )}
       </div>
-
+      {shieldOpen && (
+        <Modal title="Lunar Shield" onClose={() => setShieldOpen(false)}>
+          <ShieldPanel url={active?.url ?? ""} />
+        </Modal>
+      )}
+      {tabMenu && (
+        <Modal title="Tab actions" onClose={() => setTabMenu(null)}>
+          <div className="tab-actions">
+            {[
+              {
+                label: "Duplicate tab",
+                action: () => api?.duplicateTab(tabMenu),
+              },
+              {
+                label: "Pin / unpin tab",
+                action: () => api?.togglePinTab(tabMenu),
+              },
+              {
+                label: "Mute / unmute tab",
+                action: () => api?.toggleMuteTab(tabMenu),
+              },
+              { label: "Close tab", action: () => api?.closeTab(tabMenu) },
+            ].map((action) => (
+              <button
+                key={action.label}
+                onClick={() =>
+                  void action
+                    .action()
+                    ?.then(() => setTabMenu(null))
+                    .catch(report)
+                }
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
+        </Modal>
+      )}
+      {editingBookmark && active && (
+        <BookmarkEditor
+          bookmark={currentBookmark}
+          title={active.title}
+          url={active.url}
+          onClose={() => setEditingBookmark(false)}
+        />
+      )}
       <CommandPalette
-        isOpen={showCommandPalette}
-        onClose={() => setShowCommandPalette(false)}
-        onNavigatePage={(page) => window.lunarAPI?.navigateTab(activeTabId, page)}
-        onNewTab={handleNewTab}
-        onCloseTab={handleCloseTab}
+        isOpen={commands}
+        onClose={() => setCommands(false)}
+        onNavigatePage={navigate}
+        onNewTab={() => void api?.createTab().catch(report)}
+        onCloseTab={() =>
+          activeId && void api?.closeTab(activeId).catch(report)
+        }
       />
-
       <OnboardingModal
-        isOpen={showOnboarding}
-        onComplete={() => {
-          setShowOnboarding(false);
-          window.lunarAPI?.updateSettings({ isFirstRun: false });
+        isOpen={onboarding}
+        onComplete={async (searchEngine) => {
+          await updateSettings({ isFirstRun: false, searchEngine });
         }}
       />
-    </div>
+    </main>
   );
-};
-
-export default App;
+}

@@ -3,3 +3,7 @@ dist
 dist-electron
 release
 *.log
+.artifacts/
+playwright-report/
+test-results/
+.cache-audit.json
