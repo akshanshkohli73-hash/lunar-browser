@@ -11,9 +11,11 @@ const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const modulePath = path.join(repo, "node_modules/electron");
 const marker = path.join(modulePath, "path.txt");
 if (!fs.existsSync(marker)) {
-  console.error(
-    "BLOCKED: Electron runtime binary is not installed. Install dependencies with binary-download access, then rerun npm run test:native on a desktop (or Xvfb). No native tests were executed.",
-  );
+  const message =
+    "BLOCKED: Electron runtime binary is not installed. Run npm run install:electron with binary-download access, then rerun npm run test:native on a desktop (or Xvfb). No native tests were executed.";
+  console.error(message);
+  if (process.env.GITHUB_ACTIONS === "true")
+    console.error(`::error file=scripts/native-smoke.mjs::${message}`);
   process.exitCode = 2;
 } else {
   const executable = path.join(

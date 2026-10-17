@@ -10,10 +10,11 @@ Use **Node 22.13+ within 22.x, or Node 24 LTS** (the checked development-tooling
 
 ```powershell
 npm ci
+npm run install:electron
 npm start
 ```
 
-`npm start` builds the renderer, main process and sandboxed preload, validates packaging inputs, then launches Electron. Installing Electron requires access to GitHub's release-asset download hosts and a working system certificate chain. Do not disable TLS verification to work around an installation failure.
+`npm run install:electron` explicitly downloads and verifies the pinned Electron runtime. Electron 44 does not download it during `npm ci`; the normal Electron CLI can also download it on first launch, but the native-test preflight intentionally does not. `npm start` builds the renderer, main process and sandboxed preload, validates packaging inputs, then launches Electron. Installing Electron requires access to GitHub's release-asset download hosts and a working system certificate chain. Do not disable TLS verification to work around an installation failure.
 
 Development:
 
@@ -95,6 +96,7 @@ npm run verify:package  # config schema, compiled entry points, icon and install
 npm audit --omit=dev
 npx playwright install chromium
 npm run test:ui         # real Chromium renderer preview; not native Electron
+npm run install:electron # install the locked native runtime with normal TLS/checksums
 npm run test:native     # real Electron integration; fails explicitly if runtime unavailable
 npm run dist:win        # Windows x64 NSIS installer, under release/
 ```
@@ -103,4 +105,4 @@ The Windows workflow requires native tests to pass **before** packaging/upload. 
 
 At the last local gate (2026-10-17): 76 automated tests passed across 14 files, all compiler/lint/build checks passed, and the headless Chromium renderer smoke passed. Native testing was blocked by an unavailable Electron runtime; Windows packaging reached binary acquisition and failed certificate validation. The full dependency audit still reports 15 development-tooling advisories (10 moderate, 5 high), notably Tailwind 3's transitive glob/parser tooling; `npm audit --omit=dev` reported zero. This is not a claim that compilation or an audit alone proves the browser secure.
 
-**CI access is now working (2026-10-17):** the assigned branch and workflow were pushed successfully. In [the first real CI run](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39013794819), the renderer/regression/Chromium job passed. Windows dependency installation succeeded, but its regression check exposed a POSIX-only expected path in the download test; native testing and packaging were correctly skipped. The fixture now uses the operating system’s native paths and the full local gate passes; Windows verification is being rerun. No Windows installer or native success is claimed yet.
+**CI access is now working (2026-10-17):** the branch and workflow are published. The renderer/regression/Chromium job passed. Windows’ POSIX-only download-test fixture was corrected, and [run 39014043940](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39014043940) passed all strict Windows checks. Native preflight then found no runtime because Electron 44 uses a separate binary installer; CI now explicitly runs `npm run install:electron` with normal TLS/checksum verification. A native-and-installer rerun remains required; no installer or native pass is claimed yet.

@@ -141,3 +141,9 @@ The next assigned-branch push succeeded, publishing `eea5ada960d842811a4fad6d19d
 - Full CI log downloads redirected to an inaccessible Actions-hosted log server in this sandbox. Native failures now also emit escaped GitHub check annotations and remain hard failures, so the actual diagnostic is available through the GitHub API without bypassing network or application security restrictions.
 
 A follow-up CI run is required for these corrections. The earlier permission error is historical/resolved; native Windows and installer results remain pending, not successful.
+
+## Windows strict checks pass; explicit runtime setup — 2026-10-17
+
+[Run 39014043940](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39014043940), revision `29b4e67`, passed all strict Windows checks and the Linux regression/Chromium job. Native preflight stopped immediately and packaging was skipped. Inspection of the actual locked Electron 44.7.2 package confirmed it has **no postinstall script**: its `install-electron` binary is separate, and `index.js` otherwise downloads opportunistically on first require. The native preflight deliberately avoids that side effect, so `npm ci` was insufficient runtime setup.
+
+Added `npm run install:electron`, invoking the locked package’s real installer, and an explicit Windows CI runtime-install step before the checks/native test. TLS and bundled checksum verification remain enabled. The preflight message now names the exact setup command. The CI runtime/native steps preserve the child exit status and also expose startup/preflight errors in check annotations, including failures outside the native test’s assertion catch. Native tests and installer packaging remain unverified until the next run actually executes them; a dependency-install or compiler pass is not promoted to native success.

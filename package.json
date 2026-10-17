@@ -17,7 +17,8 @@
     "dist:win": "npm run build && electron-builder --win nsis --x64",
     "test:native": "node scripts/native-smoke.mjs",
     "test:ui": "node scripts/ui-smoke.mjs",
-    "verify:package": "node scripts/verify-package.mjs"
+    "verify:package": "node scripts/verify-package.mjs",
+    "install:electron": "node node_modules/electron/install.js"
   },
   "dependencies": {
     "framer-motion": "^11.11.8",

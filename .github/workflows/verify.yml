@@ -42,9 +42,29 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
+      - name: Install pinned Electron runtime
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          npm run install:electron 2>&1 | Tee-Object -Variable runtimeOutput
+          $code = $LASTEXITCODE
+          if ($code -ne 0) {
+            $detail = (($runtimeOutput | Select-Object -Last 60) -join "`n").Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+            Write-Output "::error title=Electron runtime installation failed::$detail"
+          }
+          exit $code
       - run: npm run check
       - name: Real Electron integration (no fake bridge or iframe)
-        run: npm run test:native
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          npm run test:native 2>&1 | Tee-Object -Variable nativeOutput
+          $code = $LASTEXITCODE
+          if ($code -ne 0) {
+            $detail = (($nativeOutput | Select-Object -Last 60) -join "`n").Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+            Write-Output "::error title=Native Electron integration failed::$detail"
+          }
+          exit $code
       - name: Package unsigned Windows x64 installer
         run: npm run dist:win
       - name: Hash produced installers

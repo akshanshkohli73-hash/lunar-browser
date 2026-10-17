@@ -4,11 +4,11 @@ The project is not release-complete just because `npm run build` passes. Record 
 
 ## CI execution status (2026-10-17)
 
-The workflow-write permission blocker is resolved and the assigned branch is published. [Run 39013794819](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39013794819) passed the Linux regression/build/Chromium-renderer job. Windows dependency installation succeeded, but a hard-coded POSIX path in a download-test assertion failed the regression check; native integration and packaging were skipped. The fixture has been made portable and the full local 76-test gate passes. The Windows rerun is still required; there is not yet a native pass or installer artifact. Manual release gates remain unchecked.
+Workflow access is restored. [Run 39014043940](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39014043940) passed strict checks on Windows and the Linux regression/build/Chromium job. Native preflight stopped because Electron 44 does not install its runtime during `npm ci`; CI now has an explicit `npm run install:electron` step. A follow-up native/installer run is required. No installer or native pass is claimed; manual release gates remain unchecked.
 
 ## Automated gates
 
-- [ ] `npm ci` completes with normal TLS verification, including the real Electron runtime.
+- [ ] `npm ci` and `npm run install:electron` complete with normal TLS/checksum verification, including the real Electron runtime.
 - [ ] `npm run check` passes on Windows.
 - [ ] `npm run test:native` executes and passes (an explicit BLOCKED result is not a pass).
 - [ ] Native test: different pages in independent tabs; back/forward/reload/stop; shell/page API isolation; geometry and utility occlusion; controlled Shield request blocked when enabled and received by the loopback server when disabled; actual unpacked content script/unload; downloaded bytes; malformed/unauthorized IPC rejection; restart and repeated tab cleanup.
