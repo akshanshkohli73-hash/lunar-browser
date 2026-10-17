@@ -1,5 +1,11 @@
 # Lunar Browser 2.0 — implementation evidence
 
+## Current verified status — 2026-10-17
+
+[Run 39015958621](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39015958621), revision `ec33afbd3d9b287ebaabf45dd235d909f3e21f8c`, passed **80 tests / 15 files** on Linux and Windows, real Chromium renderer smoke, the expanded real Windows Electron integration suite, and NSIS build/hash/upload. [Unsigned installer artifact](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39015958621/artifacts/12094054123) is available; Windows Authenticode reports `NotSigned`. See the exact installer hash and metadata in [Windows release evidence](WINDOWS-RELEASE.md).
+
+The sections below are a chronological implementation/diagnosis log: earlier local runtime and permission failures are historical, not the current Windows CI outcome. Manual installed-artifact/upgrade/uninstall, DPI/device behavior, real third-party extension compatibility, OS-vault/live-provider AI and signing remain unverified. No signed or public release is claimed.
+
 ## Stage 0 — baseline (2026-10-15)
 
 Repository: clean at `abff085` on the assigned `arena/8b00471f-lunar-browser` branch before this work. The Arena branch is fixed; no branch switch or destructive reset was performed. Earlier edits in this session are retained and are being completed rather than discarded.
@@ -110,7 +116,7 @@ Build tool updates: Vite 8, Electron 44.7.2 and electron-builder 26.15.3 are pin
 
 Initial UI-smoke launch failed on missing NSS/NSPR libraries; the isolated headless test browser's packaged runtime libraries were supplied, and the same UI smoke then passed without disabling application web security. Initial packaging-icon conversion tools were unavailable; ICO generation instead used the source SVG, Chromium PNG rasterization and a verified ICO directory. The original tests were kept and expanded, not removed to obtain passes.
 
-**Outstanding release gates:** real native Electron/Windows results, installer GUI/install/uninstall, display scaling, device permissions, supported third-party extensions, live AI configuration and signing. CI execution results are recorded separately when available; adding a workflow is not proof that it ran.
+**Gates at this historical local stage:** real native Electron/Windows results and packaging were pending here and subsequently passed in the current-status run above. Manual installer GUI/install/uninstall, display scaling, device permissions, supported third-party extensions, live AI configuration and signing remain outstanding. Adding a workflow is not proof that it ran.
 
 ## Follow-up verification — 2026-10-17
 
@@ -179,3 +185,11 @@ NSIS packaging then failed; no installer, hash or upload success is inferred fro
 The remaining native coverage audit reproduced another actual defect: navigating an inactive tab set a shared focus-on-attach flag and refocused the active native page, stealing chrome/address focus. The new behavioral regression failed first (one unexpected focus call), then passed after restricting focus requests to navigation of the active tab. Latest local full check passes **80 tests / 15 files**, all strict/compiler/lint/build/package-input gates, and a zero production audit.
 
 Expanded, not removed, native assertions: an unfinished real HTTP image response verifies actual Chromium loading and stop while another tab stays independent; chrome focus is retained through background navigation; a real native input event exercises Ctrl+L; repeated close cycles must return `webContents.getAllWebContents()` to exactly one shell plus the expected tab count. Fixture responses are explicitly disposed on teardown. These new native checks and installer upload require their next actual Windows run before being marked verified.
+
+## Complete Windows native and installer CI pass — 2026-10-17
+
+[Run 39015958621](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39015958621), revision `ec33afbd3d9b287ebaabf45dd235d909f3e21f8c`, completed successfully. Linux job `117347994844` passed all strict tests, production audit and real Chromium renderer smoke. Windows job `117347994996` installed actual Electron 44.7.2, passed all **80 tests / 15 files**, passed every expanded genuine native assertion, packaged the x64 NSIS installer with publication disabled, computed its SHA-256, checked Authenticode and uploaded the installer/hash artifact.
+
+The preceding expanded-suite run `39015826402` correctly failed on a harness-only API naming error: it called `stopLoading` instead of the exposed typed bridge's `stopTab`. Corrected the caller, not the API or assertion; reran the full local gate and actual Windows suite. Actual Chromium loading/stop, preserved background chrome focus, native Ctrl+L and exact webContents cleanup now all pass alongside the prior isolation/navigation/bounds/Shield/extension/download/restart assertions.
+
+Artifact `12094054123` (`lunar-windows-x64-unsigned`) is a 113,024,572-byte ZIP according to the inspected GitHub metadata, containing installer and `SHA256.txt`. The installer SHA-256 from the successful Windows notice is `979358E6F8656EE0F1979F56CD4343995EBB51AA978A78CB3A24080C5B5B78A4`; actual Authenticode status is **`NotSigned`**. No installer bytes were downloaded/rehashed locally and no manual installation was performed. The artifact is retained until `2027-01-15`, not published as a release. Remaining manual/platform/OS-vault/live-AI/signing gates stay unchecked in the release checklist.

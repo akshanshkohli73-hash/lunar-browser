@@ -4,16 +4,28 @@ The project is not release-complete just because `npm run build` passes. Record 
 
 ## CI execution status (2026-10-17)
 
-The existing native suite and 79-test strict gate passed in [run 39015539936](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39015539936). Electron-builder produced an installer but then tried implicit publishing and failed because no publishing token was supplied. Build commands now explicitly use `--publish never`; no token is requested. A new focus regression passes locally (80 tests total), and native stop/loading, background focus, native Ctrl+L and explicit webContents count assertions are being rerun. Installer/hash/artifact verification and all manual workflows remain pending.
+[Run 39015958621](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39015958621), source revision `ec33afbd3d9b287ebaabf45dd235d909f3e21f8c`, is fully green: Linux regression/Chromium checks, Windows runtime installation, strict 80-test gate, expanded real native suite, NSIS packaging, hashing and artifact upload. The prior implicit-publishing failure is fixed with explicit `--publish never`; no token or release publishing is required.
+
+### Verified internal artifact
+
+- [Download `lunar-windows-x64-unsigned`](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39015958621/artifacts/12094054123); artifact ID `12094054123`, 113,024,572-byte ZIP according to GitHub metadata.
+- Contains `Lunar-Browser-2.0.0-win-x64.exe` and `SHA256.txt`.
+- **Installer** SHA-256, computed on Windows: `979358E6F8656EE0F1979F56CD4343995EBB51AA978A78CB3A24080C5B5B78A4`.
+- ZIP digest reported separately by GitHub: `9674050b127e9d10e90c5070ca34368d9f7a6ef385e1b6ef4f720b4514b14b48`. Do not compare the ZIP with the installer hash.
+- Actual Windows Authenticode result: **`NotSigned`**. This is an unsigned internal candidate, not a signed public release. Builder log wording about signing is not accepted as evidence of a signature.
+- Artifact expiry currently `2027-01-15`; this is retained CI output, not a permanent release asset. No GitHub release was published.
+- Metadata, job-step success and Windows hash/signature notices were inspected via the GitHub API. The installer was **not** downloaded or manually installed in this Linux workspace.
+
+Verify the extracted installer with `(Get-FileHash .\Lunar-Browser-2.0.0-win-x64.exe -Algorithm SHA256).Hash`. A matching hash verifies these bytes, not that all release workflows below are complete. Unsigned builds can trigger Windows reputation/security warnings; do not disable OS or antivirus protection.
 
 ## Automated gates
 
-- [x] `npm ci` and `npm run install:electron` complete with normal TLS/checksum verification, including the real Electron runtime (run 39014362217).
-- [x] `npm run check` passes on Windows: 79 tests / 15 files (run 39015206061).
-- [x] `npm run test:native` actually executes and passes on Windows (run 39015206061; not a BLOCKED result).
-- [ ] Native test: different pages in independent tabs; back/forward/reload/stop; shell/page API isolation; geometry and utility occlusion; controlled Shield request blocked when enabled and received by the loopback server when disabled; actual unpacked content script/unload; downloaded bytes; malformed/unauthorized IPC rejection; restart and repeated tab cleanup.
-- [ ] `npm run dist:win` creates the NSIS x64 installer and SHA-256 is recorded.
-- [ ] CI logs/artifacts are reviewed. Unsigned CI installers are internal validation builds, not signed public releases.
+- [x] `npm ci` and `npm run install:electron` complete with normal TLS/checksum verification, including the real Electron runtime (run 39015958621).
+- [x] `npm run check` passes on Windows: 80 tests / 15 files (run 39015958621).
+- [x] `npm run test:native` actually executes and passes on Windows (run 39015958621; not a BLOCKED result).
+- [x] Native test: different pages in independent tabs; back/forward/reload/stop; shell/page API isolation; geometry and utility occlusion; controlled Shield request blocked when enabled and received by the loopback server when disabled; actual unpacked content script/unload; downloaded bytes; malformed/unauthorized IPC rejection; restart and exact repeated-close webContents cleanup; background focus retention and native Ctrl+L.
+- [x] `npm run dist:win` creates the NSIS x64 installer and SHA-256 is recorded (run 39015958621).
+- [x] CI job steps, check notices and artifact metadata reviewed; retained artifact contains installer/hash. Full redirected log/ZIP downloads are unavailable from this sandbox; no local byte rehash is claimed. Unsigned CI installers are internal validation builds, not signed public releases.
 
 ## Manual native workflows (not replaced by CI compilation)
 

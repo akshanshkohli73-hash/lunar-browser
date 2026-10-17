@@ -2,7 +2,7 @@
 
 An Electron desktop browser inside the original Coquette desktop: one browser workspace, native Chromium `WebContentsView` tabs, pastel utilities, and a persistent local profile. Webpages are **not** iframes or screenshots.
 
-**Release status:** the automated native Windows integration suite passes; NSIS packaging/upload verification is still in progress and manual release gates remain. See [implementation evidence](docs/IMPLEMENTATION.md) and the [Windows release checklist](docs/WINDOWS-RELEASE.md). Do not treat a successful web build as proof of Windows runtime correctness.
+**Release status:** [Windows CI](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39015958621) passes the real-Electron integration suite and produces a hashed [unsigned Windows x64 test installer](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39015958621/artifacts/12094054123). Manual installed-app, display/device, live-AI and signing gates remain; this is not a signed public release. See [implementation evidence](docs/IMPLEMENTATION.md) and the [Windows release checklist](docs/WINDOWS-RELEASE.md). Do not treat a successful web build as proof of Windows runtime correctness.
 
 ## Run the desktop application
 
@@ -103,6 +103,20 @@ npm run dist:win        # Windows x64 NSIS installer, under release/; never publ
 
 The Windows workflow requires native tests to pass **before** packaging/upload. CI artifacts are unsigned internal builds, not signed public releases. Authenticode signing, installer GUI testing and the manual [release checklist](docs/WINDOWS-RELEASE.md) remain required before distribution.
 
-At the last local gate (2026-10-17): 80 automated tests passed across 15 files, all compiler/lint/build checks passed, and the headless Chromium renderer smoke passed. Native testing was blocked by an unavailable Electron runtime; Windows packaging reached binary acquisition and failed certificate validation. The full dependency audit still reports 15 development-tooling advisories (10 moderate, 5 high), notably Tailwind 3's transitive glob/parser tooling; `npm audit --omit=dev` reported zero. This is not a claim that compilation or an audit alone proves the browser secure.
+At the last local gate (2026-10-17): 80 automated tests passed across 15 files, all compiler/lint/build checks passed, and the headless Chromium renderer smoke passed. Local native testing remains blocked by an unavailable Electron runtime, and local cross-packaging failed certificate validation. These local limitations do not replace the actual successful Windows CI results below. The full dependency audit still reports 15 development-tooling advisories (10 moderate, 5 high), notably Tailwind 3's transitive glob/parser tooling; `npm audit --omit=dev` reported zero. This is not a claim that compilation or an audit alone proves the browser secure.
 
-**Native Windows CI evidence (2026-10-17):** [run 39015539936](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39015539936) passed the existing real-Electron suite and all 79 Windows regression tests. Its builder produced an NSIS installer but then failed during implicit publishing; packaging commands now explicitly use `--publish never`, with this policy checked by `verify:package`. A new background-tab focus regression (80 local tests total) and expanded native loading/stop, native Ctrl+L, focus-retention and exact webContents-cleanup checks are being rerun before artifact upload. No successful artifact upload or signed-release status is claimed yet.
+**Verified Windows CI (2026-10-17):** [run 39015958621](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39015958621), revision `ec33afbd3d9b287ebaabf45dd235d909f3e21f8c`, passed all **80 tests / 15 files** and the expanded real-Electron suite: independent navigation/loading/stop, background focus, native Ctrl+L, isolation/sender/schema rejection, measured resize/maximize/restore/overlay bounds, actual Shield on/off interception, real MV3 injection/unload, downloaded bytes, restart persistence and exact repeated-close webContents count. Linux strict checks, production audit and real Chromium renderer smoke also passed. NSIS packaging, installer hashing and artifact upload all succeeded. Both packaging commands explicitly use `--publish never`, enforced by packaging-input validation; no GitHub release was published.
+
+Download the [**`lunar-windows-x64-unsigned` artifact**](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39015958621/artifacts/12094054123) (GitHub access may be required), extract it, and verify the **installer**, not the ZIP, with PowerShell:
+
+```powershell
+(Get-FileHash .\Lunar-Browser-2.0.0-win-x64.exe -Algorithm SHA256).Hash
+```
+
+Expected installer SHA-256:
+
+```text
+979358E6F8656EE0F1979F56CD4343995EBB51AA978A78CB3A24080C5B5B78A4
+```
+
+The artifact contains the installer and `SHA256.txt`. Windows Authenticode reported **`NotSigned`**; this is for internal testing, not a signed/public release. The installer has not been manually installed or exercised in this workspace. Follow the [remaining release checklist](docs/WINDOWS-RELEASE.md) before distribution.
