@@ -168,6 +168,15 @@ describe("native-view ownership and tab state (behavioral harness, not a GUI)", 
     expect(win.children.size).toBe(0);
     expect(view(a.id).visible).toBe(false);
   });
+  it("does not steal chrome focus by refocusing the active native view during background navigation", () => {
+    const background = manager.createTab("https://example.com");
+    const active = manager.createTab("https://example.org");
+    show(active.id);
+    const focus = vi.spyOn(view(active.id).webContents, "focus");
+    manager.navigate(background.id, "https://example.com/next");
+    expect(manager.snapshot().activeTabId).toBe(active.id);
+    expect(focus).not.toHaveBeenCalled();
+  });
   it("handles independent navigation, history direction, stop, internal pages and reload", () => {
     const a = manager.createTab("https://example.com"),
       b = manager.createTab("https://example.org");

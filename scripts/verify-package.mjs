@@ -7,6 +7,12 @@ const {
 } = require("app-builder-lib/out/util/config/config.js");
 const { DebugLogger } = require("builder-util");
 const manifest = JSON.parse(fs.readFileSync("package.json", "utf8"));
+// Building an internal artifact must never implicitly publish a GitHub release.
+for (const name of ["dist", "dist:win"])
+  assert.ok(
+    manifest.scripts[name].endsWith("--publish never"),
+    `${name} must explicitly disable publishing`,
+  );
 await validateConfiguration(manifest.build, new DebugLogger(false));
 for (const file of [
   manifest.main,
@@ -32,5 +38,5 @@ for (let index = 0; index < 7; index++) {
 assert.equal(manifest.build.nsis.oneClick, false);
 assert.equal(manifest.build.nsis.deleteAppDataOnUninstall, false);
 console.log(
-  "PASS: electron-builder configuration schema, compiled entry points, 7-size Windows icon, and non-destructive NSIS profile policy. No installer or Windows runtime is implied.",
+  "PASS: electron-builder configuration schema, compiled entry points, 7-size Windows icon, non-destructive NSIS profile policy, and explicit no-publish build policy. No installer or Windows runtime is implied.",
 );

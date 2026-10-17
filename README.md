@@ -2,7 +2,7 @@
 
 An Electron desktop browser inside the original Coquette desktop: one browser workspace, native Chromium `WebContentsView` tabs, pastel utilities, and a persistent local profile. Webpages are **not** iframes or screenshots.
 
-**Release status:** the automated native Windows integration suite passes; NSIS installer packaging is still being diagnosed and manual release gates remain. See [implementation evidence](docs/IMPLEMENTATION.md) and the [Windows release checklist](docs/WINDOWS-RELEASE.md). Do not treat a successful web build as proof of Windows runtime correctness.
+**Release status:** the automated native Windows integration suite passes; NSIS packaging/upload verification is still in progress and manual release gates remain. See [implementation evidence](docs/IMPLEMENTATION.md) and the [Windows release checklist](docs/WINDOWS-RELEASE.md). Do not treat a successful web build as proof of Windows runtime correctness.
 
 ## Run the desktop application
 
@@ -98,11 +98,11 @@ npx playwright install chromium
 npm run test:ui         # real Chromium renderer preview; not native Electron
 npm run install:electron # install the locked native runtime with normal TLS/checksums
 npm run test:native     # real Electron integration; fails explicitly if runtime unavailable
-npm run dist:win        # Windows x64 NSIS installer, under release/
+npm run dist:win        # Windows x64 NSIS installer, under release/; never publishes
 ```
 
 The Windows workflow requires native tests to pass **before** packaging/upload. CI artifacts are unsigned internal builds, not signed public releases. Authenticode signing, installer GUI testing and the manual [release checklist](docs/WINDOWS-RELEASE.md) remain required before distribution.
 
-At the last local gate (2026-10-17): 79 automated tests passed across 15 files, all compiler/lint/build checks passed, and the headless Chromium renderer smoke passed. Native testing was blocked by an unavailable Electron runtime; Windows packaging reached binary acquisition and failed certificate validation. The full dependency audit still reports 15 development-tooling advisories (10 moderate, 5 high), notably Tailwind 3's transitive glob/parser tooling; `npm audit --omit=dev` reported zero. This is not a claim that compilation or an audit alone proves the browser secure.
+At the last local gate (2026-10-17): 80 automated tests passed across 15 files, all compiler/lint/build checks passed, and the headless Chromium renderer smoke passed. Native testing was blocked by an unavailable Electron runtime; Windows packaging reached binary acquisition and failed certificate validation. The full dependency audit still reports 15 development-tooling advisories (10 moderate, 5 high), notably Tailwind 3's transitive glob/parser tooling; `npm audit --omit=dev` reported zero. This is not a claim that compilation or an audit alone proves the browser secure.
 
-**Native Windows CI passes (2026-10-17):** [run 39015206061](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39015206061), revision `e1687ad`, passed all 79 Windows regression tests and the complete current real-Electron suite: native page isolation/navigation, measured resize/maximize/restore/overlay bounds, actual Shield on/off interception, MV3 content-script load/unload, downloaded file bytes, sender/schema rejection, restart persistence and repeated tab closure. Linux regression/Chromium UI also passed. NSIS packaging then failed; diagnostics are being collected and no installer is claimed yet. This does not replace manual installed-app/DPI/device/live-AI/signing gates.
+**Native Windows CI evidence (2026-10-17):** [run 39015539936](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39015539936) passed the existing real-Electron suite and all 79 Windows regression tests. Its builder produced an NSIS installer but then failed during implicit publishing; packaging commands now explicitly use `--publish never`, with this policy checked by `verify:package`. A new background-tab focus regression (80 local tests total) and expanded native loading/stop, native Ctrl+L, focus-retention and exact webContents-cleanup checks are being rerun before artifact upload. No successful artifact upload or signed-release status is claimed yet.

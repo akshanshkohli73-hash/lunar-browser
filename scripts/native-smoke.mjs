@@ -24,12 +24,29 @@ if (!fs.existsSync(marker)) {
     fs.readFileSync(marker, "utf8").trim(),
   );
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "lunar-native-"));
-  let adHits = 0;
+  let adHits = 0,
+    slowImages = 0;
+  const pendingResponses = new Set();
   const server = http.createServer((request, response) => {
     response.setHeader("Cache-Control", "no-store");
     if (request.url?.startsWith("/ad-pixel")) {
       adHits++;
       response.end("pixel");
+      return;
+    }
+    if (request.url === "/pending-image") {
+      slowImages++;
+      response.writeHead(200, { "Content-Type": "image/png" });
+      response.flushHeaders();
+      pendingResponses.add(response);
+      response.once("close", () => pendingResponses.delete(response));
+      return;
+    }
+    if (request.url === "/slow") {
+      response.writeHead(200, { "Content-Type": "text/html" });
+      response.end(
+        '<!doctype html><title>Controlled slow load</title><h1>Stop fixture</h1><img src="/pending-image" alt="pending">',
+      );
       return;
     }
     if (request.url === "/download") {
@@ -163,6 +180,61 @@ if (!fs.existsSync(marker)) {
     await waitTab(a.id, `${origin}/first`);
     await api("goForward", a.id);
     await waitTab(a.id, `${origin}/next`);
+    // An unfinished real image request keeps Chromium loading; no fake timer/state.
+    await electron.evaluate(({ BrowserWindow }) => {
+      const window = BrowserWindow.getAllWindows()[0];
+      window.focus();
+      window.webContents.focus();
+    });
+    await ui.getByRole("textbox", { name: "Address and search" }).focus();
+    const chromeFocused = () =>
+      electron.evaluate(({ BrowserWindow }) =>
+        BrowserWindow.getAllWindows()[0].webContents.isFocused(),
+      );
+    await expect.poll(chromeFocused).toBe(true);
+    await api("navigateTab", a.id, `${origin}/slow`);
+    await expect.poll(() => slowImages).toBe(1);
+    const nativeLoading = () =>
+      electron.evaluate(
+        ({ webContents }, url) =>
+          webContents
+            .getAllWebContents()
+            .find((contents) => contents.getURL() === url)
+            ?.isLoading(),
+        `${origin}/slow`,
+      );
+    await expect.poll(nativeLoading).toBe(true);
+    await expect.poll(chromeFocused).toBe(true);
+    assert.equal(
+      (await api("bootstrap")).tabs.tabs.find((tab) => tab.id === b.id)
+        .isLoading,
+      false,
+    );
+    await api("stopLoading", a.id);
+    await expect.poll(nativeLoading).toBe(false);
+    await waitTab(a.id, `${origin}/slow`);
+    await api("navigateTab", a.id, `${origin}/next`);
+    await waitTab(a.id, `${origin}/next`);
+    await expect.poll(chromeFocused).toBe(true);
+    // Exercise the native before-input-event path, not a DOM-only shortcut.
+    await electron.evaluate(({ webContents }, id) => {
+      const contents = webContents.fromId(id);
+      contents.focus();
+      contents.sendInputEvent({
+        type: "keyDown",
+        keyCode: "L",
+        modifiers: ["control"],
+      });
+      contents.sendInputEvent({
+        type: "keyUp",
+        keyCode: "L",
+        modifiers: ["control"],
+      });
+    }, nativeContentId);
+    await expect(
+      ui.getByRole("textbox", { name: "Address and search" }),
+    ).toBeFocused();
+    await expect.poll(chromeFocused).toBe(true);
     assert.equal(
       (await api("bootstrap")).tabs.tabs.find((tab) => tab.id === b.id).url,
       `${origin}/second`,
@@ -385,6 +457,15 @@ if (!fs.existsSync(marker)) {
       await api("closeTab", tab.id);
     }
     const saved = await api("bootstrap");
+    await expect
+      .poll(
+        () =>
+          electron.evaluate(
+            ({ webContents }) => webContents.getAllWebContents().length,
+          ),
+        { timeout: 10000 },
+      )
+      .toBe(saved.tabs.tabs.length + 1);
     await electron.close();
     electron = undefined;
     await launch();
@@ -400,7 +481,7 @@ if (!fs.existsSync(marker)) {
       saved.tabs.tabs.map((tab) => tab.url),
     );
     console.log(
-      `PASS: Native Electron on ${process.platform}: isolated Chromium tabs, navigation, geometry/resize, overlay detachment, real Shield request interception on/off, real extension content script/unload, download bytes, sender rejection, malformed IPC, restart/persistence and repeated close cleanup.`,
+      `PASS: Native Electron on ${process.platform}: isolated Chromium tabs, navigation/loading/stop, background focus and native Ctrl+L, geometry/resize, overlay detachment, real Shield request interception on/off, real extension content script/unload, download bytes, sender rejection, malformed IPC, restart/persistence and explicit repeated-close webContents cleanup.`,
     );
     console.log(
       "Manual Windows DPI, maximize/restore, device permissions, installer and signed-release checks are still required.",
@@ -420,6 +501,7 @@ if (!fs.existsSync(marker)) {
     throw error;
   } finally {
     await electron?.close();
+    for (const response of pendingResponses) response.destroy();
     await new Promise((resolve) => server.close(resolve));
     fs.rmSync(profile, { recursive: true, force: true });
   }

@@ -4,7 +4,7 @@ The project is not release-complete just because `npm run build` passes. Record 
 
 ## CI execution status (2026-10-17)
 
-[Run 39015206061](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39015206061), revision `e1687ad`, passed all 79 Windows regression tests, the complete current native Electron suite, and the Linux regression/Chromium-renderer job. NSIS packaging then failed, so no installer/hash/upload success is claimed. The native suite covers actual tab pages/navigation, isolated APIs, measured geometry/resize/maximize/restore/occlusion, real Shield on/off, real unpacked content-script load/unload, downloaded bytes, unauthorized/malformed IPC, restart/persistence and repeated closure. Additional native loading/stop/focus/leak-count coverage and the manual workflows below remain explicit release gates.
+The existing native suite and 79-test strict gate passed in [run 39015539936](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/39015539936). Electron-builder produced an installer but then tried implicit publishing and failed because no publishing token was supplied. Build commands now explicitly use `--publish never`; no token is requested. A new focus regression passes locally (80 tests total), and native stop/loading, background focus, native Ctrl+L and explicit webContents count assertions are being rerun. Installer/hash/artifact verification and all manual workflows remain pending.
 
 ## Automated gates
 

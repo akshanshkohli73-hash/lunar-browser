@@ -306,7 +306,7 @@ export class TabManager {
     tab.info.error = undefined;
     tab.info.crashed = false;
     if (isInternalUrl(url)) tab.info.title = this.internalTitle(url);
-    this.focusOnAttach = !isInternalUrl(url);
+    if (id === this.activeTabId) this.focusOnAttach = !isInternalUrl(url);
     this.load(tab, url);
   }
 
