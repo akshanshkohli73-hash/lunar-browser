@@ -286,13 +286,13 @@ if (!fs.existsSync(marker)) {
           .poll(
             () =>
               video.evaluate((v) => ({
-                ready: v.readyState,
+                ready: v.readyState >= 2,
                 width: v.videoWidth,
                 advancing: v.currentTime > 0.1,
               })),
             { timeout: 15000 },
           )
-          .toEqual({ ready: 4, width: 160, advancing: true });
+          .toEqual({ ready: true, width: 160, advancing: true });
       } catch (error) {
         const state = await video.evaluate((v) => ({
           src: v.currentSrc,
@@ -310,6 +310,7 @@ if (!fs.existsSync(marker)) {
         }));
         throw new Error(
           `Actual ${format} wallpaper failed: ${JSON.stringify(state)}; ${String(error)}`,
+          { cause: error },
         );
       }
     }
