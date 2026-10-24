@@ -1,279 +1,398 @@
-import React, { useState } from 'react';
-import { ThemeTokens, BUILTIN_THEMES, applyThemeTokens } from '../styles/themes';
-
-interface ThemeStudioViewProps {
-  currentTheme: ThemeTokens;
-  onThemeChange: (theme: ThemeTokens) => void;
-}
-
-export const ThemeStudioView: React.FC<ThemeStudioViewProps> = ({ currentTheme, onThemeChange }) => {
-  const [activeTab, setActiveTab] = useState<'preset' | 'colors' | 'appearance' | 'layout'>('preset');
-  const [theme, setTheme] = useState<ThemeTokens>(currentTheme);
-  const [importError, setImportError] = useState<string>('');
-
-  const updateColor = (key: keyof ThemeTokens['colors'], value: string) => {
-    const updated: ThemeTokens = {
-      ...theme,
-      colors: {
-        ...theme.colors,
-        [key]: value,
-      },
-    };
-    setTheme(updated);
-    applyThemeTokens(updated);
-    onThemeChange(updated);
-  };
-
-  const updateAppearance = (key: keyof ThemeTokens['appearance'], value: number) => {
-    const updated: ThemeTokens = {
-      ...theme,
-      appearance: {
-        ...theme.appearance,
-        [key]: value,
-      },
-    };
-    setTheme(updated);
-    applyThemeTokens(updated);
-    onThemeChange(updated);
-  };
-
-  const handleSelectPreset = (presetId: string) => {
-    const selected = BUILTIN_THEMES[presetId];
-    if (selected) {
-      setTheme(selected);
-      applyThemeTokens(selected);
-      onThemeChange(selected);
+import { useEffect, useRef, useState, useId, lazy, Suspense } from "react";
+import { BUILTIN_THEMES } from "../styles/themes";
+import { themeSchema, type ThemeTokens } from "../../shared/schemas";
+import { useBrowser } from "../state/BrowserContext";
+const DashboardStudio = lazy(() => import("./dashboard/DashboardStudio"));
+import { Icon } from "./ui/Icon";
+export default function ThemeStudioView() {
+  const { api, ready, settings, updateSettings, previewTheme } = useBrowser();
+  const owner = useId();
+  const [livePreview, setLivePreview] = useState(true);
+  const current =
+    settings.customTheme ??
+    BUILTIN_THEMES[settings.themeId] ??
+    BUILTIN_THEMES["lunar-coquette"];
+  const [draft, setDraft] = useState<ThemeTokens>(current),
+    [tab, setTab] = useState<"presets" | "customize" | "dashboard">("presets"),
+    [draftMotion, setDraftMotion] = useState(settings.reducedMotion),
+    [busy, setBusy] = useState(false),
+    [message, setMessage] = useState(""),
+    [error, setError] = useState("");
+  const file = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    setDraft(current);
+    setDraftMotion(settings.reducedMotion);
+  }, [current, settings.reducedMotion]);
+  useEffect(() => {
+    if (ready && livePreview && tab === "customize")
+      previewTheme(owner, draft, draftMotion);
+    else previewTheme(owner, null);
+    return () => previewTheme(owner, null);
+  }, [ready, livePreview, tab, owner, draft, draftMotion, previewTheme]);
+  const save = async (theme: ThemeTokens, preset = false) => {
+    setError("");
+    setMessage("");
+    setBusy(true);
+    try {
+      const safe = themeSchema.parse(theme);
+      await updateSettings({
+        themeId: safe.id,
+        customTheme: preset ? undefined : safe,
+        reducedMotion: preset ? settings.reducedMotion : draftMotion,
+      });
+      previewTheme(owner, null);
+      setMessage("Appearance saved to this profile.");
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : "Could not save appearance.",
+      );
+    } finally {
+      setBusy(false);
     }
   };
-
-  const handleExportTheme = () => {
-    const jsonStr = JSON.stringify(theme, null, 2);
-    const blob = new Blob([jsonStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${theme.id || 'custom-theme'}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleImportTheme = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setImportError('');
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const parsed = JSON.parse(event.target?.result as string);
-        if (!parsed || typeof parsed !== 'object' || !parsed.colors || !parsed.name) {
-          throw new Error('Invalid theme format.');
-        }
-
-        // Strictly configuration-only validation
-        const safeImport: ThemeTokens = {
-          id: `custom-${Date.now()}`,
-          name: String(parsed.name).substring(0, 30),
-          description: String(parsed.description || 'Imported custom theme').substring(0, 100),
-          category: 'dark',
-          colors: {
-            bg: String(parsed.colors.bg || '#050508'),
-            bgSecondary: String(parsed.colors.bgSecondary || '#0d0f17'),
-            surface: String(parsed.colors.surface || '#131622'),
-            surfaceHover: String(parsed.colors.surfaceHover || '#1c2032'),
-            border: String(parsed.colors.border || 'rgba(255,255,255,0.1)'),
-            text: String(parsed.colors.text || '#ffffff'),
-            textMuted: String(parsed.colors.textMuted || '#888888'),
-            primary: String(parsed.colors.primary || '#00f0ff'),
-            secondary: String(parsed.colors.secondary || '#8a2be2'),
-            accent: String(parsed.colors.accent || '#a3e635'),
-            glow: String(parsed.colors.glow || 'rgba(0,240,255,0.2)'),
-          },
-          appearance: {
-            glassIntensity: Number(parsed.appearance?.glassIntensity) || 0.6,
-            blur: Number(parsed.appearance?.blur) || 16,
-            glowIntensity: Number(parsed.appearance?.glowIntensity) || 0.5,
-            shadowStrength: Number(parsed.appearance?.shadowStrength) || 0.3,
-            borderBrightness: Number(parsed.appearance?.borderBrightness) || 0.2,
-            cornerRadius: Number(parsed.appearance?.cornerRadius) || 8,
-          },
-          typography: {
-            fontFamily: String(parsed.typography?.fontFamily || 'Inter, sans-serif'),
-            fontSize: 'comfortable',
-            uiScale: 1.0,
-          },
-          layout: {
-            density: 'comfortable',
-            tabStyle: 'rounded',
-          },
-        };
-
-        setTheme(safeImport);
-        applyThemeTokens(safeImport);
-        onThemeChange(safeImport);
-      } catch (err: any) {
-        setImportError(err.message || 'Error parsing theme file.');
-      }
-    };
-    reader.readAsText(file);
-  };
-
+  const colorKeys = [
+    "primary",
+    "secondary",
+    "bg",
+    "surface",
+    "text",
+    "textMuted",
+  ] as const;
   return (
-    <div className="flex-1 p-8 overflow-y-auto bg-[var(--lunar-bg)] text-[var(--lunar-text)]">
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center justify-between border-b border-[var(--lunar-border)] pb-4">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <svg className="w-4 h-4 text-pink-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.92 0 1.7-.71 1.7-1.63 0-.42-.16-.8-.43-1.1-.28-.31-.44-.71-.44-1.16 0-.92.75-1.67 1.67-1.67H17.5c2.5 0 4.5-2 4.5-4.5 0-5.5-4.5-10-10-10z"/></svg> Theme Studio
-            </h1>
-            <p className="text-xs text-[var(--lunar-text-muted)] mt-1">
-              Customize visual tokens, glass effects, borders, and color palettes in real-time.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="px-3 py-1.5 rounded-lg bg-[var(--lunar-surface)] border border-[var(--lunar-border)] text-xs cursor-pointer hover:bg-[var(--lunar-surface-hover)] transition">
-              <span>📥 Import</span>
-              <input type="file" accept=".json" onChange={handleImportTheme} className="hidden" />
-            </label>
-            <button
-              onClick={handleExportTheme}
-              className="px-3 py-1.5 rounded-lg bg-[var(--lunar-primary)] text-black font-semibold text-xs transition hover:opacity-90"
-            >
-              📤 Export Theme
-            </button>
-          </div>
+    <section className="internal-page theme-studio">
+      <header className="page-heading">
+        <div>
+          <span className="eyebrow">Make yourself at home</span>
+          <h1>Theme Studio</h1>
+          <p>
+            One palette for your desktop, browser chrome, and utilities.
+            Websites keep their own colors.
+          </p>
         </div>
-
-        {importError && (
-          <div className="p-3 bg-red-500/20 border border-red-500/30 text-red-400 text-xs rounded-lg">
-            {importError}
-          </div>
-        )}
-
-        {/* SUB TABS */}
-        <div className="flex gap-2 border-b border-[var(--lunar-border)] pb-2">
-          {(['preset', 'colors', 'appearance', 'layout'] as const).map((tab) => (
+        <Icon name="palette" size={32} />
+      </header>
+      <div className="section-tabs">
+        <button
+          aria-pressed={tab === "presets"}
+          onClick={() => setTab("presets")}
+        >
+          Curated palettes
+        </button>
+        <button
+          aria-pressed={tab === "customize"}
+          onClick={() => setTab("customize")}
+        >
+          Your own touch
+        </button>
+        <button
+          aria-pressed={tab === "dashboard"}
+          onClick={() => setTab("dashboard")}
+        >
+          Dashboard & dock
+        </button>
+      </div>
+      {!api && (
+        <p className="muted-text">
+          This preview displays the desktop. Saving customization requires the
+          Electron application.
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="error-text">
+          {error}
+        </p>
+      )}
+      {message && (
+        <p role="status" aria-label="Theme save status" className="status-text">
+          {message}
+        </p>
+      )}
+      {tab === "dashboard" ? (
+        <Suspense fallback={<p role="status">Opening dashboard controls…</p>}>
+          <DashboardStudio />
+        </Suspense>
+      ) : tab === "presets" ? (
+        <div className="theme-presets">
+          {Object.values(BUILTIN_THEMES).map((preset) => (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-1.5 text-xs rounded-lg capitalize transition ${
-                activeTab === tab
-                  ? 'bg-[var(--lunar-primary)] text-black font-bold'
-                  : 'bg-[var(--lunar-surface)] border border-[var(--lunar-border)] text-[var(--lunar-text-muted)] hover:text-[var(--lunar-text)]'
-              }`}
+              className={`theme-preset ${settings.themeId === preset.id && !settings.customTheme ? "is-selected" : ""}`}
+              key={preset.id}
+              disabled={!api || !ready || busy}
+              aria-pressed={
+                settings.themeId === preset.id && !settings.customTheme
+              }
+              onClick={() => void save(preset, true)}
             >
-              {tab === 'preset' ? 'Built-in Presets' : tab}
+              <div
+                className="theme-preview"
+                style={{
+                  background: preset.colors.bg,
+                  borderColor: preset.colors.border,
+                }}
+              >
+                <div style={{ background: preset.colors.bgSecondary }}>
+                  <i style={{ background: preset.colors.secondary }} />
+                  <span style={{ background: preset.colors.surface }} />
+                </div>
+                <Icon
+                  name="moon"
+                  style={{ color: preset.colors.primary }}
+                  size={26}
+                />
+                <div
+                  className="theme-preview-dock"
+                  style={{ background: preset.colors.surface }}
+                >
+                  <i style={{ background: preset.colors.primary }} />
+                  <i style={{ background: preset.colors.secondary }} />
+                  <i style={{ background: preset.colors.accent }} />
+                </div>
+              </div>
+              <strong>{preset.name}</strong>
+              <small>{preset.description}</small>
             </button>
           ))}
         </div>
-
-        {/* PRESETS TAB */}
-        {activeTab === 'preset' && (
-          <div className="grid grid-cols-3 gap-4">
-            {Object.values(BUILTIN_THEMES).map((preset) => (
-              <div
-                key={preset.id}
-                onClick={() => handleSelectPreset(preset.id)}
-                className={`p-4 rounded-xl border cursor-pointer transition flex flex-col justify-between ${
-                  theme.id === preset.id
-                    ? 'border-[var(--lunar-primary)] shadow-[0_0_15px_var(--lunar-glow)] bg-[var(--lunar-surface)]'
-                    : 'border-[var(--lunar-border)] bg-[var(--lunar-surface)]/50 hover:bg-[var(--lunar-surface-hover)]'
-                }`}
-              >
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-sm font-bold">{preset.name}</h3>
-                    <span className="text-[10px] px-2 py-0.5 rounded uppercase font-mono bg-white/10">
-                      {preset.category}
-                    </span>
-                  </div>
-                  <p className="text-xs text-[var(--lunar-text-muted)] mb-4">{preset.description}</p>
-                </div>
-
-                <div className="flex items-center gap-1.5 pt-2 border-t border-[var(--lunar-border)]">
-                  <div className="w-5 h-5 rounded-full border border-black/20" style={{ backgroundColor: preset.colors.bg }} />
-                  <div className="w-5 h-5 rounded-full border border-black/20" style={{ backgroundColor: preset.colors.surface }} />
-                  <div className="w-5 h-5 rounded-full border border-black/20" style={{ backgroundColor: preset.colors.primary }} />
-                  <div className="w-5 h-5 rounded-full border border-black/20" style={{ backgroundColor: preset.colors.secondary }} />
-                  <div className="w-5 h-5 rounded-full border border-black/20" style={{ backgroundColor: preset.colors.accent }} />
-                </div>
-              </div>
+      ) : (
+        <div className="theme-controls">
+          <label className="setting-toggle">
+            Live preview across the desktop
+            <input
+              type="checkbox"
+              checked={livePreview}
+              onChange={(event) => setLivePreview(event.target.checked)}
+            />
+          </label>
+          <h2>Colors</h2>
+          <div className="theme-color-controls">
+            {colorKeys.map((key) => (
+              <label key={key}>
+                <span>
+                  {
+                    {
+                      primary: "Accent",
+                      secondary: "Desktop blush",
+                      bg: "Background",
+                      surface: "Surface",
+                      text: "Text",
+                      textMuted: "Secondary text",
+                    }[key]
+                  }
+                </span>
+                <input
+                  aria-label={`${key} color`}
+                  type="color"
+                  value={
+                    draft.colors[key].startsWith("#")
+                      ? draft.colors[key]
+                      : "#777777"
+                  }
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      colors: { ...current.colors, [key]: event.target.value },
+                    }))
+                  }
+                />
+                <code>{draft.colors[key]}</code>
+              </label>
             ))}
           </div>
-        )}
-
-        {/* COLORS TAB */}
-        {activeTab === 'colors' && (
-          <div className="grid grid-cols-2 gap-4 bg-[var(--lunar-surface)] p-6 rounded-xl border border-[var(--lunar-border)]">
-            {(Object.keys(theme.colors) as Array<keyof ThemeTokens['colors']>).map((colKey) => (
-              <div key={colKey} className="flex items-center justify-between p-2 border-b border-[var(--lunar-border)]">
-                <span className="text-xs capitalize font-medium">{colKey}</span>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={theme.colors[colKey].startsWith('#') ? theme.colors[colKey] : '#00f0ff'}
-                    onChange={(e) => updateColor(colKey, e.target.value)}
-                    className="w-8 h-8 rounded border-none cursor-pointer bg-transparent"
-                  />
-                  <input
-                    type="text"
-                    value={theme.colors[colKey]}
-                    onChange={(e) => updateColor(colKey, e.target.value)}
-                    className="w-28 text-xs font-mono p-1 bg-[var(--lunar-bg)] border border-[var(--lunar-border)] rounded text-center"
-                  />
-                </div>
-              </div>
-            ))}
+          <h2>Finishing touches</h2>
+          <label className="setting-toggle">
+            Reduced motion
+            <input
+              type="checkbox"
+              checked={draftMotion}
+              disabled={!api || !ready || busy}
+              onChange={(event) => setDraftMotion(event.target.checked)}
+            />
+          </label>
+          <label className="setting-row">
+            Corner radius{" "}
+            <input
+              type="range"
+              aria-label="Corner radius"
+              min={0}
+              max={24}
+              value={draft.appearance.cornerRadius}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  appearance: {
+                    ...current.appearance,
+                    cornerRadius: Number(event.target.value),
+                  },
+                }))
+              }
+            />
+            <output>{draft.appearance.cornerRadius}px</output>
+          </label>
+          <label className="setting-row">
+            Glass blur{" "}
+            <input
+              type="range"
+              aria-label="Glass blur"
+              min={0}
+              max={32}
+              value={draft.appearance.blur}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  appearance: {
+                    ...current.appearance,
+                    blur: Number(event.target.value),
+                  },
+                }))
+              }
+            />
+            <output>{draft.appearance.blur}px</output>
+          </label>
+          <label className="setting-row">
+            Browser text scale{" "}
+            <input
+              type="range"
+              aria-label="Text scale"
+              min={0.8}
+              max={1.2}
+              step={0.05}
+              value={draft.typography.uiScale}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  typography: {
+                    ...current.typography,
+                    uiScale: Number(event.target.value),
+                  },
+                }))
+              }
+            />
+            <output>{Math.round(draft.typography.uiScale * 100)}%</output>
+          </label>
+          <label className="setting-row">
+            Toolbar spacing
+            <select
+              value={draft.layout.density}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  layout: {
+                    ...current.layout,
+                    density: event.target
+                      .value as ThemeTokens["layout"]["density"],
+                  },
+                }))
+              }
+            >
+              <option value="compact">Compact</option>
+              <option value="comfortable">Comfortable</option>
+              <option value="spacious">Spacious</option>
+            </select>
+          </label>
+          <label className="setting-row">
+            Tab shape
+            <select
+              value={draft.layout.tabStyle}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  layout: {
+                    ...current.layout,
+                    tabStyle: event.target
+                      .value as ThemeTokens["layout"]["tabStyle"],
+                  },
+                }))
+              }
+            >
+              <option value="minimal">Minimal</option>
+              <option value="rounded">Rounded</option>
+              <option value="pill">Pill</option>
+            </select>
+          </label>
+          <div className="button-row">
+            <button
+              className="primary-button"
+              disabled={busy || !api || !ready}
+              onClick={() =>
+                void save({
+                  ...draft,
+                  id: "custom-coquette",
+                  name: "My Lunar",
+                  description: "Your custom desktop palette.",
+                })
+              }
+            >
+              {busy ? "Saving…" : "Apply customization"}
+            </button>
+            <button
+              disabled={busy}
+              onClick={() => {
+                setDraft(current);
+                setDraftMotion(settings.reducedMotion);
+                previewTheme(owner, null);
+                setLivePreview(false);
+              }}
+            >
+              Cancel appearance preview
+            </button>
+            <button
+              disabled={busy}
+              onClick={() => {
+                setDraft(current);
+                setDraftMotion(settings.reducedMotion);
+              }}
+            >
+              Reset draft
+            </button>
           </div>
-        )}
-
-        {/* APPEARANCE TAB */}
-        {activeTab === 'appearance' && (
-          <div className="space-y-4 bg-[var(--lunar-surface)] p-6 rounded-xl border border-[var(--lunar-border)]">
-            <div className="space-y-1">
-              <div className="flex justify-between text-xs">
-                <span>Corner Radius ({theme.appearance.cornerRadius}px)</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="24"
-                value={theme.appearance.cornerRadius}
-                onChange={(e) => updateAppearance('cornerRadius', Number(e.target.value))}
-                className="w-full accent-[var(--lunar-primary)]"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex justify-between text-xs">
-                <span>Blur Intensity ({theme.appearance.blur}px)</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="32"
-                value={theme.appearance.blur}
-                onChange={(e) => updateAppearance('blur', Number(e.target.value))}
-                className="w-full accent-[var(--lunar-primary)]"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* LAYOUT TAB */}
-        {activeTab === 'layout' && (
-          <div className="bg-[var(--lunar-surface)] p-6 rounded-xl border border-[var(--lunar-border)] space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--lunar-text-muted)]">
-              Density & Tab Styles
-            </h3>
-            <p className="text-xs text-[var(--lunar-text-muted)]">
-              Adjust spacing density and tab rounding preferences.
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+      <footer className="theme-import-export">
+        <button onClick={() => file.current?.click()}>Import palette</button>
+        <input
+          hidden
+          ref={file}
+          type="file"
+          accept="application/json,.json"
+          aria-label="Import palette file"
+          onChange={async (event) => {
+            const selected = event.target.files?.[0];
+            if (!selected) return;
+            setError("");
+            setMessage("");
+            try {
+              if (selected.size > 64 * 1024)
+                throw new Error("Theme files must be smaller than 64 KB.");
+              const safe = themeSchema.parse(JSON.parse(await selected.text()));
+              setDraft(safe);
+              setTab("customize");
+              setMessage(
+                "Palette imported into the draft. Apply customization to save it.",
+              );
+            } catch {
+              setError(
+                "This file is not a valid Lunar palette. Colors and numeric ranges must use the supported format.",
+              );
+            }
+            event.target.value = "";
+          }}
+        />
+        <button
+          onClick={() => {
+            const blob = new Blob([JSON.stringify(current, null, 2)], {
+                type: "application/json",
+              }),
+              url = URL.createObjectURL(blob),
+              link = document.createElement("a");
+            link.href = url;
+            link.download = "lunar-theme.json";
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+          }}
+        >
+          Export current palette
+        </button>
+      </footer>
+    </section>
   );
-};
-
-export default ThemeStudioView;
+}

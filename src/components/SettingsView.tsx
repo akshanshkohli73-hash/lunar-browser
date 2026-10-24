@@ -1,225 +1,579 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserSettings } from '../../electron/types';
-
-export const SettingsView: React.FC = () => {
-  const [activeSection, setActiveSection] = useState<string>('general');
-  const [settings, setSettings] = useState<BrowserSettings>({
-    searchEngine: 'google',
-    theme: 'Lunar Dark',
-    accentColor: '#00f0ff',
-    glowIntensity: 70,
-    animationIntensity: 100,
-    density: 'comfortable',
-    aiProvider: 'openrouter',
-    activeWorkspaceId: 'personal',
-    showBookmarksBar: true,
-    verticalTabs: false,
-    shield: {
-      enabled: true,
-      ads: true,
-      trackers: true,
-      popups: true,
-      telemetry: true,
-      social: true,
-      cryptomining: true,
-      annoyances: true,
-      autoplay: false,
-      fingerprintProtection: true,
-      allowlist: [],
-    },
-    readerModeOptions: {
-      font: 'sans-serif',
-      fontSize: 16,
-      theme: 'dark',
-    },
-  });
-
-  useEffect(() => {
-    if (window.lunarAPI) {
-      window.lunarAPI.getSettings().then((s: BrowserSettings) => {
-        if (s) setSettings(s);
-      });
-    }
-  }, []);
-
-  const handleUpdate = (partial: Partial<BrowserSettings>) => {
-    const updated = { ...settings, ...partial };
-    setSettings(updated);
-    if (window.lunarAPI) {
-      window.lunarAPI.updateSettings(partial);
-    }
-  };
-
-  const sections = [
-    { id: 'general', label: 'General', icon: '⚙️' },
-    { id: 'appearance', label: 'Appearance', icon: '🎨' },
-    { id: 'search', label: 'Search', icon: '🔍' },
-    { id: 'privacy', label: 'Privacy', icon: '🔒' },
-    { id: 'security', label: 'Security', icon: '🛡️' },
-    { id: 'shield', label: 'Lunar Shield', icon: '⚡' },
-    { id: 'ai', label: 'Lunar AI', icon: '✨' },
-    { id: 'extensions', label: 'Extensions', icon: '🧩' },
-    { id: 'downloads', label: 'Downloads', icon: '📥' },
-    { id: 'shortcuts', label: 'Shortcuts', icon: '⌨️' },
-    { id: 'workspaces', label: 'Workspaces', icon: '📁' },
-    { id: 'advanced', label: 'Advanced', icon: '🛠️' },
-    { id: 'about', label: 'About', icon: '☾' },
-  ];
-
-
-  const renderSectionIcon = (id: string) => {
-    switch (id) {
-      case "general": return <svg className="w-4 h-4 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
-      case "appearance": return <svg className="w-4 h-4 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>;
-      case "search": return <svg className="w-4 h-4 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>;
-      case "privacy": return <svg className="w-4 h-4 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>;
-      case "security": case "shield": return <svg className="w-4 h-4 opacity-80 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>;
-      case "ai": return <svg className="w-4 h-4 opacity-80 text-amber-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg>;
-      case "extensions": return <svg className="w-4 h-4 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>;
-      case "downloads": return <svg className="w-4 h-4 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>;
-      case "workspaces": return <svg className="w-4 h-4 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>;
-      default: return <svg className="w-4 h-4 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/></svg>;
-    }
-  };
-
+import { useEffect, useState } from "react";
+import { useBrowser } from "../state/BrowserContext";
+import type { BrowserSettings, AIStatus } from "../../electron/types";
+import { Icon, type IconName } from "./ui/Icon";
+import ThemeStudioView from "./AsyncThemeStudio";
+import ExtensionsView from "./ExtensionsView";
+const sections: { id: string; title: string; icon: IconName }[] = [
+  { id: "general", title: "Browsing", icon: "globe" },
+  { id: "appearance", title: "Appearance", icon: "palette" },
+  { id: "privacy", title: "Privacy & permissions", icon: "lock" },
+  { id: "shield", title: "Lunar Shield", icon: "shield" },
+  { id: "ai", title: "Optional AI", icon: "sparkles" },
+  { id: "extensions", title: "Extensions", icon: "puzzle" },
+  { id: "shortcuts", title: "Keyboard & about", icon: "settings" },
+];
+function Toggle({
+  label,
+  hint,
+  value,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  value: boolean;
+  disabled?: boolean;
+  onChange: (value: boolean) => void;
+}) {
   return (
-    <div className="flex-1 flex bg-[#050508] text-slate-100 h-full overflow-hidden">
-      {/* SIDEBAR */}
-      <div className="w-56 bg-[#0d0f17] border-r border-white/10 p-3 space-y-1 overflow-y-auto">
-        <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest px-3 py-2">
-          Settings
-        </h2>
-        {sections.map((sec) => (
+    <label className="setting-row">
+      <span>
+        <strong>{label}</strong>
+        <small>{hint}</small>
+      </span>
+      <input
+        type="checkbox"
+        checked={value}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+    </label>
+  );
+}
+export default function SettingsView() {
+  const { api, ready, settings, shield, updateSettings } = useBrowser();
+  const [section, setSection] = useState("general"),
+    [busy, setBusy] = useState(false),
+    [message, setMessage] = useState(""),
+    [error, setError] = useState("");
+  const [aiStatus, setAIStatus] = useState<AIStatus | null>(null),
+    [key, setKey] = useState(""),
+    [model, setModel] = useState(settings.aiModel),
+    [allowlist, setAllowlist] = useState(settings.shield.allowlist.join("\n"));
+  useEffect(() => {
+    setModel(settings.aiModel);
+  }, [settings.aiModel]);
+  useEffect(() => {
+    setAllowlist(settings.shield.allowlist.join("\n"));
+  }, [settings.shield.allowlist]);
+  useEffect(() => {
+    void api
+      ?.getAIStatus()
+      .then(setAIStatus)
+      .catch(() => setAIStatus(null));
+  }, [api, settings.aiProvider, settings.aiEnabled]);
+  const run = async (operation: () => Promise<unknown>, success: string) => {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      await operation();
+      setMessage(success);
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : "The operation failed.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+  const update = (patch: Partial<BrowserSettings>) =>
+    void run(() => updateSettings(patch), "Preferences saved.");
+  return (
+    <div className="settings-layout">
+      <nav className="settings-navigation" aria-label="Preferences sections">
+        <h2>Preferences</h2>
+        {sections.map((item) => (
           <button
-            key={sec.id}
-            onClick={() => setActiveSection(sec.id)}
-            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition ${
-              activeSection === sec.id
-                ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 shadow-[0_0_10px_rgba(0,240,255,0.1)]'
-                : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
-            }`}
+            key={item.id}
+            aria-current={section === item.id ? "page" : undefined}
+            onClick={() => {
+              setSection(item.id);
+              setMessage("");
+              setError("");
+            }}
           >
-            <span>{renderSectionIcon(sec.id)}</span>
-            <span>{sec.label}</span>
+            <Icon name={item.icon} size={17} />
+            <span>{item.title}</span>
           </button>
         ))}
-      </div>
-
-      {/* CONTENT PANEL */}
-      <div className="flex-1 p-8 overflow-y-auto max-w-3xl">
-        {activeSection === 'general' && (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-100">General Settings</h3>
-              <p className="text-xs text-slate-400 mt-1">Configure default startup behavior and density.</p>
-            </div>
-
-            <div className="space-y-4 pt-4 border-t border-white/10">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-medium text-slate-200">Show Bookmarks Bar</h4>
-                  <p className="text-[11px] text-slate-400">Display quick bookmark links under the address bar.</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={settings.showBookmarksBar}
-                  onChange={(e) => handleUpdate({ showBookmarksBar: e.target.checked })}
-                  className="w-4 h-4 rounded bg-white/10 border-white/20 text-cyan-500 focus:ring-0"
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-medium text-slate-200">Vertical Tabs</h4>
-                  <p className="text-[11px] text-slate-400">Display tabs on the left side panel instead of top bar.</p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={settings.verticalTabs}
-                  onChange={(e) => handleUpdate({ verticalTabs: e.target.checked })}
-                  className="w-4 h-4 rounded bg-white/10 border-white/20 text-cyan-500 focus:ring-0"
-                />
-              </div>
-            </div>
+      </nav>
+      <section className="settings-content internal-page">
+        <header className="page-heading">
+          <div>
+            <span className="eyebrow">Lunar, your way</span>
+            <h1>{sections.find((item) => item.id === section)?.title}</h1>
           </div>
+        </header>
+        {!api && (
+          <p className="muted-text">
+            Preferences are managed by the installed Electron application.
+            Desktop preview controls do not write a profile.
+          </p>
         )}
-
-        {activeSection === 'appearance' && (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-100">Appearance & Themes</h3>
-              <p className="text-xs text-slate-400 mt-1">Customize Lunar Browser's visual identity and themes.</p>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3 pt-4 border-t border-white/10">
-              {['Lunar Dark', 'Midnight', 'Moonlight', 'Void', 'Nebula', 'Terminal'].map((themeName) => (
-                <button
-                  key={themeName}
-                  onClick={() => handleUpdate({ theme: themeName as any })}
-                  className={`p-4 rounded-xl border text-left flex flex-col justify-between h-24 transition ${
-                    settings.theme === themeName
-                      ? 'bg-cyan-500/10 border-cyan-500 text-cyan-400 shadow-[0_0_15px_rgba(0,240,255,0.2)]'
-                      : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
-                  }`}
+        {error && (
+          <p className="error-text" role="alert">
+            {error}
+          </p>
+        )}
+        {message && (
+          <p className="status-text" role="status">
+            {message}
+          </p>
+        )}
+        <fieldset disabled={busy || !api || !ready}>
+          {section === "general" && (
+            <>
+              <h2>Everyday browsing</h2>
+              <label className="setting-row">
+                <span>
+                  <strong>Search engine</strong>
+                  <small>Used for address-bar queries, not valid URLs.</small>
+                </span>
+                <select
+                  value={settings.searchEngine}
+                  onChange={(event) =>
+                    update({
+                      searchEngine: event.target
+                        .value as BrowserSettings["searchEngine"],
+                    })
+                  }
                 >
-                  <span className="text-xs font-bold">{themeName}</span>
-                  <span className="text-[10px] text-slate-400">
-                    {settings.theme === themeName ? 'ACTIVE' : 'Select'}
-                  </span>
+                  <option value="google">Google</option>
+                  <option value="bing">Bing</option>
+                  <option value="duckduckgo">DuckDuckGo</option>
+                </select>
+              </label>
+              <Toggle
+                label="Bookmarks bar"
+                hint="Keep your saved pages within reach."
+                value={settings.showBookmarksBar}
+                onChange={(value) => update({ showBookmarksBar: value })}
+              />
+              <Toggle
+                label="Restore tabs on launch"
+                hint="Opt-in. Saves page URLs, order, pinned state and the active tab; not form contents."
+                value={settings.restoreSession}
+                onChange={(value) => update({ restoreSession: value })}
+              />
+              <Toggle
+                label="Reduced motion"
+                hint="Reduce desktop and browser animations. Your system preference is also respected."
+                value={settings.reducedMotion}
+                onChange={(value) => update({ reducedMotion: value })}
+              />
+              <p className="muted-text">
+                Downloads always ask where to save. Lunar does not execute
+                downloaded files.
+              </p>
+            </>
+          )}
+          {section === "privacy" && (
+            <>
+              <h2>Local profile</h2>
+              <Toggle
+                label="Remember browsing history"
+                hint="Records eligible HTTP(S) visits. Common authentication callback URLs and internal pages are excluded."
+                value={settings.recordHistory}
+                onChange={(value) => update({ recordHistory: value })}
+              />
+              <p className="muted-text">
+                Turning history off does not erase previous visits. Remove
+                visits in the History manager. Bookmarks, history and settings
+                are stored as validated JSON in the OS application-data folder.
+                Website storage is isolated from Lunar’s own interface.
+              </p>
+              <h2>Network privacy</h2>
+              <Toggle
+                label="Restrict third-party network cookies"
+                hint="Strip Cookie / Set-Cookie headers for third-party HTTP(S) and WebSocket handshakes. This is not full storage partitioning or JavaScript cookie isolation."
+                value={settings.shield.blockThirdPartyCookies}
+                onChange={(value) =>
+                  update({
+                    shield: {
+                      ...settings.shield,
+                      blockThirdPartyCookies: value,
+                    },
+                  })
+                }
+              />
+              <Toggle
+                label="Upgrade eligible public HTTP navigations to HTTPS"
+                hint="Opt-in; skips IPs, local/test hosts and custom ports. No silent insecure fallback if HTTPS fails. Pausing Shield for a site disables this policy there."
+                value={settings.shield.httpsUpgrades}
+                onChange={(value) =>
+                  update({
+                    shield: { ...settings.shield, httpsUpgrades: value },
+                  })
+                }
+              />
+              <h2>Site permissions</h2>
+              <p>
+                Camera, microphone, location, notifications and clipboard reads
+                require origin-specific consent from the active top-level page.
+                Grants last for this application session. Cross-origin frames
+                and unsupported permissions are denied.
+              </p>
+              <div className="button-row">
+                <button
+                  onClick={() =>
+                    void run(
+                      () => api!.resetPermissions(),
+                      "Session permission grants cleared. Reload pages to stop any existing capture.",
+                    )
+                  }
+                >
+                  Reset permission grants
                 </button>
+                <button
+                  onClick={() =>
+                    void run(
+                      () => api!.clearSiteData(),
+                      "Site data and cache cleared.",
+                    )
+                  }
+                >
+                  Clear site data & cache…
+                </button>
+              </div>
+              <p className="muted-text">
+                Screen capture, USB, Bluetooth, serial, arbitrary filesystem
+                access and unknown permission types are not supported. External
+                mail and telephone links require a separate confirmation.
+              </p>
+            </>
+          )}
+          {section === "shield" && (
+            <>
+              <h2>Network protection</h2>
+              <label className="block-label">
+                Blocking mode
+                <select
+                  value={settings.shield.mode}
+                  onChange={(event) =>
+                    update({
+                      shield: {
+                        ...settings.shield,
+                        mode:
+                          event.target.value === "strict"
+                            ? "strict"
+                            : "balanced",
+                      },
+                    })
+                  }
+                >
+                  <option value="balanced">
+                    Balanced · third-party matching resources
+                  </option>
+                  <option value="strict">
+                    Strict · include matching first-party resources
+                  </option>
+                </select>
+              </label>
+              <p className="muted-text">
+                Strict mode can break websites. Main-frame loads are never
+                cancelled by network lists; site allowlisting remains available.
+              </p>
+              <Toggle
+                label="Enable Lunar Shield"
+                hint="Uses Chromium request interception for matching network domains."
+                value={settings.shield.enabled}
+                onChange={(value) =>
+                  update({ shield: { ...settings.shield, enabled: value } })
+                }
+              />
+              {(
+                [
+                  "ads",
+                  "trackers",
+                  "telemetry",
+                  "social",
+                  "cryptomining",
+                  "popups",
+                ] as const
+              ).map((category) => (
+                <Toggle
+                  key={category}
+                  label={
+                    {
+                      ads: "Ad domains",
+                      trackers: "Tracker domains",
+                      telemetry: "Telemetry domains",
+                      social: "Social widgets",
+                      cryptomining: "Cryptomining domains",
+                      popups: "Script popups",
+                    }[category]
+                  }
+                  hint={
+                    category === "popups"
+                      ? "Deny script-created new windows. Normal new-tab links use controlled tabs."
+                      : "Conservative domain rules. May affect site features; use the site allowlist if needed."
+                  }
+                  value={settings.shield[category]}
+                  onChange={(value) =>
+                    update({
+                      shield: { ...settings.shield, [category]: value },
+                    })
+                  }
+                />
               ))}
-            </div>
-          </div>
-        )}
-
-        {activeSection === 'search' && (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-100">Search Engine</h3>
-              <p className="text-xs text-slate-400 mt-1">Choose your preferred default web search provider.</p>
-            </div>
-
-            <div className="space-y-2 pt-4 border-t border-white/10">
-              {['google', 'bing', 'duckduckgo'].map((se) => (
-                <label key={se} className="flex items-center gap-3 p-3 rounded-lg bg-white/5 border border-white/5 cursor-pointer hover:bg-white/10">
-                  <input
-                    type="radio"
-                    name="searchEngine"
-                    value={se}
-                    checked={settings.searchEngine === se}
-                    onChange={() => handleUpdate({ searchEngine: se })}
-                    className="text-cyan-500"
-                  />
-                  <span className="text-xs font-medium capitalize">{se}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeSection === 'about' && (
-          <div className="space-y-6">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-cyan-500 via-violet-500 to-lime-400 p-[2px]">
-                <div className="w-full h-full bg-[#050508] rounded-2xl flex items-center justify-center text-3xl font-bold text-cyan-400">
-                  ☾
+              <h2>Filter sources</h2>
+              {shield?.lists.map((list) => (
+                <div className="filter-list" key={list.id}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={settings.shield.filterLists.includes(
+                        list.id as "lunar-core" | "stevenblack" | "easyprivacy",
+                      )}
+                      onChange={(event) => {
+                        const id = list.id as
+                          "lunar-core" | "stevenblack" | "easyprivacy";
+                        update({
+                          shield: {
+                            ...settings.shield,
+                            filterLists: event.target.checked
+                              ? [...settings.shield.filterLists, id]
+                              : settings.shield.filterLists.filter(
+                                  (value) => value !== id,
+                                ),
+                          },
+                        });
+                      }}
+                    />
+                    {list.name}
+                  </label>
+                  <small>
+                    {list.ruleCount.toLocaleString()} rules ·{" "}
+                    {list.updatedAt
+                      ? new Date(list.updatedAt).toLocaleString()
+                      : "No cached update"}
+                  </small>
+                  {list.source && (
+                    <small>
+                      {list.source} · {list.license}
+                    </small>
+                  )}
+                  {list.error && <p className="muted-text">{list.error}</p>}
                 </div>
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-violet-400">
-                  LUNAR BROWSER
-                </h3>
-                <p className="text-xs text-slate-400">Version 1.0.0 (Chromium Core Engine)</p>
-              </div>
-            </div>
-            <p className="text-xs text-slate-300 leading-relaxed pt-4 border-t border-white/10">
-              Lunar Browser is a production-quality, private, secure, and AI-powered Chromium desktop browser built with Electron, React, TypeScript, and Tailwind CSS.
+              ))}
+              <button
+                onClick={() =>
+                  void run(async () => {
+                    const state = await api!.refreshShield();
+                    const failure = state.lists.find(
+                      (list) =>
+                        settings.shield.filterLists.includes(
+                          list.id as
+                            "lunar-core" | "stevenblack" | "easyprivacy",
+                        ) && list.error,
+                    )?.error;
+                    if (failure) throw new Error(failure);
+                  }, "Selected maintained lists downloaded and cached.")
+                }
+              >
+                Refresh selected maintained lists
+              </button>
+              <p className="muted-text">
+                Ghostery's MPL-2.0 network engine parses supported ABP rules.
+                Optional StevenBlack hosts (converted to ABP) and an EasyPrivacy
+                network-only subset are fetched from fixed public repository
+                endpoints only on request. Cached rules survive restarts.
+                Cosmetic filters, scriptlets, redirects, HTML/CSP injection,
+                full-list compatibility and universal video-ad blocking are not
+                implemented.
+              </p>
+              <label className="block-label">
+                Protection paused on these hosts and subdomains (one hostname
+                per line)
+                <textarea
+                  aria-label="Shield site allowlist"
+                  value={allowlist}
+                  onChange={(event) => setAllowlist(event.target.value)}
+                  rows={4}
+                />
+              </label>
+              <button
+                onClick={() =>
+                  update({
+                    shield: {
+                      ...settings.shield,
+                      allowlist: [
+                        ...new Set(
+                          allowlist
+                            .split(/\r?\n/u)
+                            .map((value) => value.trim().toLowerCase())
+                            .filter(Boolean),
+                        ),
+                      ],
+                    },
+                  })
+                }
+              >
+                Save site allowlist
+              </button>
+            </>
+          )}
+          {section === "ai" && (
+            <>
+              <h2>Entirely optional</h2>
+              <Toggle
+                label="Enable AI assistant"
+                hint="Browsing works without an AI provider. No page content is shared by default."
+                value={settings.aiEnabled}
+                onChange={(value) => update({ aiEnabled: value })}
+              />
+              <label className="setting-row">
+                Provider
+                <select
+                  value={settings.aiProvider}
+                  onChange={(event) => {
+                    setKey("");
+                    update({
+                      aiProvider: event.target
+                        .value as BrowserSettings["aiProvider"],
+                      aiModel: "",
+                    });
+                  }}
+                >
+                  <option value="openrouter">OpenRouter</option>
+                  <option value="gemini">Google Gemini</option>
+                </select>
+              </label>
+              <form
+                className="editor-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  update({ aiModel: model });
+                }}
+              >
+                <label>
+                  Model identifier
+                  <input
+                    required
+                    value={model}
+                    maxLength={100}
+                    placeholder="Use a current model ID from your provider"
+                    onChange={(event) => setModel(event.target.value)}
+                  />
+                </label>
+                <button>Save model</button>
+              </form>
+              <form
+                className="editor-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void run(async () => {
+                    try {
+                      setAIStatus(await api!.saveAIKey(key));
+                    } finally {
+                      setKey("");
+                    }
+                  }, "API key encrypted and saved. It is never returned to the interface.");
+                }}
+              >
+                <label>
+                  API key
+                  <input
+                    type="password"
+                    autoComplete="off"
+                    value={key}
+                    maxLength={512}
+                    onChange={(event) => setKey(event.target.value)}
+                    placeholder={
+                      aiStatus?.configured
+                        ? "An encrypted key is configured"
+                        : "Enter an API key"
+                    }
+                  />
+                </label>
+                <div className="button-row">
+                  <button disabled={!key || !aiStatus?.secureStorage}>
+                    Save encrypted key
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!aiStatus?.configured}
+                    onClick={() =>
+                      void run(
+                        async () => setAIStatus(await api!.deleteAIKey()),
+                        "Encrypted key removed.",
+                      )
+                    }
+                  >
+                    Remove key
+                  </button>
+                  <button
+                    type="button"
+                    disabled={
+                      !aiStatus?.configured ||
+                      !settings.aiModel ||
+                      !settings.aiEnabled
+                    }
+                    onClick={() =>
+                      void run(async () => {
+                        await api!.testAI();
+                      }, "The provider returned a live text response. No page context was sent.")
+                    }
+                  >
+                    Test connection
+                  </button>
+                </div>
+              </form>
+              {aiStatus && !aiStatus.secureStorage && (
+                <p className="error-text">
+                  OS-encrypted secret storage is unavailable. Configure the
+                  system keychain; Lunar will not store plaintext keys.
+                </p>
+              )}
+              <p className="muted-text">
+                Requests originate in the main process with a 30-second timeout.
+                A connection test may use provider credits. Page text is sent
+                only when you explicitly check sharing for the active page in
+                the sidebar; screenshots are not sent. Models and provider
+                availability change—configure an identifier from your own
+                account.
+              </p>
+            </>
+          )}
+        </fieldset>
+        {section === "appearance" && <ThemeStudioView />}
+        {section === "extensions" && <ExtensionsView />}
+        {section === "shortcuts" && (
+          <>
+            <dl className="shortcut-list">
+              {[
+                ["Ctrl / Cmd + T", "New tab"],
+                ["Ctrl / Cmd + W", "Close tab"],
+                ["Ctrl / Cmd + L", "Focus address bar"],
+                ["Ctrl / Cmd + R / Shift + R", "Reload / bypass cache"],
+                ["Ctrl / Cmd + Tab / Shift + Tab", "Next / previous tab"],
+                ["Ctrl / Cmd + 1–8 / 9", "Switch tab / last tab"],
+                ["Alt + Left / Right", "Back / forward"],
+                ["Ctrl / Cmd + K", "Browser commands"],
+                ["Ctrl / Cmd + Space", "Desktop Spotlight"],
+                ["Ctrl / Cmd + D", "Bookmark page"],
+                ["Ctrl / Cmd + J", "Toggle AI sidebar"],
+                ["F5 / Escape", "Reload / stop loading"],
+              ].map(([keys, action]) => (
+                <div key={keys}>
+                  <dt>{action}</dt>
+                  <dd>
+                    <kbd>{keys}</kbd>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            <h2>Lunar Browser 2.0</h2>
+            <p>
+              Chromium rendering uses Electron WebContentsView, not iframes.
+              Extension APIs are partial. Windows installers must be built and
+              runtime-verified on Windows before release.
             </p>
-          </div>
+          </>
         )}
-      </div>
+      </section>
     </div>
   );
-};
-
-export default SettingsView;
+}

@@ -1,0 +1,31 @@
+Lunar Shield — optional filter sources
+
+The application ships Lunar's own small domain rules. Optional third-party filter
+text is not bundled and is fetched only after the user selects a source and
+requests an update. It is stored in the user's profile; no browsing URLs are sent
+to list hosts. Supported network-only rules are parsed by @ghostery/adblocker.
+
+EasyPrivacy network subset
+The EasyList authors (https://easylist.to/)
+Source: https://github.com/easylist/easylist/tree/master/easyprivacy
+Included files: easyprivacy_general.txt, easyprivacy_thirdparty.txt,
+easyprivacy_trackingservers.txt, easyprivacy_allowlist.txt.
+This is not the full upstream EasyPrivacy subscription. Cosmetic, scriptlet,
+HTML, CSP, redirect/redirect-rule, replace and removeparam filters are excluded.
+License: GPL-3.0-or-later OR CC-BY-SA-3.0-or-later. Attribute the EasyList authors.
+Official license notice: https://easylist.to/pages/licence.html
+Corresponding notice source:
+https://github.com/easylist/easylist.github.io/blob/master/content/pages/COPYING.rst
+If redistributing downloaded/modified filter data, comply with the chosen license
+(including attribution/share-alike for CC-BY-SA, or GPL source obligations).
+
+StevenBlack Unified Hosts
+Source: https://github.com/StevenBlack/hosts
+MIT-licensed repository; included source lists retain their own licensing and
+attributions. See upstream readme/license before redistributing the aggregate.
+Lunar converts validated domain entries to ABP hostname-anchor network rules.
+
+Both sources are downloaded from fixed public GitHub Contents API endpoints.
+GitHub may rate-limit requests. Updates are manual, bounded and validated; failed
+updates retain the last valid cached rules. A local cache timestamp is a download
+time, not an independent verification of upstream completeness or freshness.

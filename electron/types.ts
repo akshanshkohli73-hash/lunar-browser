@@ -1,3 +1,14 @@
+export type {
+  BrowserSettings,
+  ShieldSettings,
+  Bookmark,
+  BookmarkInput,
+  HistoryItem,
+  SessionState,
+  WorkspaceLayout,
+  DownloadItemInfo,
+  ExtensionRecord,
+} from "../shared/schemas";
 export interface TabInfo {
   id: string;
   url: string;
@@ -10,71 +21,59 @@ export interface TabInfo {
   isPinned: boolean;
   audible: boolean;
   crashed?: boolean;
+  error?: string;
 }
-
+export interface TabsSnapshot {
+  revision: number;
+  tabs: TabInfo[];
+  activeTabId: string | null;
+}
 export interface ShieldStats {
   totalBlocked: number;
   adsBlocked: number;
   trackersBlocked: number;
-  analyticsBlocked: number;
   telemetryBlocked: number;
   cryptominersBlocked: number;
   socialBlocked: number;
   popupsBlocked: number;
-  annoyancesBlocked: number;
 }
-
-export interface ShieldSettings {
-  enabled: boolean;
-  ads: boolean;
-  trackers: boolean;
-  popups: boolean;
-  telemetry: boolean;
-  social: boolean;
-  cryptomining: boolean;
-  annoyances: boolean;
-  autoplay: boolean;
-  fingerprintProtection: boolean;
-  allowlist: string[];
-}
-
-export interface Bookmark {
-  id: string;
-  title: string;
-  url: string;
-  favicon?: string;
-  parentId?: string;
-  createdAt: number;
-}
-
-export interface HistoryItem {
-  id: string;
-  url: string;
-  title: string;
-  favicon?: string;
-  visitTime: number;
-}
-
-export interface DownloadItemInfo {
-  id: string;
-  filename: string;
-  url: string;
-  savePath: string;
-  receivedBytes: number;
-  totalBytes: number;
-  speed: number;
-  status: 'progressing' | 'completed' | 'cancelled' | 'interrupted' | 'paused';
-  startTime: number;
-}
-
-export interface Workspace {
+export interface FilterListStatus {
   id: string;
   name: string;
-  icon: string;
-  tabIds: string[];
-  theme?: string;
+  ruleCount: number;
+  updatedAt: number | null;
+  source?: string;
+  license?: string;
+  error?: string;
 }
-
+export interface BlockDiagnostic {
+  hostname: string;
+  resourceType: string;
+  category: string;
+  source: string;
+  rule: string;
+  time: number;
+}
+export interface ShieldSiteState {
+  hostname: string;
+  enabled: boolean;
+  blocked: number;
+  cookies: number;
+  upgrades: number;
+  recent: BlockDiagnostic[];
+}
+export interface SitePrivacy {
+  origin: string;
+  cookies: number;
+  grants: string[];
+  denials: string[];
+}
+export interface ShieldState {
+  settings: import("../shared/schemas").ShieldSettings;
+  stats: ShieldStats;
+  lists: FilterListStatus[];
+  site?: ShieldSiteState;
+}
 export interface ExtensionInfo {
   id: string;
   name: string;
@@ -82,28 +81,21 @@ export interface ExtensionInfo {
   description: string;
   enabled: boolean;
   permissions: string[];
-  compatibility: 'FULL' | 'PARTIAL';
+  compatibility: "PARTIAL";
   path: string;
+  error?: string;
 }
-
-export interface BrowserSettings {
-  searchEngine: string; // 'google' | 'bing' | 'duckduckgo' | 'custom'
-  customSearchUrl?: string;
-  theme: 'Lunar Dark' | 'Midnight' | 'Moonlight' | 'Void' | 'Nebula' | 'Terminal';
-  accentColor: string;
-  glowIntensity: number;
-  animationIntensity: number;
-  density: 'compact' | 'comfortable';
-  aiProvider: 'openrouter' | 'gemini' | 'inception' | 'local';
-  aiApiKey?: string;
-  aiModel?: string;
-  shield: ShieldSettings;
-  activeWorkspaceId: string;
-  showBookmarksBar: boolean;
-  verticalTabs: boolean;
-  readerModeOptions: {
-    font: string;
-    fontSize: number;
-    theme: 'dark' | 'light' | 'sepia';
-  };
+export interface AIStatus {
+  configured: boolean;
+  secureStorage: boolean;
+  provider: "openrouter" | "gemini";
+  enabled: boolean;
+}
+export interface BrowserBootstrap {
+  tabs: TabsSnapshot;
+  settings: import("../shared/schemas").BrowserSettings;
+  bookmarks: import("../shared/schemas").Bookmark[];
+  shield: ShieldState;
+  dashboard: import("../shared/dashboard").DashboardSettings;
+  warnings: string[];
 }

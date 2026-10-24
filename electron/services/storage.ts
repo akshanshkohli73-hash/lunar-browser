@@ -1,162 +1,254 @@
-import fs from 'fs';
-import path from 'path';
-import { app } from 'electron';
-import { Bookmark, HistoryItem, BrowserSettings, Workspace } from '../types';
+import path from "node:path";
+import { randomUUID } from "node:crypto";
+import { z } from "zod";
+import { AtomicFile } from "./atomic-file";
+import { DEFAULT_SETTINGS } from "../../shared/defaults";
+import {
+  settingsSchema,
+  bookmarkSchema,
+  bookmarkInputSchema,
+  historySchema,
+  sessionSchema,
+  downloadSchema,
+  extensionRecordSchema,
+} from "../../shared/schemas";
+import type {
+  Bookmark,
+  BookmarkInput,
+  HistoryItem,
+  BrowserSettings,
+  SessionState,
+  DownloadItemInfo,
+  ExtensionRecord,
+} from "../types";
+import {
+  DEFAULT_DASHBOARD,
+  dashboardSchema,
+  dashboardPatchSchema,
+  type DashboardSettings,
+  type DashboardPatch,
+} from "../../shared/dashboard";
+import { isWebUrl } from "../../shared/navigation";
 
+function migrateSettings(input: unknown): unknown {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return input;
+  const old = input as Record<string, unknown>;
+  // Pick known keys only. Obsolete decorative settings and plaintext credentials never reach the bridge.
+  const known = Object.fromEntries(
+    Object.keys(DEFAULT_SETTINGS)
+      .filter((key) => old[key] !== undefined)
+      .map((key) => [key, old[key]]),
+  );
+  if (old.customTheme !== undefined) known.customTheme = old.customTheme;
+  if (old.shield && typeof old.shield === "object") {
+    const shield = old.shield as Record<string, unknown>;
+    known.shield = {
+      ...DEFAULT_SETTINGS.shield,
+      ...Object.fromEntries(
+        Object.keys(DEFAULT_SETTINGS.shield)
+          .filter((key) => shield[key] !== undefined)
+          .map((key) => [key, shield[key]]),
+      ),
+    };
+  }
+  return { ...DEFAULT_SETTINGS, ...known };
+}
 export class StorageService {
-  private userDataPath: string;
-  private bookmarksFile: string;
-  private historyFile: string;
-  private settingsFile: string;
-  private workspacesFile: string;
-
-  private defaultSettings: BrowserSettings = {
-    searchEngine: 'google',
-    theme: 'Lunar Dark',
-    accentColor: '#00f0ff',
-    glowIntensity: 70,
-    animationIntensity: 100,
-    density: 'comfortable',
-    aiProvider: 'openrouter',
-    activeWorkspaceId: 'personal',
-    showBookmarksBar: true,
-    verticalTabs: false,
-    shield: {
-      enabled: true,
-      ads: true,
-      trackers: true,
-      popups: true,
-      telemetry: true,
-      social: true,
-      cryptomining: true,
-      annoyances: true,
-      autoplay: false,
-      fingerprintProtection: true,
-      allowlist: [],
-    },
-    readerModeOptions: {
-      font: 'sans-serif',
-      fontSize: 16,
-      theme: 'dark',
-    },
-  };
-
-  constructor() {
-    this.userDataPath = app.getPath('userData');
-    this.bookmarksFile = path.join(this.userDataPath, 'bookmarks.json');
-    this.historyFile = path.join(this.userDataPath, 'history.json');
-    this.settingsFile = path.join(this.userDataPath, 'settings.json');
-    this.workspacesFile = path.join(this.userDataPath, 'workspaces.json');
+  public readonly warnings: string[] = [];
+  private settings: AtomicFile<BrowserSettings>;
+  private bookmarks: AtomicFile<Bookmark[]>;
+  private history: AtomicFile<HistoryItem[]>;
+  private session: AtomicFile<SessionState>;
+  private downloads: AtomicFile<DownloadItemInfo[]>;
+  private extensions: AtomicFile<ExtensionRecord[]>;
+  private dashboard: AtomicFile<DashboardSettings>;
+  constructor(public readonly profilePath: string) {
+    const warn = (message: string) => this.warnings.push(message);
+    this.dashboard = new AtomicFile(
+      path.join(profilePath, "dashboard.json"),
+      dashboardSchema,
+      DEFAULT_DASHBOARD,
+      warn,
+    );
+    this.settings = new AtomicFile(
+      path.join(profilePath, "settings.json"),
+      settingsSchema,
+      DEFAULT_SETTINGS,
+      warn,
+      migrateSettings,
+    );
+    this.bookmarks = new AtomicFile(
+      path.join(profilePath, "bookmarks.json"),
+      z.array(bookmarkSchema).max(5000),
+      [],
+      warn,
+      (input) =>
+        Array.isArray(input)
+          ? input.map((value) => {
+              if (!value || typeof value !== "object") return value;
+              const entry = value as Record<string, unknown>;
+              return {
+                id: entry.id,
+                title: entry.title,
+                url: entry.url,
+                createdAt: entry.createdAt,
+                folder: entry.folder ?? "",
+              };
+            })
+          : input,
+    );
+    this.history = new AtomicFile(
+      path.join(profilePath, "history.json"),
+      z.array(historySchema).max(10000),
+      [],
+      warn,
+      (input) =>
+        Array.isArray(input)
+          ? input.map((value) => {
+              if (!value || typeof value !== "object") return value;
+              const entry = value as Record<string, unknown>;
+              return {
+                id: entry.id,
+                title: entry.title,
+                url: entry.url,
+                visitTime: entry.visitTime,
+              };
+            })
+          : input,
+    );
+    this.session = new AtomicFile(
+      path.join(profilePath, "session.json"),
+      sessionSchema,
+      { tabs: [], activeIndex: 0 },
+      warn,
+    );
+    this.downloads = new AtomicFile(
+      path.join(profilePath, "downloads.json"),
+      z.array(downloadSchema).max(200),
+      [],
+      warn,
+    );
+    this.extensions = new AtomicFile(
+      path.join(profilePath, "extensions.json"),
+      z.array(extensionRecordSchema).max(50),
+      [],
+      warn,
+    );
   }
-
-  private readJson<T>(filePath: string, defaultValue: T): T {
-    try {
-      if (fs.existsSync(filePath)) {
-        const raw = fs.readFileSync(filePath, 'utf-8');
-        return JSON.parse(raw) as T;
-      }
-    } catch (err) {
-      console.error(`Error reading ${filePath}:`, err);
-    }
-    return defaultValue;
+  public getDashboard(): DashboardSettings {
+    return this.dashboard.read();
   }
-
-  private writeJson<T>(filePath: string, data: T): void {
-    try {
-      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
-    } catch (err) {
-      console.error(`Error writing ${filePath}:`, err);
-    }
+  public updateDashboard(patch: DashboardPatch): DashboardSettings {
+    return this.dashboard.write(
+      dashboardSchema.parse({
+        ...this.dashboard.read(),
+        ...dashboardPatchSchema.parse(patch),
+      }),
+    );
   }
-
-  // BOOKMARKS
+  public getSettings(): BrowserSettings {
+    return this.settings.read();
+  }
+  public updateSettings(
+    partial: Partial<BrowserSettings>,
+    currentSession?: SessionState,
+  ): BrowserSettings {
+    const patch = settingsSchema.partial().strict().parse(partial);
+    const next = { ...this.settings.read(), ...patch };
+    // Persist the initial opt-in snapshot before reporting the preference as enabled.
+    if (patch.restoreSession === true && currentSession)
+      this.session.write(currentSession);
+    if (this.settings.read().restoreSession && !next.restoreSession)
+      this.session.write({ tabs: [], activeIndex: 0 }, false);
+    return this.settings.write(next);
+  }
   public getBookmarks(): Bookmark[] {
-    return this.readJson<Bookmark[]>(this.bookmarksFile, [
-      { id: '1', title: 'Lunar Home', url: 'lunar://newtab', createdAt: Date.now() },
-      { id: '2', title: 'GitHub', url: 'https://github.com', createdAt: Date.now() },
-      { id: '3', title: 'YouTube', url: 'https://youtube.com', createdAt: Date.now() },
-    ]);
+    return this.bookmarks.read();
   }
-
-  public addBookmark(bookmark: Omit<Bookmark, 'id' | 'createdAt'>): Bookmark {
-    const bookmarks = this.getBookmarks();
-    const newBookmark: Bookmark = {
-      ...bookmark,
-      id: `bm_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+  public addBookmark(input: BookmarkInput): Bookmark {
+    const bookmark = {
+      ...bookmarkInputSchema.parse(input),
+      id: `bm_${randomUUID()}`,
       createdAt: Date.now(),
     };
-    bookmarks.push(newBookmark);
-    this.writeJson(this.bookmarksFile, bookmarks);
-    return newBookmark;
+    this.bookmarks.write([...this.bookmarks.read(), bookmark]);
+    return bookmark;
   }
-
-  public deleteBookmark(id: string): boolean {
-    let bookmarks = this.getBookmarks();
-    const initialLen = bookmarks.length;
-    bookmarks = bookmarks.filter((b) => b.id !== id);
-    this.writeJson(this.bookmarksFile, bookmarks);
-    return bookmarks.length < initialLen;
+  public updateBookmark(id: string, input: BookmarkInput): Bookmark {
+    const all = this.bookmarks.read(),
+      index = all.findIndex((item) => item.id === id);
+    if (index < 0) throw new Error("This bookmark no longer exists.");
+    all[index] = { ...all[index], ...bookmarkInputSchema.parse(input) };
+    this.bookmarks.write(all);
+    return all[index];
   }
-
-  // HISTORY
+  public deleteBookmark(id: string) {
+    const all = this.bookmarks.read();
+    if (!all.some((item) => item.id === id))
+      throw new Error("This bookmark no longer exists.");
+    this.bookmarks.write(
+      all.filter((item) => item.id !== id),
+      false,
+    );
+  }
   public getHistory(): HistoryItem[] {
-    return this.readJson<HistoryItem[]>(this.historyFile, []);
+    return this.history.read();
   }
-
-  public addHistory(item: Omit<HistoryItem, 'id' | 'visitTime'>): HistoryItem {
-    const history = this.getHistory();
-    // Don't duplicate lunar:// internal history
-    if (item.url.startsWith('lunar://')) return item as any;
-
-    const newItem: HistoryItem = {
-      ...item,
-      id: `hist_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-      visitTime: Date.now(),
-    };
-    // Prepend
-    history.unshift(newItem);
-    // Limit history entries to max 1000 items
-    if (history.length > 1000) history.pop();
-    this.writeJson(this.historyFile, history);
-    return newItem;
+  public addHistory(input: { url: string; title: string }): void {
+    if (!this.getSettings().recordHistory || !isWebUrl(input.url)) return;
+    // Do not persist common authentication callback / credential-bearing URLs.
+    const url = new URL(input.url);
+    if (
+      [...url.searchParams.keys()].some((key) =>
+        /^(?:password|passwd|access_token|id_token|refresh_token|code|authorization)$/iu.test(
+          key,
+        ),
+      )
+    )
+      return;
+    const all = this.history.read(),
+      first = all[0];
+    if (first?.url === input.url && Date.now() - first.visitTime < 5000)
+      all.shift();
+    this.history.write(
+      [
+        {
+          id: `hist_${randomUUID()}`,
+          url: input.url,
+          title: input.title.slice(0, 500),
+          visitTime: Date.now(),
+        },
+        ...all,
+      ].slice(0, 10000),
+    );
   }
-
-  public deleteHistoryItem(id: string): boolean {
-    let history = this.getHistory();
-    const initialLen = history.length;
-    history = history.filter((h) => h.id !== id);
-    this.writeJson(this.historyFile, history);
-    return history.length < initialLen;
+  public deleteHistoryItems(ids: string[]) {
+    const selected = new Set(ids);
+    this.history.write(
+      this.history.read().filter((item) => !selected.has(item.id)),
+      false,
+    );
   }
-
-  public clearHistory(): void {
-    this.writeJson(this.historyFile, []);
+  public clearHistory() {
+    this.history.write([], false);
+    this.history.purgeCorruptCopies();
   }
-
-  // SETTINGS
-  public getSettings(): BrowserSettings {
-    return this.readJson<BrowserSettings>(this.settingsFile, this.defaultSettings);
+  public getSession(): SessionState {
+    return this.session.read();
   }
-
-  public updateSettings(partial: Partial<BrowserSettings>): BrowserSettings {
-    const current = this.getSettings();
-    const updated = { ...current, ...partial };
-    this.writeJson(this.settingsFile, updated);
-    return updated;
+  public saveSession(state: SessionState) {
+    if (this.getSettings().restoreSession) this.session.write(state);
   }
-
-  // WORKSPACES
-  public getWorkspaces(): Workspace[] {
-    return this.readJson<Workspace[]>(this.workspacesFile, [
-      { id: 'personal', name: 'Personal', icon: '👤', tabIds: [] },
-      { id: 'school', name: 'School', icon: '🎓', tabIds: [] },
-      { id: 'coding', name: 'Coding', icon: '💻', tabIds: [] },
-      { id: 'gaming', name: 'Gaming', icon: '🎮', tabIds: [] },
-      { id: 'research', name: 'Research', icon: '🔬', tabIds: [] },
-    ]);
+  public getDownloads(): DownloadItemInfo[] {
+    return this.downloads.read();
   }
-
-  public saveWorkspaces(workspaces: Workspace[]): void {
-    this.writeJson(this.workspacesFile, workspaces);
+  public saveDownloads(items: DownloadItemInfo[]) {
+    this.downloads.write(items.slice(-200));
+  }
+  public getExtensions(): ExtensionRecord[] {
+    return this.extensions.read();
+  }
+  public saveExtensions(items: ExtensionRecord[]) {
+    this.extensions.write(items);
   }
 }

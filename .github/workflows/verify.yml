@@ -1,0 +1,98 @@
+name: Verify Lunar Browser
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  renderer-and-regressions:
+    name: Renderer, types and regression tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm audit --omit=dev
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:ui
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: chromium-renderer-evidence
+          path: .artifacts/ui/
+          if-no-files-found: ignore
+  windows-native-and-installer:
+    name: Windows native browser and NSIS
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Install pinned Electron runtime
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          npm run install:electron 2>&1 | Tee-Object -Variable runtimeOutput
+          $code = $LASTEXITCODE
+          if ($code -ne 0) {
+            $detail = (($runtimeOutput | Select-Object -Last 60) -join "`n").Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+            Write-Output "::error title=Electron runtime installation failed::$detail"
+          }
+          exit $code
+      - run: npm run check
+      - name: Real Electron integration (no fake bridge or iframe)
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          npm run test:native 2>&1 | Tee-Object -Variable nativeOutput
+          $code = $LASTEXITCODE
+          if ($code -ne 0) {
+            $detail = (($nativeOutput | Select-Object -Last 60) -join "`n").Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+            Write-Output "::error title=Native Electron integration failed::$detail"
+          }
+          exit $code
+      - name: Package unsigned Windows x64 installer
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          npm run dist:win 2>&1 | Tee-Object -Variable packageOutput
+          $code = $LASTEXITCODE
+          if ($code -ne 0) {
+            $detail = (($packageOutput | Select-Object -Last 100) -join "`n").Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+            Write-Output "::error title=Windows installer packaging failed::$detail"
+          }
+          exit $code
+      - name: Hash produced installers
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem release/*.exe -ErrorAction Stop)
+          if ($installers.Count -eq 0) { throw "No installer was produced" }
+          $hashes = @($installers | Get-FileHash -Algorithm SHA256)
+          $hashes | Format-List | Out-File release/SHA256.txt
+          foreach ($entry in $hashes) {
+            $name = Split-Path $entry.Path -Leaf
+            Write-Output "::notice title=Windows installer SHA256::$name $($entry.Hash)"
+            $signature = Get-AuthenticodeSignature $entry.Path
+            Write-Output "::notice title=Windows installer Authenticode::$name $($signature.Status)"
+          }
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: lunar-windows-x64-unsigned
+          path: |
+            release/*.exe
+            release/SHA256.txt
+          if-no-files-found: error
