@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_DASHBOARD,
   arrangeWidgets,
@@ -13,6 +13,7 @@ import {
 import { StorageService } from "../electron/services/storage";
 import {
   WallpaperStore,
+  registerWallpaperProtocol,
   byteRange,
   detectMedia,
 } from "../electron/services/wallpaper-store";
@@ -302,4 +303,27 @@ it("serializes concurrent imports under the real file quota and can prune abando
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+it("registers private media on first launch without unhandling an absent scheme, and safely replaces a previous handler", async () => {
+  const proto = {
+    isProtocolHandled: vi.fn().mockResolvedValue(false),
+    unhandle: vi.fn(),
+    handle: vi.fn(),
+  };
+  const store = { response: vi.fn(() => new Response("fixture")) };
+  await registerWallpaperProtocol(proto, store);
+  expect(proto.unhandle).not.toHaveBeenCalled();
+  expect(proto.handle).toHaveBeenCalledTimes(1);
+  const [scheme, handler] = proto.handle.mock.calls[0];
+  expect(scheme).toBe("lunar-media");
+  expect(
+    await (
+      handler(new Request("lunar-media://wallpaper/asset")) as Response
+    ).text(),
+  ).toBe("fixture");
+  proto.isProtocolHandled.mockResolvedValue(true);
+  await registerWallpaperProtocol(proto, store);
+  expect(proto.unhandle).toHaveBeenCalledExactlyOnceWith("lunar-media");
+  expect(proto.handle).toHaveBeenCalledTimes(2);
 });

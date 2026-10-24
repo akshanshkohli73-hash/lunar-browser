@@ -10,7 +10,10 @@ import {
   type IpcMainInvokeEvent,
 } from "electron";
 import path from "node:path";
-import { WallpaperStore } from "../services/wallpaper-store";
+import {
+  WallpaperStore,
+  registerWallpaperProtocol,
+} from "../services/wallpaper-store";
 import {
   clearOriginSiteData,
   clearWebSessionData,
@@ -368,10 +371,7 @@ async function createWindow() {
   const migrationWarnings = migrateLegacyCredentials(profile(), vault);
   const storage = new StorageService(profile());
   const wallpapers = new WallpaperStore(profile());
-  uiSession.protocol.unhandle("lunar-media");
-  uiSession.protocol.handle("lunar-media", (request) =>
-    wallpapers.response(request),
-  );
+  await registerWallpaperProtocol(uiSession.protocol, wallpapers);
   storage.warnings.push(...migrationWarnings);
   let sessionTimer: ReturnType<typeof setTimeout> | undefined,
     restoring = true,
@@ -552,7 +552,17 @@ else {
       session.defaultSession.setDevicePermissionHandler(() => false);
       return createWindow();
     })
-    .catch(() => {
+    .catch((error: unknown) => {
+      // Isolated native tests must report startup failures instead of blocking CDP
+      // behind a modal dialog on an unattended Windows runner.
+      if (!app.isPackaged && process.env.LUNAR_TEST_PROFILE) {
+        console.error(
+          "Lunar test startup failed:",
+          error instanceof Error ? error.message : "Unknown startup failure",
+        );
+        app.exit(1);
+        return;
+      }
       dialog.showErrorBox(
         "Lunar startup failed",
         "Lunar Browser could not start. Check your profile permissions and installation, then try again.",

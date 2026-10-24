@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import type { Protocol } from "electron";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
@@ -255,4 +256,14 @@ export class WallpaperStore {
       return new Response(null, { status: 404 });
     }
   }
+}
+
+/** Electron throws when unhandle is called for a scheme with no handler yet. */
+export async function registerWallpaperProtocol(
+  protocol: Pick<Protocol, "handle" | "unhandle" | "isProtocolHandled">,
+  store: Pick<WallpaperStore, "response">,
+): Promise<void> {
+  if (await protocol.isProtocolHandled("lunar-media"))
+    protocol.unhandle("lunar-media");
+  protocol.handle("lunar-media", (request) => store.response(request));
 }
