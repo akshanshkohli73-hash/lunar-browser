@@ -350,10 +350,20 @@ if (!fs.existsSync(marker)) {
           .evaluate((video) => video.error?.code ?? 0),
       )
       .not.toBe(0);
-    await expect(
-      ui.getByRole("button", { name: "Play wallpaper", exact: true }),
-      "A genuine decoder failure must leave an actionable Play retry, not a stale Pause control",
-    ).toBeVisible();
+    try {
+      await expect
+        .poll(() =>
+          ui
+            .locator(".new-tab-dashboard .wallpaper-playback button")
+            .allTextContents(),
+        )
+        .toContain("Play wallpaper");
+    } catch (error) {
+      throw new Error(
+        `Decoder retry defect: ${JSON.stringify(await ui.locator(".new-tab-dashboard video").evaluate((v) => ({ code: v.error?.code, paused: v.paused, ready: v.readyState })))}; controls=${JSON.stringify(await ui.locator(".new-tab-dashboard .wallpaper-playback button").allTextContents())}`,
+        { cause: error },
+      );
+    }
     await api("updateDashboard", {
       wallpaper: { ...dashboard.wallpaper, kind: "image", mediaId: media.id },
     });
