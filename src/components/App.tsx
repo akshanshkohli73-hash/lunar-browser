@@ -9,6 +9,7 @@ import { Modal } from "./ui/Modal";
 import SettingsView from "./AsyncSettingsView";
 import ExtensionsView from "./ExtensionsView";
 import ThemeStudioView from "./AsyncThemeStudio";
+import { announceHistoryCleared } from "./useHistoryRevision";
 import LibraryView from "./LibraryView";
 import { WidgetsPage, ShieldPage, InformationPage } from "./ControlPages";
 import AISidebar from "./AISidebar";
@@ -573,6 +574,7 @@ export default function App({
             onClick={async () => {
               try {
                 await api?.clearHistory();
+                announceHistoryCleared();
                 setHistoryMessage("Browsing history cleared.");
                 setClearHistory(false);
               } catch (error) {

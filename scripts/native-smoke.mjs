@@ -986,6 +986,13 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
     await editMenu("Paste");
     await expect(addressInput).toHaveValue("fixture paste");
     await ui
+      .getByRole("navigation", { name: "Dock" })
+      .getByRole("button", { name: "Activity", exact: true })
+      .click();
+    await expect
+      .poll(() => ui.locator(".library-page .library-row").count())
+      .toBeGreaterThan(0);
+    await ui
       .getByRole("menubar")
       .getByRole("menuitem", { name: "History", exact: true })
       .click();
@@ -998,6 +1005,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       .getByRole("button", { name: "Clear all history", exact: true })
       .click();
     await expect.poll(() => api("getHistory")).toEqual([]);
+    await expect(ui.locator(".library-page .library-row")).toHaveCount(0);
     const persistedClip = path.join(profile, "selected-video.mp4");
     fs.copyFileSync(
       path.join(repo, "tests/fixtures/media/wallpaper.mp4"),

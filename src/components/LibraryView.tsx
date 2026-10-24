@@ -8,6 +8,10 @@ import { isWebUrl } from "../../shared/navigation";
 import { useBrowser } from "../state/BrowserContext";
 import { Icon } from "./ui/Icon";
 import { BookmarkEditor } from "./BookmarkEditor";
+import {
+  useHistoryRevision,
+  announceHistoryCleared,
+} from "./useHistoryRevision";
 import { Modal } from "./ui/Modal";
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${Math.round(bytes)} B`;
@@ -22,6 +26,7 @@ export default function LibraryView({
   navigate: (url: string) => void;
 }) {
   const { api, bookmarks, report } = useBrowser();
+  const historyRevision = useHistoryRevision();
   const [history, setHistory] = useState<HistoryItem[]>([]),
     [downloads, setDownloads] = useState<DownloadItemInfo[]>([]);
   const [query, setQuery] = useState(""),
@@ -52,7 +57,7 @@ export default function LibraryView({
       live = false;
       unsubscribe?.();
     };
-  }, [api, page, report]);
+  }, [api, page, report, historyRevision]);
   const filteredHistory = useMemo(
     () =>
       history.filter((item) =>
@@ -344,6 +349,7 @@ export default function LibraryView({
                 void api
                   ?.clearHistory()
                   .then(() => {
+                    announceHistoryCleared();
                     setHistory([]);
                     setSelected(new Set());
                     setConfirmClear(false);

@@ -4,6 +4,7 @@ import { isWebUrl } from "../../shared/navigation";
 import type { HistoryItem } from "../../shared/schemas";
 import { useBrowser } from "../state/BrowserContext";
 import { CONTROL_PANELS } from "../state/control-center";
+import { useHistoryRevision } from "./useHistoryRevision";
 import { Icon } from "./ui/Icon";
 export const MENU_NAMES = [
   "Lunar",
@@ -42,6 +43,7 @@ export function DesktopMenuBar({
 }) {
   const { api, ready, tabs, settings, bookmarks, openPage, report } =
     useBrowser();
+  const historyRevision = useHistoryRevision();
   const current = tabs.tabs.find((tab) => tab.id === tabs.activeTabId);
   const web = !!current && isWebUrl(current.url),
     enabled = !!api && ready;
@@ -55,6 +57,7 @@ export function DesktopMenuBar({
     if (open !== "History" || !api) return;
     let live = true;
     setHistoryError("");
+    setRecent([]);
     void api
       .getHistory()
       .then((items) => {
@@ -66,7 +69,7 @@ export function DesktopMenuBar({
     return () => {
       live = false;
     };
-  }, [api, open]);
+  }, [api, open, historyRevision]);
   useEffect(() => {
     if (!open) return;
     const frame = requestAnimationFrame(() =>

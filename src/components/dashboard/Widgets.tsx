@@ -5,6 +5,7 @@ import type {
   WidgetKind,
 } from "../../../shared/dashboard";
 import type { HistoryItem } from "../../../shared/schemas";
+import { useHistoryRevision } from "../useHistoryRevision";
 import { useBrowser } from "../../state/BrowserContext";
 import { useMinuteClock } from "../useMinuteClock";
 import { Icon } from "../ui/Icon";
@@ -382,6 +383,7 @@ function WeatherWidget({ widget }: WidgetProps) {
 }
 function RecentWidget({ widget, active, navigate }: WidgetProps) {
   const { api, settings } = useBrowser();
+  const historyRevision = useHistoryRevision();
   const [items, setItems] = useState<HistoryItem[]>([]),
     [error, setError] = useState("");
   const enabled =
@@ -408,7 +410,7 @@ function RecentWidget({ widget, active, navigate }: WidgetProps) {
     return () => {
       live = false;
     };
-  }, [api, enabled, active]);
+  }, [api, enabled, active, historyRevision]);
   if (widget.kind !== "recent") return null;
   const unique = items
     .filter(
