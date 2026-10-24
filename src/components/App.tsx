@@ -10,6 +10,7 @@ import SettingsView from "./AsyncSettingsView";
 import ExtensionsView from "./ExtensionsView";
 import ThemeStudioView from "./AsyncThemeStudio";
 import LibraryView from "./LibraryView";
+import { WidgetsPage, ShieldPage, InformationPage } from "./ControlPages";
 import AISidebar from "./AISidebar";
 import ShieldPanel from "./ShieldPanel";
 import CommandPalette from "./CommandPalette";
@@ -34,6 +35,8 @@ export default function App({
     report,
     dismissError,
     updateSettings,
+    previewPage,
+    openPage,
   } = useBrowser();
   const tabs = state.tabs,
     activeId = state.activeTabId,
@@ -42,6 +45,8 @@ export default function App({
     [aiOpen, setAiOpen] = useState(false),
     [commands, setCommands] = useState(false),
     [shieldOpen, setShieldOpen] = useState(false),
+    [clearHistory, setClearHistory] = useState(false),
+    [historyMessage, setHistoryMessage] = useState(""),
     [tabMenu, setTabMenu] = useState<string | null>(null);
   const [editingBookmark, setEditingBookmark] = useState(false),
     [reader, setReader] = useState<string | null>(null),
@@ -50,8 +55,11 @@ export default function App({
     pageRef = useRef<HTMLDivElement>(null),
     focused = useRef(false),
     dragId = useRef<string | null>(null);
-  const internalPage =
-    active && isInternalUrl(active.url) ? active.url.slice(8) : "browser";
+  const internalPage = !api
+    ? previewPage
+    : active && isInternalUrl(active.url)
+      ? active.url.slice(8)
+      : "browser";
   const loadedRuleCount =
     shield?.lists
       .filter((list) =>
@@ -72,6 +80,7 @@ export default function App({
     isVisible &&
     !isOccluded &&
     !commands &&
+    !clearHistory &&
     !shieldOpen &&
     !tabMenu &&
     !editingBookmark &&
@@ -94,6 +103,10 @@ export default function App({
   useEffect(
     () =>
       api?.onShortcut((shortcut) => {
+        if (shortcut === "menu") {
+          window.dispatchEvent(new Event("lunar:menu"));
+          return;
+        }
         if (shortcut === "spotlight") {
           setCommands(false);
           setShieldOpen(false);
@@ -123,6 +136,23 @@ export default function App({
     window.addEventListener("keydown", keydown);
     return () => window.removeEventListener("keydown", keydown);
   }, []);
+  useEffect(() => {
+    const clear = () => {
+      if (api) {
+        setHistoryMessage("");
+        setClearHistory(true);
+      }
+    };
+    const bookmark = () => {
+      if (active && isWebUrl(active.url)) setEditingBookmark(true);
+    };
+    window.addEventListener("lunar:clear-history", clear);
+    window.addEventListener("lunar:bookmark", bookmark);
+    return () => {
+      window.removeEventListener("lunar:clear-history", clear);
+      window.removeEventListener("lunar:bookmark", bookmark);
+    };
+  }, [api, active]);
   const navigate = (input: string) => {
     if (!api || !activeId) return;
     void api
@@ -374,6 +404,17 @@ export default function App({
           </button>
         </div>
       )}
+      {historyMessage && (
+        <p className="browser-operation-status" role="status">
+          {historyMessage}
+          <button
+            aria-label="Dismiss history status"
+            onClick={() => setHistoryMessage("")}
+          >
+            Dismiss
+          </button>
+        </p>
+      )}
       <div className="browser-content">
         <div ref={pageRef} id="page-viewport" className="page-viewport">
           {!ready ? (
@@ -406,6 +447,14 @@ export default function App({
             <SettingsView />
           ) : internalPage === "themestudio" ? (
             <ThemeStudioView />
+          ) : internalPage === "widgets" ? (
+            <WidgetsPage />
+          ) : internalPage === "shield" ? (
+            <ShieldPage />
+          ) : internalPage === "help" ||
+            internalPage === "diagnostics" ||
+            internalPage === "about" ? (
+            <InformationPage page={internalPage} />
           ) : internalPage === "extensions" ? (
             <ExtensionsView />
           ) : ["history", "bookmarks", "downloads"].includes(internalPage) ? (
@@ -413,13 +462,14 @@ export default function App({
               page={internalPage as "history" | "bookmarks" | "downloads"}
               navigate={navigate}
             />
-          ) : internalPage === "newtab" || !active ? (
+          ) : internalPage === "newtab" || (!api && !active) ? (
             <NewTabDashboard
               active={
                 isVisible &&
                 !isOccluded &&
                 !onboarding &&
                 !commands &&
+                !clearHistory &&
                 !shieldOpen &&
                 !tabMenu &&
                 !editingBookmark
@@ -496,12 +546,45 @@ export default function App({
       <CommandPalette
         isOpen={commands}
         onClose={() => setCommands(false)}
-        onNavigatePage={navigate}
+        onNavigatePage={(url) => {
+          if (isInternalUrl(url))
+            void openPage(
+              url.slice(8) as import("../../shared/navigation").InternalPage,
+            ).catch(report);
+        }}
+        nativeAvailable={!!api && ready}
+        hasTab={!!active}
         onNewTab={() => void api?.createTab().catch(report)}
         onCloseTab={() =>
           activeId && void api?.closeTab(activeId).catch(report)
         }
       />
+      {clearHistory && (
+        <Modal
+          title="Clear browsing history"
+          onClose={() => setClearHistory(false)}
+        >
+          <p>
+            This removes recorded visits and their recovery copies, not
+            bookmarks, downloads, site data or dashboard notes.
+          </p>
+          <button
+            className="primary-button"
+            onClick={async () => {
+              try {
+                await api?.clearHistory();
+                setHistoryMessage("Browsing history cleared.");
+                setClearHistory(false);
+              } catch (error) {
+                report(error);
+              }
+            }}
+          >
+            Clear all history
+          </button>
+          <button onClick={() => setClearHistory(false)}>Cancel</button>
+        </Modal>
+      )}
       <OnboardingModal
         isOpen={onboarding}
         onComplete={async (searchEngine) => {

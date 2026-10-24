@@ -1,6 +1,6 @@
 {
   "name": "lunar-browser",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "A private, intelligent, beautiful Chromium desktop browser.",
   "main": "dist/electron/main/index.cjs",
   "author": "Lunar Team",

@@ -257,6 +257,11 @@ export class TabManager {
           bookmarks: "Bookmarks",
           downloads: "Downloads",
           extensions: "Extensions",
+          widgets: "Widgets",
+          shield: "Lunar Shield",
+          help: "Keyboard shortcuts",
+          diagnostics: "Diagnostics",
+          about: "About Lunar",
         } as Record<string, string>
       )[url.slice(8)] ?? "Lunar"
     );
@@ -526,6 +531,20 @@ export class TabManager {
     this.options.onChanged?.(this.sessionState());
   }
   /** Also called for native page key events; DOM-only shortcuts miss focused Chromium pages. */
+  public zoomActive(direction: "zoomIn" | "zoomOut" | "zoomReset") {
+    const tab = this.getActiveTab();
+    if (!tab || !isWebUrl(tab.info.url))
+      throw new Error("Website zoom is available on a website tab.");
+    const contents = tab.view.webContents;
+    const next =
+      direction === "zoomReset"
+        ? 1
+        : contents.getZoomFactor() + (direction === "zoomIn" ? 0.1 : -0.1);
+    contents.setZoomFactor(
+      Math.round(Math.min(2, Math.max(0.5, next)) * 10) / 10,
+    );
+  }
+
   public handleShortcut(
     input: Pick<Input, "type" | "key" | "control" | "meta" | "shift" | "alt">,
   ): boolean {
@@ -534,8 +553,25 @@ export class TabManager {
       ctrl = input.control || input.meta,
       active = this.activeTabId;
     try {
+      if (key === "f10") {
+        this.window.webContents.focus();
+        this.options.onShortcut("menu");
+        return true;
+      }
+      if (key === "f11") {
+        this.window.setFullScreen(!this.window.isFullScreen());
+        return true;
+      }
+      if (ctrl && ["+", "=", "-", "0"].includes(key)) {
+        if (isWebUrl(this.getActiveTab()?.info.url ?? ""))
+          this.zoomActive(
+            key === "0" ? "zoomReset" : key === "-" ? "zoomOut" : "zoomIn",
+          );
+        return true; // Never zoom the measured browser chrome.
+      }
       if (ctrl && key === "t") {
         this.createTab();
+        this.options.onShortcut("activate");
         return true;
       }
       if (ctrl && key === "w" && active) {

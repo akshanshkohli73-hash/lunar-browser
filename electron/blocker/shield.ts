@@ -260,9 +260,8 @@ export class LunarShield {
     else this.sites.clear();
     this.notify();
   }
-  public getState(): ShieldState {
-    const url = this.activeSite(),
-      siteHost = host(url),
+  public getState(url = this.activeSite()): ShieldState {
+    const siteHost = host(url),
       state = this.sites.get(siteHost);
     return {
       settings: structuredClone(this.settings()),

@@ -17,8 +17,16 @@ import {
   type DashboardSettings,
   type DashboardPatch,
 } from "../../shared/dashboard";
+import {
+  isInternalUrl,
+  isWebUrl,
+  type InternalPage,
+} from "../../shared/navigation";
 import type { ThemeTokens } from "../../shared/schemas";
 interface BrowserContextValue {
+  previewPage: InternalPage;
+  siteForControls: string;
+  openPage: (page: InternalPage) => Promise<void>;
   dashboard: DashboardSettings;
   presentationDashboard: DashboardSettings;
   previewDashboard: (
@@ -89,6 +97,36 @@ export function BrowserProvider({ children }: { children: React.ReactNode }) {
     activeTabId: null,
     revision: 0,
   });
+  const [siteForControls, setSiteForControls] = useState("");
+  useEffect(() => {
+    const active = tabs.tabs.find((tab) => tab.id === tabs.activeTabId);
+    if (active && isWebUrl(active.url)) setSiteForControls(active.url);
+  }, [tabs]);
+  const [previewPage, setPreviewPage] = useState<InternalPage>("newtab");
+  const openPage = useCallback(
+    async (page: InternalPage) => {
+      if (!api) {
+        setPreviewPage(page);
+        window.dispatchEvent(new Event("lunar:activate-browser"));
+        return;
+      }
+      if (!ready) throw new Error("Wait until your browser has loaded.");
+      const originTab = tabs.tabs.find((tab) => tab.id === tabs.activeTabId);
+      if (originTab && isWebUrl(originTab.url))
+        setSiteForControls(originTab.url);
+      const url = `lunar://${page}`;
+      const existing = tabs.tabs.find((tab) => tab.url === url);
+      if (existing) await api.switchTab(existing.id);
+      else {
+        const current = tabs.tabs.find((tab) => tab.id === tabs.activeTabId);
+        if (current && isInternalUrl(current.url))
+          await api.navigateTab(current.id, url);
+        else await api.createTab(url);
+      }
+      window.dispatchEvent(new Event("lunar:activate-browser"));
+    },
+    [api, ready, tabs],
+  );
   const revision = useRef(-1);
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]),
     [shield, setShield] = useState<ShieldState | null>(null),
@@ -194,6 +232,9 @@ export function BrowserProvider({ children }: { children: React.ReactNode }) {
     () => ({
       api,
       ready,
+      previewPage,
+      siteForControls,
+      openPage,
       dashboard,
       presentationDashboard,
       previewDashboard,
@@ -213,6 +254,9 @@ export function BrowserProvider({ children }: { children: React.ReactNode }) {
     [
       api,
       ready,
+      previewPage,
+      siteForControls,
+      openPage,
       dashboard,
       presentationDashboard,
       previewDashboard,

@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { Modal } from "./ui/Modal";
+import { CONTROL_PANELS } from "../state/control-center";
 export interface CommandPaletteProps {
   isOpen: boolean;
+  nativeAvailable: boolean;
+  hasTab: boolean;
   onClose: () => void;
   onNavigatePage: (page: string) => void;
   onNewTab: () => void;
@@ -9,6 +12,8 @@ export interface CommandPaletteProps {
 }
 export default function CommandPalette({
   isOpen,
+  nativeAvailable,
+  hasTab,
   onClose,
   onNavigatePage,
   onNewTab,
@@ -17,27 +22,16 @@ export default function CommandPalette({
   const [query, setQuery] = useState("");
   if (!isOpen) return null;
   const commands = [
-    { name: "New tab", action: onNewTab },
-    { name: "Close current tab", action: onCloseTab },
-    ...[
-      "newtab",
-      "settings",
-      "themestudio",
-      "history",
-      "bookmarks",
-      "downloads",
-      "extensions",
-    ].map((page) => ({
-      name: {
-        newtab: "Start page",
-        settings: "Preferences",
-        themestudio: "Theme Studio",
-        history: "History",
-        bookmarks: "Bookmarks",
-        downloads: "Downloads",
-        extensions: "Extensions",
-      }[page]!,
-      action: () => onNavigatePage(`lunar://${page}`),
+    { name: "New tab", action: onNewTab, disabled: !nativeAvailable },
+    {
+      name: "Close current tab",
+      action: onCloseTab,
+      disabled: !nativeAvailable || !hasTab,
+    },
+    ...CONTROL_PANELS.map((item) => ({
+      name: item.label,
+      action: () => onNavigatePage(`lunar://${item.page}`),
+      disabled: false,
     })),
   ];
   const filtered = commands.filter((command) =>
@@ -52,7 +46,7 @@ export default function CommandPalette({
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key === "Enter" && filtered[0]) {
+          if (event.key === "Enter" && filtered[0] && !filtered[0].disabled) {
             filtered[0].action();
             setQuery("");
             onClose();
@@ -63,6 +57,7 @@ export default function CommandPalette({
         {filtered.map((command) => (
           <button
             key={command.name}
+            disabled={command.disabled}
             onClick={() => {
               command.action();
               setQuery("");

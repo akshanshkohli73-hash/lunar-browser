@@ -118,6 +118,17 @@ export default function LibraryView({
           </button>
         )}
       </header>
+      {page === "bookmarks" && (
+        <div className="library-scope">
+          <span>Bookmarks</span>
+          <button disabled title="Not implemented yet">
+            Reading list — not yet available
+          </button>
+          <button disabled title="Offline page saving is not implemented yet">
+            Saved pages — not yet available
+          </button>
+        </div>
+      )}
       {page !== "downloads" && (
         <div className="library-tools">
           <label className="search-field">

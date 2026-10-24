@@ -15,6 +15,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { DEFAULT_SETTINGS } from "../shared/defaults";
 import type { LunarAPI } from "../shared/api";
 import type {
   BrowserBootstrap,
@@ -86,6 +87,19 @@ beforeEach(() => {
       observedAt: "2026-10-17T10:00",
     })),
     navigateTab: vi.fn(async () => {}),
+    getShieldState: vi.fn(async () => ({
+      settings: DEFAULT_SETTINGS.shield,
+      lists: [],
+      stats: {
+        adsBlocked: 0,
+        totalBlocked: 0,
+        trackersBlocked: 0,
+        telemetryBlocked: 0,
+        cryptominersBlocked: 0,
+        socialBlocked: 0,
+        popupsBlocked: 0,
+      },
+    })),
     getSitePrivacy: vi.fn(async (url: string) => ({
       origin: new URL(url).origin,
       cookies: 2,

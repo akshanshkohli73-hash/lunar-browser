@@ -11,7 +11,8 @@ const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Do not trigger Electron's opportunistic binary installer while checking availability.
 const modulePath = path.join(repo, "node_modules/electron");
 const marker = path.join(modulePath, "path.txt");
-if (!fs.existsSync(marker)) {
+const packaged = process.env.LUNAR_PACKAGED_EXECUTABLE;
+if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
   const message =
     "BLOCKED: Electron runtime binary is not installed. Run npm run install:electron with binary-download access, then rerun npm run test:native on a desktop (or Xvfb). No native tests were executed.";
   console.error(message);
@@ -19,11 +20,9 @@ if (!fs.existsSync(marker)) {
     console.error(`::error file=scripts/native-smoke.mjs::${message}`);
   process.exitCode = 2;
 } else {
-  const executable = path.join(
-    modulePath,
-    "dist",
-    fs.readFileSync(marker, "utf8").trim(),
-  );
+  const executable =
+    packaged ??
+    path.join(modulePath, "dist", fs.readFileSync(marker, "utf8").trim());
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "lunar-native-"));
   let adHits = 0,
     slowImages = 0;
@@ -70,14 +69,22 @@ if (!fs.existsSync(marker)) {
   const launch = async () => {
     electron = await _electron.launch({
       executablePath: executable,
-      args: [repo, "--host-resolver-rules=MAP ads.lunar-shield.test 127.0.0.1"],
+      args: [
+        ...(packaged ? ["--lunar-native-test"] : [repo]),
+        "--host-resolver-rules=MAP ads.lunar-shield.test 127.0.0.1",
+      ],
       env: { ...process.env, LUNAR_TEST_PROFILE: profile },
       timeout: 30000,
     });
     // WebContentsView tabs are also exposed as Playwright pages, and their
     // about:blank target can initialize before the shell. Never choose by order.
     const shellUrl = pathToFileURL(
-      path.join(repo, "dist/renderer/index.html"),
+      packaged
+        ? path.join(
+            path.dirname(executable),
+            "resources/app.asar/dist/renderer/index.html",
+          )
+        : path.join(repo, "dist/renderer/index.html"),
     ).href;
     const findShell = () =>
       electron.windows().find((page) => page.url() === shellUrl);
@@ -89,6 +96,7 @@ if (!fs.existsSync(marker)) {
     );
     await ui.waitForFunction(() => !!window.lunarAPI);
     await ui.getByRole("main", { name: "Lunar browser workspace" }).waitFor();
+    await ui.emulateMedia({ reducedMotion: "no-preference" });
   };
   const api = (method, ...args) =>
     ui.evaluate(async ({ method, args }) => window.lunarAPI[method](...args), {
@@ -313,6 +321,65 @@ if (!fs.existsSync(marker)) {
           { cause: error },
         );
       }
+      await expect(video).toBeVisible();
+      const box = await video.boundingBox();
+      assert.ok(box);
+      const capture = () =>
+        electron.evaluate(
+          async ({ BrowserWindow }, rect) => {
+            const image =
+              await BrowserWindow.getAllWindows()[0].webContents.capturePage(
+                rect,
+              );
+            return image
+              .toBitmap()
+              .reduce((hash, byte) => ((hash * 33) ^ byte) >>> 0, 5381);
+          },
+          {
+            x: Math.round(box.x + 4),
+            y: Math.round(box.y + 150),
+            width: 20,
+            height: 60,
+          },
+        );
+      const seek = (time) =>
+        video.evaluate(
+          (v, time) =>
+            new Promise((resolve) => {
+              v.pause();
+              v.addEventListener(
+                "seeked",
+                () =>
+                  requestAnimationFrame(() =>
+                    requestAnimationFrame(() => resolve()),
+                  ),
+                { once: true },
+              );
+              v.currentTime = time;
+            }),
+          time,
+        );
+      await seek(0.2);
+      const firstFrame = await capture();
+      await seek(0.85);
+      assert.notEqual(
+        await capture(),
+        firstFrame,
+        `${format}: actual painted background frames must change, not merely report ready metadata`,
+      );
+      const note = await ui
+        .getByRole("textbox", { name: "Dashboard note" })
+        .boundingBox();
+      assert.ok(note);
+      assert.equal(
+        await ui.evaluate(
+          ({ x, y }) =>
+            document.elementFromPoint(x, y)?.getAttribute("aria-label"),
+          { x: note.x + 20, y: note.y + 10 },
+        ),
+        "Dashboard note",
+        "The media layer must not capture widget interactions",
+      );
     }
     // A recognized container can still be unreadable. The UI must expose a real retry,
     // not claim to be playing after Chromium's decoder rejects it.
@@ -436,7 +503,10 @@ if (!fs.existsSync(marker)) {
     await waitNative(1);
     await checkGeometry();
     const nativeContentId = (await native())[0].id;
-    await ui.getByRole("button", { name: "Lunar Shield", exact: true }).click();
+    await ui
+      .getByRole("navigation", { name: "Browser navigation" })
+      .getByRole("button", { name: "Lunar Shield", exact: true })
+      .click();
     await expect(
       ui.getByRole("dialog", { name: "Lunar Shield", exact: true }),
     ).toBeVisible();
@@ -546,22 +616,80 @@ if (!fs.existsSync(marker)) {
     );
     await ui
       .getByRole("navigation", { name: "Dock" })
-      .getByRole("button", { name: "Theme Studio", exact: true })
+      .getByRole("button", { name: "Appearance", exact: true })
       .click();
     await ui
-      .getByRole("dialog", { name: "Theme Studio", exact: true })
+      .getByRole("heading", { name: "Theme Studio", exact: true })
       .waitFor();
-    await ui.waitForFunction(
-      () => document.querySelector(".native-covered") !== null,
-    );
+    await waitNative(0);
+    await api("switchTab", b.id);
+    await waitNative(1);
+    await checkGeometry();
+    // Every installed shortcut targets a real internal page, retaining the website tabs.
+    for (const [label, page] of [
+      ["Home", "newtab"],
+      ["Widgets", "widgets"],
+      ["Appearance", "themestudio"],
+      ["Lunar Shield", "shield"],
+      ["Library", "bookmarks"],
+      ["Activity", "history"],
+      ["Downloads", "downloads"],
+      ["Extensions", "extensions"],
+      ["Settings", "settings"],
+    ]) {
+      await ui
+        .getByRole("navigation", { name: "Dock" })
+        .getByRole("button", { name: label, exact: true })
+        .click();
+      await expect
+        .poll(async () => {
+          const snap = await api("bootstrap");
+          return snap.tabs.tabs.find((tab) => tab.id === snap.tabs.activeTabId)
+            ?.url;
+        })
+        .toBe(`lunar://${page}`);
+      await waitNative(0);
+      assert.equal(
+        await ui.getByRole("main", { name: "Lunar browser workspace" }).count(),
+        1,
+      );
+    }
+    await api("switchTab", b.id);
+    await waitNative(1);
+    await ui
+      .getByRole("menubar")
+      .getByRole("menuitem", { name: "View", exact: true })
+      .click();
     await waitNative(0);
     await ui
-      .getByRole("navigation", { name: "Dock" })
-      .getByRole("button", { name: "Lunar Browser", exact: true })
+      .getByRole("menu", { name: "View menu" })
+      .getByRole("menuitem", { name: "Zoom in", exact: true })
       .click();
-    await ui.waitForFunction(
-      () => document.querySelector(".native-covered") === null,
+    assert.equal(
+      await electron.evaluate(
+        ({ webContents }, id) =>
+          Math.round(webContents.fromId(id).getZoomFactor() * 10) / 10,
+        nativeContentId,
+      ),
+      1.1,
     );
+    await api("browserCommand", "zoomReset", "page");
+    await waitNative(1);
+    await checkGeometry();
+    await ui
+      .getByRole("menubar")
+      .getByRole("menuitem", { name: "Help", exact: true })
+      .click();
+    await ui
+      .getByRole("menu", { name: "Help menu" })
+      .getByRole("menuitem", { name: "Diagnostics", exact: true })
+      .click();
+    await ui
+      .getByRole("heading", { name: "Diagnostics", exact: true })
+      .waitFor();
+    assert.equal((await api("getAppInfo")).packaged, !!packaged);
+    await api("switchTab", b.id);
+    await waitNative(1);
     await electron.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()[0].setSize(1100, 720),
     );
@@ -820,6 +948,164 @@ if (!fs.existsSync(marker)) {
       const tab = await api("createTab");
       await api("closeTab", tab.id);
     }
+    // Exercise the custom Edit menu against a real focused chrome input.
+    await api("switchTab", b.id);
+    await waitNative(1);
+    const addressInput = ui.getByRole("textbox", {
+      name: "Address and search",
+    });
+    await addressInput.fill("before");
+    await addressInput.selectText();
+    await electron.evaluate(({ clipboard }) =>
+      clipboard.writeText("fixture paste"),
+    );
+    const editMenu = async (label) => {
+      await ui
+        .getByRole("menubar")
+        .getByRole("menuitem", { name: "Edit", exact: true })
+        .click();
+      await ui
+        .getByRole("menu", { name: "Edit menu" })
+        .getByRole("menuitem", { name: label, exact: true })
+        .click();
+    };
+    await editMenu("Paste");
+    await expect(addressInput).toHaveValue("fixture paste");
+    await editMenu("Undo");
+    await expect(addressInput).toHaveValue("before");
+    await editMenu("Redo");
+    await expect(addressInput).toHaveValue("fixture paste");
+    await editMenu("Select all");
+    await editMenu("Copy");
+    assert.equal(
+      await electron.evaluate(({ clipboard }) => clipboard.readText()),
+      "fixture paste",
+    );
+    await editMenu("Cut");
+    await expect(addressInput).toHaveValue("");
+    await editMenu("Paste");
+    await expect(addressInput).toHaveValue("fixture paste");
+    await ui
+      .getByRole("menubar")
+      .getByRole("menuitem", { name: "History", exact: true })
+      .click();
+    await ui
+      .getByRole("menu", { name: "History menu" })
+      .getByRole("menuitem", { name: "Clear browsing history…", exact: true })
+      .click();
+    await ui
+      .getByRole("dialog", { name: "Clear browsing history" })
+      .getByRole("button", { name: "Clear all history", exact: true })
+      .click();
+    await expect.poll(() => api("getHistory")).toEqual([]);
+    const persistedClip = path.join(profile, "selected-video.mp4");
+    fs.copyFileSync(
+      path.join(repo, "tests/fixtures/media/wallpaper.mp4"),
+      persistedClip,
+    );
+    await ui
+      .getByRole("navigation", { name: "Dock" })
+      .getByRole("button", { name: "Appearance", exact: true })
+      .click();
+    await ui
+      .getByRole("button", { name: "Background & dock", exact: true })
+      .click();
+    const originalDialog = await electron.evaluateHandle(
+      ({ dialog }) => dialog.showOpenDialog,
+    );
+    await electron.evaluate(({ dialog }, file) => {
+      dialog.showOpenDialog = async () => ({
+        canceled: false,
+        filePaths: [file],
+      });
+    }, persistedClip);
+    try {
+      await ui
+        .getByRole("button", {
+          name: "Choose local image or video",
+          exact: true,
+        })
+        .click();
+      await expect
+        .poll(() =>
+          ui.locator(".dashboard-preview video").evaluate((v) => v.videoWidth),
+        )
+        .toBe(160);
+    } finally {
+      await electron.evaluate(({ dialog }, original) => {
+        dialog.showOpenDialog = original;
+      }, originalDialog);
+      await originalDialog.dispose();
+    }
+    await ui
+      .getByRole("checkbox", {
+        name: "Show manual sound controls",
+        exact: true,
+      })
+      .check();
+    await ui
+      .getByRole("button", { name: "Apply dashboard", exact: true })
+      .click();
+    await expect(
+      ui.getByText("Dashboard saved to this profile.", { exact: true }),
+    ).toBeVisible();
+    fs.unlinkSync(persistedClip);
+    await ui
+      .getByRole("navigation", { name: "Dock" })
+      .getByRole("button", { name: "Home", exact: true })
+      .click();
+    await expect
+      .poll(() =>
+        ui
+          .locator(".new-tab-dashboard video")
+          .evaluate((v) => !v.paused && v.currentTime > 0.1),
+      )
+      .toBe(true);
+    assert.equal(
+      await ui
+        .locator(".new-tab-dashboard video")
+        .evaluate((v) => v.muted && v.loop),
+      true,
+    );
+    await ui
+      .getByRole("button", { name: "Unmute wallpaper", exact: true })
+      .click();
+    assert.equal(
+      await ui.locator(".new-tab-dashboard video").evaluate((v) => v.muted),
+      false,
+    );
+    await ui
+      .getByRole("button", { name: "Pause wallpaper", exact: true })
+      .click();
+    assert.equal(
+      await ui.locator(".new-tab-dashboard video").evaluate((v) => v.paused),
+      true,
+    );
+    await ui
+      .getByRole("button", { name: "Play wallpaper", exact: true })
+      .click();
+    await expect
+      .poll(() =>
+        ui
+          .locator(".new-tab-dashboard video")
+          .evaluate((v) => !v.paused && v.muted),
+      )
+      .toBe(true);
+    await ui.emulateMedia({ reducedMotion: "reduce" });
+    await expect
+      .poll(() =>
+        ui.locator(".new-tab-dashboard video").evaluate((v) => v.paused),
+      )
+      .toBe(true);
+    await ui
+      .getByRole("button", { name: "Play wallpaper", exact: true })
+      .click();
+    await expect
+      .poll(() =>
+        ui.locator(".new-tab-dashboard video").evaluate((v) => !v.paused),
+      )
+      .toBe(true);
+    await ui.emulateMedia({ reducedMotion: "no-preference" });
     const saved = await api("bootstrap");
     await expect
       .poll(
@@ -844,7 +1130,24 @@ if (!fs.existsSync(marker)) {
     const home = await api("createTab");
     assert.equal(home.url, "lunar://newtab");
     await waitNative(0);
-    assert.equal(await decodeWallpaper(), 1);
+    await expect
+      .poll(() =>
+        ui
+          .locator(".new-tab-dashboard video")
+          .evaluate(
+            (v) =>
+              v.videoWidth === 160 &&
+              !v.paused &&
+              v.currentTime > 0.1 &&
+              v.muted &&
+              v.loop,
+          ),
+      )
+      .toBe(true);
+    assert.equal(
+      (await api("getDashboard")).wallpaper.mediaId,
+      saved.dashboard.wallpaper.mediaId,
+    );
 
     assert.ok(
       restored.bookmarks.some(
@@ -856,10 +1159,10 @@ if (!fs.existsSync(marker)) {
       saved.tabs.tabs.map((tab) => tab.url),
     );
     console.log(
-      `PASS: Native Electron on ${process.platform}: isolated Chromium tabs, navigation/loading/stop, background focus and native Ctrl+L, geometry/resize, overlay detachment, real Shield request interception on/off, profile-owned media decoding/scope, dashboard preview/cancel/layout and restart, scoped cookie/storage clearing and permission reset, content zoom geometry, real extension content script/unload, download bytes, sender rejection, malformed IPC, restart/persistence and explicit repeated-close webContents cleanup.`,
+      `PASS: ${packaged ? "Packaged" : "Development"} native Electron on ${process.platform}: isolated Chromium tabs, navigation/loading/stop, background focus and native Ctrl+L, geometry/resize, overlay detachment, real Shield request interception on/off, profile-owned media decoding/scope, dashboard preview/cancel/layout and restart, scoped cookie/storage clearing and permission reset, content zoom geometry, real extension content script/unload, download bytes, sender rejection, malformed IPC, restart/persistence and explicit repeated-close webContents cleanup.`,
     );
     console.log(
-      "Installed NSIS launch/upgrade/uninstall, multi-monitor Windows DPI, actual video codecs and OS device consent still need manual verification. No signing service is required.",
+      "Installed NSIS launch/upgrade/uninstall, multi-monitor Windows DPI, additional video codecs and OS device consent still need manual verification. Known H.264 MP4 / VP8 WebM decoding, painted frames, seeking, persistence and controls executed above. No signing service is required.",
     );
   } catch (error) {
     // CI log downloads may be inaccessible to API clients; expose the actual

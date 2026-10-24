@@ -50,3 +50,10 @@ export interface CoquetteDesktopPortfolioProps {
 }
 export declare const CoquetteDesktopPortfolio: React.FC<CoquetteDesktopPortfolioProps>;
 export default CoquetteDesktopPortfolio;
+
+export const CoquetteFrame: React.FC<{
+  children: React.ReactNode;
+  accent: string;
+  deep: string;
+  desktopVisible: boolean;
+}>;

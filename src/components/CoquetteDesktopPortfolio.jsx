@@ -1,4 +1,4 @@
-import { DesktopMenuBar } from "./DesktopMenuBar";
+import { DesktopMenuBar } from "./legacy/PortfolioMenuBar";
 import * as d from "react";
 import * as e from "react/jsx-runtime";
 const fe = 84;
@@ -3638,3 +3638,19 @@ const Wt = `
 `;
 export { It as CoquetteDesktopPortfolio };
 export default It;
+
+// Shared original Coquette frame/art direction; the installed browser supplies its own control registry.
+export function CoquetteFrame({ children, accent, deep, desktopVisible }) {
+  return e.jsxs("div", {
+    className: "cdp-root lunar-shell",
+    "data-browser": desktopVisible ? "off" : "on",
+    "data-compact": "off",
+    style: {
+      height: "100dvh",
+      "--cdp-accent": accent,
+      "--cdp-deep": deep,
+      background: "var(--cdp-desk)",
+    },
+    children: [e.jsx("style", { children: Wt }), children],
+  });
+}

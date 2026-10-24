@@ -131,41 +131,91 @@ try {
     0,
   );
 
+  const panels = [
+    ["Home", "Make room for curiosity."],
+    ["Widgets", "Widgets"],
+    ["Appearance", "Theme Studio"],
+    ["Lunar Shield", "Lunar Shield"],
+    ["Library", "Saved for later"],
+    ["Activity", "Where you’ve been"],
+    ["Downloads", "Downloads"],
+    ["Extensions", "Extensions"],
+    ["Settings", "Browsing"],
+  ];
+  const dock = page.getByRole("navigation", { name: "Dock" });
+  assert.deepEqual(
+    await dock
+      .getByRole("button")
+      .allTextContents()
+      .then((items) => items.map((s) => s.trim())),
+    panels.map((p) => p[0]),
+  );
+  for (const [name, heading] of panels) {
+    await dock.getByRole("button", { name, exact: true }).click();
+    await page
+      .getByRole("heading", { name: heading, exact: true })
+      .first()
+      .waitFor();
+    assert.equal(
+      await page.getByRole("main", { name: "Lunar browser workspace" }).count(),
+      1,
+    );
+  }
   await page.getByRole("button", { name: "Show desktop", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Open websites", exact: true })
-    .dblclick();
-  await page.getByRole("dialog", { name: "Websites", exact: true }).waitFor();
+  assert.equal(
+    await page
+      .getByRole("region", { name: "Lunar desktop controls" })
+      .getByRole("button")
+      .count(),
+    9,
+  );
   await page.screenshot({ path: ".artifacts/ui/desktop.png" });
   await page
-    .getByRole("navigation", { name: "Dock" })
-    .getByRole("button", { name: "Lunar Browser", exact: true })
+    .getByRole("button", { name: "Open Appearance", exact: true })
     .click();
   await page
-    .getByRole("heading", { name: "Make room for curiosity." })
-    .waitFor();
-  assert.equal(
-    await page.getByRole("main", { name: "Lunar browser workspace" }).count(),
-    1,
-  );
-  await page
-    .getByRole("navigation", { name: "Dock" })
-    .getByRole("button", { name: "Theme Studio", exact: true })
-    .click();
-  await page
-    .getByRole("dialog", { name: "Theme Studio", exact: true })
-    .waitFor();
-  await page
-    .getByRole("dialog", { name: "Theme Studio", exact: true })
     .getByRole("heading", { name: "Theme Studio", exact: true })
     .waitFor();
   await page.screenshot({ path: ".artifacts/ui/theme-studio.png" });
-  await page.setViewportSize({ width: 900, height: 650 });
-  await page.screenshot({ path: ".artifacts/ui/compact.png" });
+  const menus = [
+    "Lunar",
+    "File",
+    "Edit",
+    "View",
+    "History",
+    "Bookmarks",
+    "Window",
+    "Help",
+  ];
+  for (const menu of menus) {
+    await page
+      .getByRole("menubar", { name: "Application menu" })
+      .getByRole("menuitem", { name: menu, exact: true })
+      .click();
+    await page
+      .getByRole("menu", { name: `${menu} menu`, exact: true })
+      .waitFor();
+    await page
+      .getByRole("menu", { name: `${menu} menu`, exact: true })
+      .press("Escape");
+  }
   await page
-    .getByRole("navigation", { name: "Dock" })
-    .getByRole("button", { name: "Lunar Browser", exact: true })
+    .getByRole("menubar")
+    .getByRole("menuitem", { name: "Lunar", exact: true })
     .click();
+  await page
+    .getByRole("menu", { name: "Lunar menu" })
+    .getByRole("menuitem", { name: "Lunar controls", exact: true })
+    .click();
+  const launcher = page.getByRole("dialog", { name: "Lunar controls" });
+  await launcher
+    .getByRole("textbox", { name: "Find a Lunar control" })
+    .fill("widgets");
+  await launcher
+    .getByRole("textbox", { name: "Find a Lunar control" })
+    .press("Enter");
+  await page.getByRole("heading", { name: "Widgets", exact: true }).waitFor();
+  await dock.getByRole("button", { name: "Home", exact: true }).click();
   await page.setViewportSize({ width: 700, height: 650 });
   await page
     .getByRole("heading", { name: "Make room for curiosity." })
@@ -212,7 +262,7 @@ try {
     "No renderer exceptions, duplicate keys or console errors",
   );
   console.log(
-    "PASS: Chromium renderer preview — single workspace, real layout/hit targets, original shortcuts, dock restore, Theme Studio, wallpaper/widget/dock preview and cancel, real calendar/tile CSS and responsive stacking; no console errors.",
+    "PASS: Chromium renderer preview — single workspace, real layout/hit targets, all nine Lunar shortcuts and launcher routes, eight keyboard menus, dock restore, Theme Studio, wallpaper/widget/dock preview/cancel and responsive stacking; no console errors.",
   );
   console.log(
     "This test is not a native Electron or Windows runtime test. Screenshots: .artifacts/ui/",

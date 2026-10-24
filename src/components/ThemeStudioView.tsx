@@ -88,7 +88,7 @@ export default function ThemeStudioView() {
           aria-pressed={tab === "dashboard"}
           onClick={() => setTab("dashboard")}
         >
-          Dashboard & dock
+          Background & dock
         </button>
       </div>
       {!api && (

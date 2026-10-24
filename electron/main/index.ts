@@ -21,6 +21,7 @@ import {
 import { fetchWeather } from "../services/weather";
 import { pathToFileURL } from "node:url";
 import { ZodError } from "zod";
+import { executeBrowserCommand } from "../browser/commands";
 import { TabManager } from "../browser/tab-manager";
 import { loadShellWindow } from "./shell-loader";
 import { LunarShield } from "../blocker/shield";
@@ -61,8 +62,16 @@ app.on("web-contents-created", (_event, contents) => {
   contents.setWindowOpenHandler(() => ({ action: "deny" }));
   contents.on("will-attach-webview", (event) => event.preventDefault());
 });
-if (!app.isPackaged && process.env.LUNAR_TEST_PROFILE)
-  app.setPath("userData", process.env.LUNAR_TEST_PROFILE);
+const nativeTestProfile =
+  process.env.LUNAR_TEST_PROFILE &&
+  (!app.isPackaged || app.commandLine.hasSwitch("lunar-native-test"))
+    ? process.env.LUNAR_TEST_PROFILE
+    : undefined;
+if (nativeTestProfile) {
+  if (!path.isAbsolute(nativeTestProfile))
+    throw new Error("The explicit native-test profile must be absolute.");
+  app.setPath("userData", nativeTestProfile);
+}
 interface BrowserContext {
   window: BrowserWindow;
   entryUrl: string;
@@ -142,6 +151,16 @@ handle("browser:bootstrap", (ctx) => ({
   warnings: ctx.storage.warnings,
   dashboard: ctx.storage.getDashboard(),
 }));
+handle("browser:info", () => ({
+  version: app.getVersion(),
+  electron: process.versions.electron,
+  chromium: process.versions.chrome,
+  platform: process.platform,
+  packaged: app.isPackaged,
+}));
+handle("browser:command", (ctx, command, target) =>
+  executeBrowserCommand(ctx, command, target),
+);
 handle("tab:create", (ctx, url) => ctx.tabs.createTab(url));
 handle("tab:close", (ctx, id) => ctx.tabs.closeTab(id));
 handle("tab:switch", (ctx, id) => ctx.tabs.switchTab(id));
@@ -195,7 +214,7 @@ handle("settings:update", (ctx, partial) => {
   ctx.shield.notify();
   return settings;
 });
-handle("shield:get", (ctx) => ctx.shield.getState());
+handle("shield:get", (ctx, url) => ctx.shield.getState(url));
 handle("shield:refresh", (ctx) => ctx.shield.refresh());
 handle("bookmarks:get", (ctx) => ctx.storage.getBookmarks());
 handle("bookmarks:add", (ctx, input) => {
@@ -505,9 +524,7 @@ async function createWindow() {
   });
   // The same implementation serves keys in browser chrome and focused native pages.
   window.webContents.on("before-input-event", (event, input) => {
-    const chromeZoom =
-      (input.control || input.meta) && ["+", "=", "-", "0"].includes(input.key);
-    if (chromeZoom || tabs.handleShortcut(input)) event.preventDefault();
+    if (tabs.handleShortcut(input)) event.preventDefault();
   });
   window.webContents.on("zoom-changed", () =>
     window.webContents.setZoomFactor(1),
@@ -555,7 +572,7 @@ else {
     .catch((error: unknown) => {
       // Isolated native tests must report startup failures instead of blocking CDP
       // behind a modal dialog on an unattended Windows runner.
-      if (!app.isPackaged && process.env.LUNAR_TEST_PROFILE) {
+      if (nativeTestProfile) {
         console.error(
           "Lunar test startup failed:",
           error instanceof Error ? error.message : "Unknown startup failure",

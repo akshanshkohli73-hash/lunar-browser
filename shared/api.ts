@@ -34,10 +34,35 @@ import type {
   AIStatus,
   SitePrivacy,
 } from "../electron/types";
+export const browserCommandSchema = z.enum([
+  "undo",
+  "redo",
+  "cut",
+  "copy",
+  "paste",
+  "selectAll",
+  "zoomIn",
+  "zoomOut",
+  "zoomReset",
+  "fullscreen",
+]);
+export type BrowserCommand = z.infer<typeof browserCommandSchema>;
+export interface AppInfo {
+  version: string;
+  electron: string;
+  chromium: string;
+  platform: string;
+  packaged: boolean;
+}
 const none = z.tuple([]),
   tab = z.tuple([idSchema]);
 export const requestSchemas = {
   "browser:bootstrap": none,
+  "browser:info": none,
+  "browser:command": z.tuple([
+    browserCommandSchema,
+    z.enum(["page", "chrome"]),
+  ]),
   "tab:create": z.tuple([z.string().max(8192).optional()]),
   "tab:close": tab,
   "tab:switch": tab,
@@ -71,7 +96,7 @@ export const requestSchemas = {
   "downloads:resume": tab,
   "downloads:reveal": tab,
   "downloads:clear": none,
-  "shield:get": none,
+  "shield:get": z.tuple([z.string().max(8192).refine(isWebUrl).optional()]),
   "shield:refresh": none,
   "extensions:get": none,
   "extensions:load": none,
@@ -112,6 +137,8 @@ export const requestSchemas = {
 } as const;
 export interface Outputs {
   "browser:bootstrap": BrowserBootstrap;
+  "browser:info": AppInfo;
+  "browser:command": void;
   "tab:create": TabInfo;
   "tab:close": void;
   "tab:switch": void;
@@ -171,9 +198,20 @@ export type Channel = keyof typeof requestSchemas;
 export type Args<K extends Channel> = z.input<(typeof requestSchemas)[K]>;
 export type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
 export type Shortcut =
-  "address" | "commands" | "bookmark" | "ai" | "activate" | "spotlight";
+  | "address"
+  | "commands"
+  | "bookmark"
+  | "ai"
+  | "activate"
+  | "spotlight"
+  | "menu";
 export interface LunarAPI {
   bootstrap(): Promise<BrowserBootstrap>;
+  getAppInfo(): Promise<AppInfo>;
+  browserCommand(
+    command: BrowserCommand,
+    target: "page" | "chrome",
+  ): Promise<void>;
   createTab(url?: string): Promise<TabInfo>;
   closeTab(id: string): Promise<void>;
   switchTab(id: string): Promise<void>;
@@ -207,7 +245,7 @@ export interface LunarAPI {
   resumeDownload(id: string): Promise<void>;
   revealDownload(id: string): Promise<void>;
   clearDownloads(): Promise<void>;
-  getShieldState(): Promise<ShieldState>;
+  getShieldState(url?: string): Promise<ShieldState>;
   refreshShield(): Promise<ShieldState>;
   getExtensions(): Promise<ExtensionInfo[]>;
   loadUnpackedExtension(): Promise<ExtensionInfo | null>;

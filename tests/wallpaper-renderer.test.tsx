@@ -59,8 +59,15 @@ describe("wallpaper playback lifecycle (DOM media methods, not a codec test)", (
     );
     expect(video.muted).toBe(true);
     expect(
-      screen.queryByRole("button", { name: "Unmute wallpaper" }),
-    ).toBeNull();
+      screen
+        .getByRole("button", { name: "Unmute wallpaper" })
+        .hasAttribute("disabled"),
+    ).toBe(true);
+    expect(
+      screen
+        .getByRole("button", { name: "Unmute wallpaper" })
+        .getAttribute("title"),
+    ).toContain("Appearance");
     view.rerender(<Wallpaper value={value} active />);
     fireEvent.click(screen.getByRole("button", { name: "Unmute wallpaper" }));
     expect(video.muted).toBe(false);
@@ -149,4 +156,32 @@ describe("wallpaper playback lifecycle (DOM media methods, not a codec test)", (
     );
     expect(view.container.querySelector("video")).toBeNull();
   });
+});
+
+it("offers a genuine Play retry after NotAllowedError instead of claiming playback is still running", async () => {
+  play.mockRejectedValueOnce(
+    new DOMException("User gesture required", "NotAllowedError"),
+  );
+  render(<Wallpaper value={value} active />);
+  await act(async () => {});
+  expect(screen.getByRole("status").textContent).toContain("autoplay policy");
+  const count = play.mock.calls.length;
+  fireEvent.click(screen.getByRole("button", { name: "Play wallpaper" }));
+  expect(play.mock.calls.length).toBeGreaterThan(count); // Called synchronously inside the user gesture.
+});
+it("surfaces a decoder error and reloads the same local source on an explicit Play retry", () => {
+  const load = vi
+    .spyOn(HTMLMediaElement.prototype, "load")
+    .mockImplementation(() => {});
+  const view = render(<Wallpaper value={value} active />),
+    video = view.container.querySelector("video")!;
+  Object.defineProperty(video, "error", {
+    configurable: true,
+    value: { code: 4, message: "DEMUXER_ERROR" },
+  });
+  fireEvent.error(video);
+  expect(screen.getByRole("status").textContent).toContain("H.264 MP4");
+  fireEvent.click(screen.getByRole("button", { name: "Play wallpaper" }));
+  expect(load).toHaveBeenCalledOnce();
+  expect(video.muted).toBe(true);
 });

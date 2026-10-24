@@ -1,5 +1,8 @@
 import type { SVGProps } from "react";
 const paths = {
+  widgets: "M3 3h7v7H3V3Zm11 0h7v7h-7V3ZM3 14h7v7H3v-7Zm11 0h7v7h-7v-7Z",
+  info: "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM12 11v6m0-10v.01",
+  menu: "M4 6h16M4 12h16M4 18h16",
   calendar:
     "M4 5h16v16H4V5ZM4 10h16M8 3v4m8-4v4M8 14h1m3 0h1m3 0h1M8 18h1m3 0h1",
   clock: "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM12 6v6l4 2",

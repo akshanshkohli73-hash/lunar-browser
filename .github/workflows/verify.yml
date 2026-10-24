@@ -76,6 +76,18 @@ jobs:
             Write-Output "::error title=Windows installer packaging failed::$detail"
           }
           exit $code
+      - name: Verify packaged Windows application and video wallpaper
+        shell: pwsh
+        run: |
+          $env:LUNAR_PACKAGED_EXECUTABLE = (Resolve-Path "release/win-unpacked/Lunar Browser.exe").Path
+          $PSNativeCommandUseErrorActionPreference = $false
+          npm run test:native 2>&1 | Tee-Object -Variable packagedOutput
+          $code = $LASTEXITCODE
+          if ($code -ne 0) {
+            $detail = (($packagedOutput | Select-Object -Last 80) -join "`n").Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+            Write-Output "::error title=Packaged Windows integration failed::$detail"
+          }
+          exit $code
       - name: Hash produced installers
         shell: pwsh
         run: |

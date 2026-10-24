@@ -357,7 +357,9 @@ function WidgetSettings({
 export default function DashboardStudio({
   onPreview,
   onDone,
+  mode = "all",
 }: {
+  mode?: "all" | "widgets";
   onPreview?: (draft: DashboardSettings | null) => void;
   onDone?: () => void;
 }) {
@@ -445,15 +447,17 @@ export default function DashboardStudio({
   };
   return (
     <div className="dashboard-studio">
-      <div className="dashboard-preview" aria-label="Wallpaper preview">
-        <Wallpaper
-          value={draft.wallpaper}
-          active
-          preview
-          reduceMotion={reducedMotion}
-        />
-        <span>Wallpaper preview · nothing is uploaded</span>
-      </div>
+      {mode !== "widgets" && (
+        <div className="dashboard-preview" aria-label="Wallpaper preview">
+          <Wallpaper
+            value={draft.wallpaper}
+            active
+            preview
+            reduceMotion={reducedMotion}
+          />
+          <span>Wallpaper preview · nothing is uploaded</span>
+        </div>
+      )}
       <p className="muted-text">
         Changes remain a preview until Apply. Local images: up to 20 MB;
         MP4/WebM: up to 150 MB. Unsupported codecs report a playback error.
@@ -464,7 +468,7 @@ export default function DashboardStudio({
         </p>
       )}
       {message && <p role="status">{message}</p>}
-      <fieldset disabled={busy || !ready}>
+      <fieldset hidden={mode === "widgets"} disabled={busy || !ready}>
         <legend>Canvas & wallpaper</legend>
         <div className="wallpaper-presets">
           {Object.entries(WALLPAPERS).map(([key, item]) => (
@@ -842,7 +846,7 @@ export default function DashboardStudio({
           </div>
         )}
       </fieldset>
-      <fieldset disabled={busy || !ready}>
+      <fieldset hidden={mode === "widgets"} disabled={busy || !ready}>
         <legend>Desktop dock</legend>
         <label>
           Dock size

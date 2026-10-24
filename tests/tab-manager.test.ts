@@ -10,6 +10,13 @@ class FakeContents extends EventEmitter {
   destroyed = false;
   closeCount = 0;
   loading = false;
+  zoom = 1;
+  getZoomFactor() {
+    return this.zoom;
+  }
+  setZoomFactor(value: number) {
+    this.zoom = value;
+  }
   url = "about:blank";
   title = "";
   urls: string[] = [];
@@ -101,6 +108,13 @@ const { TabManager } = await import("../electron/browser/tab-manager");
 class FakeWindow extends EventEmitter {
   children = new Set<unknown>();
   size = { width: 1000, height: 700 };
+  fullscreen = false;
+  isFullScreen() {
+    return this.fullscreen;
+  }
+  setFullScreen(value: boolean) {
+    this.fullscreen = value;
+  }
   messages: unknown[] = [];
   contentView = {
     addChildView: (view: unknown) => {
@@ -274,4 +288,38 @@ describe("native-view ownership and tab state (behavioral harness, not a GUI)", 
     manager.handleShortcut(input("w"));
     expect(manager.getAllTabs()).toHaveLength(1);
   });
+});
+
+it("keeps website zoom bounded, never zooms internal chrome and toggles fullscreen without changing viewport units", () => {
+  const page = manager.createTab("https://example.org/");
+  manager.zoomActive("zoomIn");
+  expect(view(page.id).webContents.zoom).toBe(1.1);
+  for (let i = 0; i < 40; i++) manager.zoomActive("zoomOut");
+  expect(view(page.id).webContents.zoom).toBe(0.5);
+  manager.zoomActive("zoomReset");
+  expect(view(page.id).webContents.zoom).toBe(1);
+  const home = manager.createTab();
+  expect(() => manager.zoomActive("zoomIn")).toThrow("Website zoom");
+  expect(view(home.id).webContents.zoom).toBe(1);
+  expect(
+    manager.handleShortcut({
+      type: "keyDown",
+      key: "F11",
+      control: false,
+      meta: false,
+      shift: false,
+      alt: false,
+    }),
+  ).toBe(true);
+  expect(win.fullscreen).toBe(true);
+  expect(
+    manager.handleShortcut({
+      type: "keyDown",
+      key: "F10",
+      control: false,
+      meta: false,
+      shift: false,
+      alt: false,
+    }),
+  ).toBe(true);
 });

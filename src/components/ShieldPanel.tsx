@@ -1,10 +1,32 @@
 import { useEffect, useState } from "react";
 import { useBrowser } from "../state/BrowserContext";
 import { Icon } from "./ui/Icon";
-import type { SitePrivacy } from "../../electron/types";
+import type { SitePrivacy, ShieldState } from "../../electron/types";
 import { isWebUrl } from "../../shared/navigation";
 export default function ShieldPanel({ url }: { url: string }) {
-  const { api, shield, settings, updateSettings, report } = useBrowser();
+  const {
+    api,
+    shield: globalShield,
+    settings,
+    updateSettings,
+    report,
+  } = useBrowser();
+  const [siteState, setSiteState] = useState<ShieldState | null>(null);
+  const shield = siteState ?? globalShield;
+  useEffect(() => {
+    let live = true;
+    setSiteState(null);
+    if (api && isWebUrl(url))
+      void api
+        .getShieldState(url)
+        .then((state) => {
+          if (live) setSiteState(state);
+        })
+        .catch(report);
+    return () => {
+      live = false;
+    };
+  }, [api, url, globalShield, report]);
   const [privacy, setPrivacy] = useState<SitePrivacy | null>(null),
     [busy, setBusy] = useState(false);
   const hostname = isWebUrl(url) ? new URL(url).hostname : "";

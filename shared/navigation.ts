@@ -6,7 +6,13 @@ export const INTERNAL_PAGES = [
   "history",
   "downloads",
   "extensions",
+  "widgets",
+  "shield",
+  "help",
+  "diagnostics",
+  "about",
 ] as const;
+export type InternalPage = (typeof INTERNAL_PAGES)[number];
 export const SEARCH_ENGINES = {
   google: "https://www.google.com/search?q=",
   bing: "https://www.bing.com/search?q=",

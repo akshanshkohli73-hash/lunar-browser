@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useBrowser } from "../state/BrowserContext";
 import type { BrowserSettings, AIStatus } from "../../electron/types";
 import { Icon, type IconName } from "./ui/Icon";
+import { KEYBOARD_SHORTCUTS } from "../state/control-center";
 import ThemeStudioView from "./AsyncThemeStudio";
 import ExtensionsView from "./ExtensionsView";
 const sections: { id: string; title: string; icon: IconName }[] = [
@@ -543,20 +544,7 @@ export default function SettingsView() {
         {section === "shortcuts" && (
           <>
             <dl className="shortcut-list">
-              {[
-                ["Ctrl / Cmd + T", "New tab"],
-                ["Ctrl / Cmd + W", "Close tab"],
-                ["Ctrl / Cmd + L", "Focus address bar"],
-                ["Ctrl / Cmd + R / Shift + R", "Reload / bypass cache"],
-                ["Ctrl / Cmd + Tab / Shift + Tab", "Next / previous tab"],
-                ["Ctrl / Cmd + 1–8 / 9", "Switch tab / last tab"],
-                ["Alt + Left / Right", "Back / forward"],
-                ["Ctrl / Cmd + K", "Browser commands"],
-                ["Ctrl / Cmd + Space", "Desktop Spotlight"],
-                ["Ctrl / Cmd + D", "Bookmark page"],
-                ["Ctrl / Cmd + J", "Toggle AI sidebar"],
-                ["F5 / Escape", "Reload / stop loading"],
-              ].map(([keys, action]) => (
+              {KEYBOARD_SHORTCUTS.map(([keys, action]) => (
                 <div key={keys}>
                   <dt>{action}</dt>
                   <dd>
@@ -565,7 +553,7 @@ export default function SettingsView() {
                 </div>
               ))}
             </dl>
-            <h2>Lunar Browser 2.0</h2>
+            <h2>Lunar Browser</h2>
             <p>
               Chromium rendering uses Electron WebContentsView, not iframes.
               Extension APIs are partial. Windows installers must be built and

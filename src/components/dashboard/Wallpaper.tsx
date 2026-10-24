@@ -38,7 +38,7 @@ export function Wallpaper({
   const motionPaused = reduceMotion || !!preferred;
   const video = useRef<HTMLVideoElement>(null);
   const [foreground, setForeground] = useState(() => !document.hidden);
-  const [error, setError] = useState(false),
+  const [error, setError] = useState(""),
     [muted, setMuted] = useState(true),
     [paused, setPaused] = useState(motionPaused);
   useEffect(() => {
@@ -55,8 +55,41 @@ export function Wallpaper({
     };
   }, []);
   const playing = active && foreground && !paused;
+  const available = useRef(active && foreground);
+  available.current = active && foreground;
+  const fail = (node: HTMLVideoElement, failure?: unknown) => {
+    if (video.current !== node || (failure !== undefined && !available.current))
+      return;
+    setPaused(true); // A rejected play/decoder failure must offer Play, never a stale Pause.
+    const name =
+      failure && typeof failure === "object" && "name" in failure
+        ? failure.name
+        : "";
+    if (name === "AbortError") return;
+    if (name === "NotAllowedError") {
+      setError(
+        "Playback was blocked by autoplay policy. Use Play wallpaper to start muted playback.",
+      );
+      return;
+    }
+    const code = node.error?.code;
+    setError(
+      code === 2
+        ? "The local video could not be read. Choose the file again."
+        : code === 3
+          ? "The video decoder failed. Try H.264 MP4 or VP8/VP9 WebM."
+          : code === 4
+            ? "The file is unavailable or its container/codec is unsupported. Try H.264 MP4 or VP8/VP9 WebM."
+            : "Playback could not start. Choose a readable, supported local video.",
+    );
+  };
+  const start = (node: HTMLVideoElement) => {
+    node.muted = true;
+    setMuted(true);
+    void node.play().catch((failure) => fail(node, failure));
+  };
   useEffect(() => {
-    setError(false);
+    setError("");
     setMuted(true);
     setPaused(motionPaused);
   }, [value.mediaId, motionPaused]);
@@ -67,16 +100,23 @@ export function Wallpaper({
     node.muted = true;
     setMuted(true);
     let live = true;
-    if (playing)
-      void node.play().catch(() => {
-        if (live) setError(true);
+    if (playing && node.paused)
+      void node.play().catch((failure) => {
+        if (live) fail(node, failure);
       });
-    else node.pause();
+    else if (!playing) node.pause();
     return () => {
       live = false;
-      node.pause();
     };
   }, [playing, value.mediaId, value.kind]);
+  // Only a source change/unmount owns cleanup. Do not pause a synchronous user-
+  // initiated Play again during the previous playback effect's cleanup.
+  useEffect(() => {
+    const node = video.current;
+    return () => {
+      node?.pause();
+    };
+  }, [value.mediaId, value.kind]);
   useEffect(() => {
     if (!value.audioControls && video.current) {
       video.current.muted = true;
@@ -100,14 +140,15 @@ export function Wallpaper({
       >
         {value.kind === "video" ? (
           <video
+            key={source}
             ref={video}
             src={source}
             style={style}
             loop={value.loop}
-            muted
+            muted={muted}
             playsInline
             preload={active ? "metadata" : "none"}
-            onError={() => setError(true)}
+            onError={(event) => fail(event.currentTarget)}
             onEnded={() => setPaused(true)}
           />
         ) : (
@@ -115,7 +156,11 @@ export function Wallpaper({
             src={source}
             alt=""
             style={style}
-            onError={() => setError(true)}
+            onError={() =>
+              setError(
+                "The local image could not be read. Choose it again or reset the wallpaper.",
+              )
+            }
           />
         )}
         <div
@@ -125,21 +170,30 @@ export function Wallpaper({
       </div>
       {error && (
         <p className="wallpaper-error" role="status">
-          This wallpaper could not load or play. Try Play, choose another
-          supported file/codec, or reset to a built-in image.
+          This wallpaper could not load or play. {error}
         </p>
       )}
       {value.kind === "video" && (
         <div className="wallpaper-playback">
           <button
+            disabled={!active || !foreground}
             onClick={() => {
-              setError(false);
-              setPaused((current) => !current);
+              const node = video.current;
+              if (!node) return;
+              if (!paused) {
+                setPaused(true);
+                node.pause();
+                return;
+              }
+              setError("");
+              if (node.error) node.load();
+              setPaused(false);
+              start(node); // Keep the browser's user activation: do not defer Play to an effect.
             }}
           >
             {paused ? "Play wallpaper" : "Pause wallpaper"}
           </button>
-          {value.audioControls && !preview && (
+          {!preview && (
             <button
               onClick={() => {
                 if (video.current && active && foreground) {
@@ -147,7 +201,12 @@ export function Wallpaper({
                   setMuted(!muted);
                 }
               }}
-              disabled={!playing}
+              disabled={!playing || !value.audioControls}
+              title={
+                !value.audioControls
+                  ? "Enable manual sound controls in Appearance to unmute."
+                  : undefined
+              }
             >
               {muted ? "Unmute wallpaper" : "Mute wallpaper"}
             </button>
