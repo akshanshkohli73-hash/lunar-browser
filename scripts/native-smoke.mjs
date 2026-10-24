@@ -314,6 +314,46 @@ if (!fs.existsSync(marker)) {
         );
       }
     }
+    // A recognized container can still be unreadable. The UI must expose a real retry,
+    // not claim to be playing after Chromium's decoder rejects it.
+    const broken = path.join(profile, "unreadable.mp4");
+    fs.writeFileSync(
+      broken,
+      fs
+        .readFileSync(path.join(repo, "tests/fixtures/media/wallpaper.mp4"))
+        .subarray(0, 128),
+    );
+    const invalid = await electron.evaluate(
+      async ({ dialog, BrowserWindow }, selected) => {
+        const old = dialog.showOpenDialog;
+        dialog.showOpenDialog = async () => ({
+          canceled: false,
+          filePaths: [selected],
+        });
+        try {
+          return await BrowserWindow.getAllWindows()[0].webContents.executeJavaScript(
+            "window.lunarAPI.chooseWallpaper()",
+          );
+        } finally {
+          dialog.showOpenDialog = old;
+        }
+      },
+      broken,
+    );
+    await api("updateDashboard", {
+      wallpaper: { ...dashboard.wallpaper, kind: "video", mediaId: invalid.id },
+    });
+    await expect
+      .poll(() =>
+        ui
+          .locator(".new-tab-dashboard video")
+          .evaluate((video) => video.error?.code ?? 0),
+      )
+      .not.toBe(0);
+    await expect(
+      ui.getByRole("button", { name: "Play wallpaper", exact: true }),
+      "A genuine decoder failure must leave an actionable Play retry, not a stale Pause control",
+    ).toBeVisible();
     await api("updateDashboard", {
       wallpaper: { ...dashboard.wallpaper, kind: "image", mediaId: media.id },
     });
