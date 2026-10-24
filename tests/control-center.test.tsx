@@ -385,3 +385,29 @@ describe("custom browser menus dispatch actual supported operations", () => {
     );
   });
 });
+
+describe("remaining menu navigation actions use the same real panel router", () => {
+  const routes = [
+    ["Lunar", "About Lunar Browser", "about"],
+    ["Lunar", "Settings…", "settings"],
+    ["File", "Downloads", "downloads"],
+    ["View", "Dashboard", "newtab"],
+    ["View", "Appearance…", "themestudio"],
+    ["History", "Open Activity", "history"],
+    ["Bookmarks", "Manage bookmarks", "bookmarks"],
+    ["Help", "Keyboard shortcuts", "help"],
+    ["Help", "Diagnostics", "diagnostics"],
+    ["Help", "App information", "about"],
+    ...CONTROL_PANELS.map((panel) => ["Window", panel.label, panel.page]),
+  ];
+  it.each(routes)(
+    "%s → %s opens its actual destination",
+    async (menuName, label, page) => {
+      shell();
+      const menu = await openMenu(menuName);
+      fireEvent.click(menu.getByRole("menuitem", { name: label }));
+      await screen.findByText(`lunar://${page}`);
+      expect(mounts).toBe(1);
+    },
+  );
+});

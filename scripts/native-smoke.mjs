@@ -674,6 +674,24 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       1.1,
     );
     await api("browserCommand", "zoomReset", "page");
+    for (const expected of [true, false]) {
+      await ui
+        .getByRole("menubar")
+        .getByRole("menuitem", { name: "View", exact: true })
+        .click();
+      await ui
+        .getByRole("menu", { name: "View menu" })
+        .getByRole("menuitem", { name: "Toggle fullscreen", exact: true })
+        .click();
+      await expect
+        .poll(() =>
+          electron.evaluate(({ BrowserWindow }) =>
+            BrowserWindow.getAllWindows()[0].isFullScreen(),
+          ),
+        )
+        .toBe(expected);
+    }
+
     await waitNative(1);
     await checkGeometry();
     await ui

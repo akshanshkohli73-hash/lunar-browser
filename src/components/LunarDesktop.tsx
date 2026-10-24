@@ -86,7 +86,11 @@ export default function LunarDesktop({
         >
           <img
             className="lunar-desktop-art"
-            src={WALLPAPERS.meadow.url}
+            src={
+              theme.category === "dark" || theme.category === "cyber"
+                ? WALLPAPERS.midnight.url
+                : WALLPAPERS.meadow.url
+            }
             alt=""
           />
           <header>
