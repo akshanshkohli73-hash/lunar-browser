@@ -240,6 +240,82 @@ if (!fs.existsSync(marker)) {
       false,
       "Websites must not share the UI's private media handler",
     );
+    // Real local video probe: transport/decoder/playback evidence, not DOM media mocks.
+    for (const format of ["webm", "mp4"]) {
+      const clip = path.join(
+        repo,
+        "tests",
+        "fixtures",
+        "media",
+        `wallpaper.${format}`,
+      );
+      const selectedVideo = await electron.evaluate(
+        async ({ dialog, BrowserWindow }, selected) => {
+          const old = dialog.showOpenDialog;
+          dialog.showOpenDialog = async () => ({
+            canceled: false,
+            filePaths: [selected],
+          });
+          try {
+            return await BrowserWindow.getAllWindows()[0].webContents.executeJavaScript(
+              "window.lunarAPI.chooseWallpaper()",
+            );
+          } finally {
+            dialog.showOpenDialog = old;
+          }
+        },
+        clip,
+      );
+      await api("updateDashboard", {
+        wallpaper: {
+          ...dashboard.wallpaper,
+          kind: "video",
+          mediaId: selectedVideo.id,
+          loop: true,
+        },
+      });
+      const video = ui.locator(".new-tab-dashboard video");
+      await expect(video).toHaveCount(1);
+      const play = ui.getByRole("button", {
+        name: "Play wallpaper",
+        exact: true,
+      });
+      if (await play.isVisible()) await play.click();
+      try {
+        await expect
+          .poll(
+            () =>
+              video.evaluate((v) => ({
+                ready: v.readyState,
+                width: v.videoWidth,
+                advancing: v.currentTime > 0.1,
+              })),
+            { timeout: 15000 },
+          )
+          .toEqual({ ready: 4, width: 160, advancing: true });
+      } catch (error) {
+        const state = await video.evaluate((v) => ({
+          src: v.currentSrc,
+          ready: v.readyState,
+          network: v.networkState,
+          paused: v.paused,
+          muted: v.muted,
+          time: v.currentTime,
+          error: v.error
+            ? { code: v.error.code, message: v.error.message }
+            : null,
+          visibility: document.visibilityState,
+          focused: document.hasFocus(),
+          html: getComputedStyle(v).cssText,
+        }));
+        throw new Error(
+          `Actual ${format} wallpaper failed: ${JSON.stringify(state)}; ${String(error)}`,
+        );
+      }
+    }
+    await api("updateDashboard", {
+      wallpaper: { ...dashboard.wallpaper, kind: "image", mediaId: media.id },
+    });
     await ui
       .getByRole("button", { name: "Customize dashboard", exact: true })
       .click();
