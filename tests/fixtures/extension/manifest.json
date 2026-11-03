@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Lunar Compatibility Fixture",
+  "version": "1.0.0",
+  "description": "Controlled native integration fixture: marks loopback test pages only.",
+  "content_scripts": [
+    {
+      "matches": ["http://127.0.0.1/*"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ]
+}
