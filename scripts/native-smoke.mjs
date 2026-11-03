@@ -555,6 +555,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       name: "Resize Clock & date widget",
       exact: true,
     });
+    await resize.hover(); // Wait for the preceding grid layout transition before taking coordinates.
     const handle = await resize.boundingBox(),
       gridBox = await ui.locator(".dashboard-grid").boundingBox();
     assert.ok(handle && gridBox);
@@ -592,7 +593,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       .click();
     await ui
       .locator('[data-widget-id="clock"] .widget-arrange-handle')
-      .dragTo(ui.locator('[data-widget-id="calendar"]'));
+      .dragTo(ui.locator('[data-widget-id="bookmarks"]'));
     await ui.getByRole("button", { name: "Save layout", exact: true }).click();
     await expect
       .poll(async () => {
