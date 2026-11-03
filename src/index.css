@@ -2608,3 +2608,7 @@ html[data-reduced-motion="true"] .lunar-dock-button {
   color: var(--glass-muted);
   opacity: 1;
 }
+/* Glass captions use material contrast, not a light-theme accent inherited from chrome. */
+.glass-surface .eyebrow {
+  color: var(--glass-muted);
+}

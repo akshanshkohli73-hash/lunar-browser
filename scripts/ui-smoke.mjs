@@ -203,6 +203,29 @@ try {
       "data-glass-tone",
       preset === "Midnight garden" ? "dark" : "light",
     );
+    await expect(
+      page.getByRole("region", { name: "New tab dashboard" }),
+    ).toHaveAttribute(
+      "data-wallpaper-preset",
+      preset === "Midnight garden" ? "midnight" : "meadow",
+    );
+    await page
+      .locator(".new-tab-dashboard .dashboard-wallpaper img")
+      .evaluate((image) => image.decode());
+    const caption = await page
+      .locator(".dashboard-widget .widget-clock .eyebrow")
+      .evaluate((node) => {
+        const style = getComputedStyle(node),
+          reference = document.createElement("span");
+        reference.style.color = style.getPropertyValue("--glass-muted");
+        return { actual: style.color, expected: reference.style.color };
+      });
+    assert.equal(
+      caption.actual,
+      caption.expected,
+      "Every glass caption must use readable material ink, even on dark glass",
+    );
+
     // Isolate the actual draft dashboard for visual review; no persisted save is implied.
     await page.screenshot({
       path: `.artifacts/ui/glass-${preset === "Midnight garden" ? "dark" : "bright"}-preview.png`,
