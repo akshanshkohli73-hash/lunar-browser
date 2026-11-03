@@ -228,6 +228,16 @@ describe("reusable glass surface and unchanged widget identities", () => {
       screen.getByRole("button", { name: "Resize Notes widget" }),
     );
     expect(change).toHaveBeenCalledExactlyOnceWith({ ...widget, w: 6, h: 5 });
+    change.mockClear();
+    fireEvent.pointerCancel(
+      screen.getByRole("button", { name: "Resize Notes widget" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Resize Notes widget" }),
+      { detail: 0 },
+    );
+    expect(change).toHaveBeenCalledExactlyOnceWith({ ...widget, w: 6, h: 5 });
+
     const handle = view.container.querySelector(".widget-arrange-handle")!;
     const setData = vi.fn();
     fireEvent.dragStart(handle, {

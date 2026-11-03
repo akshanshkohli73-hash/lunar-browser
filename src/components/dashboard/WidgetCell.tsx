@@ -200,9 +200,11 @@ export const WidgetCell = memo(function WidgetCell({
               onChange({ ...start.start, w: nextW, h: nextH });
             }}
             onPointerUp={(event) => {
+              if (!gesture.current) return;
               gesture.current = null;
               setResizing(false);
-              event.currentTarget.releasePointerCapture(event.pointerId);
+              if (event.currentTarget.hasPointerCapture(event.pointerId))
+                event.currentTarget.releasePointerCapture(event.pointerId);
             }}
             onPointerCancel={() => {
               const start = gesture.current;
@@ -215,11 +217,13 @@ export const WidgetCell = memo(function WidgetCell({
               gesture.current = null;
               setResizing(false);
             }}
-            onClick={() => {
-              if (suppressClick.current) {
+            onClick={(event) => {
+              if (suppressClick.current && event.detail !== 0) {
                 suppressClick.current = false;
                 return;
               }
+              // Keyboard activation must still work after a cancelled pointer gesture.
+              suppressClick.current = false;
               resize();
             }}
           >
