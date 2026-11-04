@@ -73,7 +73,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComp
         {/* STEP 3: LUNAR SHIELD */}
         {step === 3 && (
           <div className="space-y-4 text-center">
-            <span className="text-4xl">🛡️</span>
+            <svg className="w-12 h-12 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             <div>
               <h3 className="text-base font-bold text-cyan-400">LUNAR SHIELD</h3>
               <p className="text-xs text-slate-400 mt-1">
