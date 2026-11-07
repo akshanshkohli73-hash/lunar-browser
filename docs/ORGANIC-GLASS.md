@@ -15,7 +15,7 @@ This is a staged evolution of the existing Coquette application, not a new dashb
 | 5 · Chrome              | Shared backings in the integrated menu bar, tab strip, toolbar, address field, bookmark bar, dock, dropdowns, modals, assistant and settings. Dark material ink follows its backing, not a conflicting light-theme selector. No extra titlebar, iframe, webpage screenshot or changed viewport reservation.                                                           |
 | 6 · Motion              | Central Framer spring presets, gentle widget entry/layout/drop, hover/press, settings-tab entry, panel/menu entry/exit, finite wallpaper transitions, proximity dock and shared active indicator. Keyboard focus remains explicit; hit boxes stay stationary. Mounted exiting portals retain native occlusion and become inert until actual unmount.                  |
 | 7 · Studio              | All controls below reach real rendering/interaction, support draft preview, explicit Apply/Cancel/reset and validated persistence. Existing colors, themes, layouts, wallpaper and sparse overrides survive migration / unrelated saves.                                                                                                                              |
-| 8 · Regression          | Local 205-test suite, real Chromium layout/hit-target/pixel/fallback checks, production dependency audit and package validation passed. Windows source/packaged verification is tracked separately below; it is not inferred from the web preview.                                                                                                                    |
+| 8 · Regression          | Local 205-test suite, real Chromium layout/hit-target/pixel/fallback checks, production dependency audit and package validation passed. Windows source/packaged integration and unsigned NSIS packaging passed independently; exact source and evidence are below, not inferred from the web preview.                                                                 |
 
 ### Material, environment and performance
 
@@ -75,9 +75,30 @@ No new runtime dependency, network upload, privileged renderer API, unrestricted
 
 ### Windows source / packaged application
 
-**Pending the next corrected 2.4.0 source run.** Initial run [42355228903](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42355228903) passed renderer and Windows type/lint/unit/build checks but captured H.264 optics before the new paint committed. The stricter rendering-opportunity / actual-changed-capture wait in [42355616217](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42355616217) then passed **both WebM and MP4 native displacement and repeated-pixel stability**. That run subsequently stopped at the fixed-action layout probe because it measured the dialog during the newly introduced entrance spring. The probe now awaits actual stable dialog geometry before measuring; the <1px fixed-footer, independent-scroll and unobscured-hit-target assertions are unchanged. Actual Chromium with motion enabled also passes that layout gate. Packaging was skipped in both failed runs, and no packaged success is inferred from them.
+**Passed:** [run 42356102060](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42356102060), runtime/source **`b9eb60d500a9eca98f47a0c0a5ac56935d6d00bc`**, 2026-11-07. Both jobs succeeded: renderer/regressions **128354422357** and Windows native/NSIS **128354422130**.
 
-The current gate includes actual profile-owned PNG/H.264/VP8 media, painted video-through-glass and blur smoothing, deterministic SVG displacement over paused decoded video, mounted-exit native occlusion, layout/resize/drag/navigation/security/restart and a new unsigned NSIS artifact plus execution of the packaged application. The final run/source, observations and artifact will be recorded here when complete; historical 2.3.0 results are not evidence for this candidate.
+- Windows `npm run check` passed **205 tests / 26 files**, TypeScript, ESLint, renderer/main/preload builds and package validation. Linux renderer gates and production dependency audit passed independently.
+- **Actual source Electron integration passed**, including profile-owned PNG/H.264/VP8 import/decode, painted video through visible glass, blur smoothing, SVG displacement over paused decoded video, repeated optical-pixel stability, mounted-exit native occlusion, fixed-action layout/resize/drag, navigation/tabs/permissions/security and restart persistence.
+- **A new unsigned x64 NSIS installer was produced**, then the actual `win-unpacked/Lunar Browser.exe` passed the native integration suite again. This is packaged-application execution, not an interactive installed-NSIS upgrade/uninstall test.
+- Five material surfaces were configured and actually visible in each video observation; GPU compositing was deliberately **`disabled_software`**. Synthetic clips are 160×90 at 12fps. These are bounded correctness/cadence observations, not hardware FPS benchmarks:
+
+| Execution | Clip        | Observed | Frame callbacks | Decoded | Dropped | Maximum callback gap |
+| --------- | ----------- | -------- | --------------- | ------- | ------- | -------------------- |
+| Source    | WebM / VP8  | 2201ms   | 26              | 26      | 0       | 125ms                |
+| Source    | MP4 / H.264 | 2200ms   | 26              | 26      | 0       | 125ms                |
+| Packaged  | WebM / VP8  | 2201ms   | 26              | 26      | 0       | 125ms                |
+| Packaged  | MP4 / H.264 | 2201ms   | 26              | 26      | 0       | 125ms                |
+
+Native bitmap hash probes changed from **2597167277 → 1530145031** (WebM) and **3962450577 → 3524291468** (MP4) with SVG enabled; repeated fixed-on captures were stable in both source and packaged execution. Independent blur edge-energy probes decreased **525776 → 514158** for WebM and **520885 → 512809** for MP4. Native hashes are the smoke probe's bounded bitmap hashes, not SHA-256; the renderer PNG proof above and installer/archive digests below use SHA-256.
+
+**Unreleased test artifact:** [lunar-windows-x64-unsigned / 13567816386](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42356102060/artifacts/13567816386), ZIP **113,740,776 bytes**. GitHub reports archive SHA-256 **`658b70f5f658ae98bf668924a9884d024e7abcfb60c3a14eb533ac2f9924ed93`**. Inside: `Lunar-Browser-2.4.0-win-x64.exe`, CI-computed SHA-256 **`644E18C24D2F65A03E1ADFE65541BF79F9A9AFB7150FB05834E0436D14B34259`**, Authenticode **`NotSigned`**. These are newly produced 2.4.0 bytes, not substituted 2.3.0/2.2.0 binaries. GitHub artifact retention/authentication applies; this is not a public release or update feed. No signing-trust or Windows-security bypass is offered.
+
+Supporting CI artifacts:
+
+- [Windows material screenshots / video-glass observations · 13566674891](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42356102060/artifacts/13566674891), ZIP SHA-256 `e424156f3334a4243cb054d9b233a4b4da995d11004d48bb89a0b02b76332140`.
+- [Chromium renderer evidence · 13567229985](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42356102060/artifacts/13567229985), ZIP SHA-256 `9320b9400658687ce79c356e11e436eba9c1f69f0c02b6bfd3b54338419d77c1`.
+
+**Corrections before the successful run:** [42355228903](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42355228903) rejected an unchanged immediate MP4 optical capture. Waiting for rendering opportunities and an actually changed native capture retained strict off/on difference and repeated-on stability checks. [42355616217](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42355616217) then passed both native video optical gates but rejected a layout probe measuring during the new entrance spring. The probe now awaits actual stable dialog geometry before measuring; the <1px fixed-footer, independent-scroll and unobscured-hit-target assertions are unchanged. Motion-enabled Chromium and the final native/packaged runs pass. Packaging was correctly skipped in the earlier failed runs. Historical 2.3.0 results are not used to certify 2.4.0.
 
 ### Deliberate limitations / manual checks
 
