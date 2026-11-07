@@ -62,8 +62,53 @@ Simple mode removes blur/reflections, retaining working opacity/tint and a more 
 
 Renderer captures live under ignored `.artifacts/ui/`; bright/dark/all-20 screenshots are explicitly **draft renderer previews**, not persisted native profiles. The renderer-only preview cannot choose local files or save a desktop profile and does not fabricate those operations.
 
-## Windows / video gate — pending execution
+## Final Windows / packaged-app evidence
 
-The expanded existing Windows job will test actual profile-selected patterned PNG, VP8 WebM and H.264 MP4, transparent widget ancestor composition, changed painted pixels through glass, reduced pixel edge energy when actual backdrop blur is enabled over a paused video, frame advancement with several visible materials, actual native minimum-size modal geometry, widget editing/pointer resize/drag, material persistence and normal browser/security behavior. It runs in both development Electron and packaged/app.asar mode. Isolated screenshots and video-frame observations will be uploaded as `windows-material-evidence`.
+**[Run 42349969939](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42349969939), source `d3cc0960abe0e21f63ab19c3ba7c08dd85c05bae`: SUCCESS.** Linux and Windows jobs both completed successfully. This supersedes the initial pending native status in the source-preparation commit.
 
-Until that run completes, these new native checks are **not** claimed as passed. Human-installed NSIS clean install/upgrade/uninstall, personal wallpaper codecs, cross-scroll/touch dragging, native OS dialogs/devices, multi-monitor/high-DPI and real low-power GPU/battery/1440p–4K video smoothness still need manual hardware verification. The small synthetic 160×90/12-fps video fixtures and CI frame observations cannot establish those performance guarantees. No public release, signing or security-warning bypass is part of this task.
+| Executed gate                                                                                        | Actual result                                                                                                                                                                                                   |
+| ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Strict typecheck/lint, unit/service tests, production build, package validation on Linux and Windows | **0; 184 tests / 24 files**                                                                                                                                                                                     |
+| Actual Chromium renderer UI suite                                                                    | **0**; three material depths, bright/dark drafts, 20 actually visible static surfaces, responsive/scroll geometry, modal actions and dock controls                                                              |
+| Real Windows Electron integration                                                                    | **0**; profile-selected patterned PNG, real H.264 MP4 / VP8 WebM, all existing native browser/security tests                                                                                                    |
+| Actual compositing checks                                                                            | **0**; transparent widget ancestors, no nested backdrop root, changing captured video pixels through glass, and strictly lower captured pixel edge energy with backdrop blur enabled over the same paused frame |
+| Modal/window layout                                                                                  | **0**; independently scrolling options and uncovered fixed header/footer, including **800×600 native window outer bounds**; unchanged native browser geometry checks                                            |
+| Editing and persistence                                                                              | **0**; real pointer resize, genuine same-viewport browser drag, keyboard movement, preview/cancel/apply, saved material overrides and normal restart                                                            |
+| Unsigned NSIS build                                                                                  | **0**; new 2.3.0 x64 candidate                                                                                                                                                                                  |
+| Actual packaged/app.asar-mode application                                                            | **0**; same expanded native/media/material/layout suite, not just successful packaging                                                                                                                          |
+| Production dependency audit                                                                          | **0**, no production advisories                                                                                                                                                                                 |
+
+### Observed multi-widget video behavior
+
+These observations used **five configured and five visible material surfaces**, 160×90 synthetic **12-fps** fixtures and Windows CI **software compositing** (`disabled_software`). They are not desktop GPU/FPS/battery certification.
+
+| Runtime / format   | Observation window | Video frame callbacks | New decoded frames | Reported dropped frames | Largest callback gap |
+| ------------------ | ------------------ | --------------------- | ------------------ | ----------------------- | -------------------- |
+| Development / WebM | 2201ms             | 26                    | 27                 | 0                       | 94ms                 |
+| Development / MP4  | 2201ms             | 26                    | 26                 | 0                       | 125ms                |
+| Packaged / WebM    | 2201ms             | 26                    | 27                 | 0                       | 109ms                |
+| Packaged / MP4     | 2201ms             | 26                    | 26                 | 0                       | 125ms                |
+
+Physical captured-pixel edge energy decreased with blur: development WebM **485234 → 473832**, packaged WebM **484726 → 473314**, and both MP4 runs **480773 → 472777**. The test also asserted a changed image hash and changed painted pixels across seeks. These are evidence that backdrop filtering really samples the video, not merely that `backdrop-filter` is present in computed CSS. No FPS improvement relative to the old version is claimed.
+
+### Evidence and new test installer
+
+- [Windows material screenshots / observations](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42349969939/artifacts/13565276351): artifact **13565276351**, 3,662,308-byte ZIP, digest `5e2f4ccfe2ba448e1bcfd31f0687975b4e1034f04452dc75187ffb2a3e3a25fb`.
+- [Chromium renderer screenshots](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42349969939/artifacts/13565765355): artifact **13565765355**, 3,852,582-byte ZIP, digest `8677089225461703eea2ecb90fd5692e93eaa825945d32120ed5037ee92e48b6`.
+- [New Windows 2.3.0 unsigned installer ZIP](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42349969939/artifacts/13565196723): artifact **13565196723**, 113,734,415-byte ZIP, digest `fe411dbbb2af682e4b3ad17fb279dbb70862e6222b0e61d895c91086d70fb8c7`. Contains `Lunar-Browser-2.3.0-win-x64.exe` and `SHA256.txt`.
+
+EXE SHA-256 (not the ZIP digest), computed by the Windows job:
+
+```text
+8CE70C8F531290275D29626338DE964ABC7058F6553A6AD2E58CA9FEB0466DF5
+```
+
+Authenticode: **NotSigned**. This candidate was **not publicly released**; the earlier 2.2.0 public prerelease and its bytes/tag remain untouched. Actions artifact downloads require GitHub access and expire according to repository retention. No auto-publisher, auto-updater, signing service, license grant or security-warning bypass was added.
+
+### Remaining limits
+
+- Local native preflight returned **2 / BLOCKED** because the sandbox has no Electron runtime binary. Native success above comes from the real Windows runner, in both development and packaged modes. Redirected artifact storage is inaccessible here, so no local installer download/rehash or local viewing of the Windows screenshot ZIP is claimed. Local Chromium captures were actually viewed.
+- Native file selection was controlled by the integration test while exercising the actual import/copy/protocol/decoder path. A human did not operate a physical OS picker.
+- Human-installed NSIS clean install/upgrade/uninstall, personal wallpaper codecs, cross-scroll/touch dragging, physical devices, multi-monitor/high-DPI and real low-power GPU/battery/1440p–4K video smoothness remain manual hardware checks. The small fixtures and short CI observations cannot establish those guarantees.
+- Mathematical material contrast and tested focus/forced-color/reduced-motion modes are not universal accessibility certification for every custom theme/control/state.
+- There are 18 reported development-tool advisories from the local install; production audit passed. Dependency versions and security boundaries were not relaxed to obtain a pass.
