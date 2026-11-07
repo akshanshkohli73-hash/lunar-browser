@@ -1,6 +1,6 @@
 # Project Lunar — Organic Liquid Glass
 
-**Candidate:** Lunar Browser **2.4.0** · dashboard document **v3** · 2026-11-07.
+**Version:** Lunar Browser **2.4.0** · dashboard document **v3** · 2026-11-07.
 
 This is a staged evolution of the existing Coquette application, not a new dashboard or browser engine. The original frame/art, nine Lunar dock controls, eight menus, one permanently mounted browser workspace, native `WebContentsView`, widget registry, packing/resizing, saved layouts, wallpaper files, notes/events and theme paths remain.
 
@@ -58,7 +58,18 @@ Per-widget controls create **sparse** material overrides; they cannot override g
 
 `migrateDashboard` explicitly upgrades v1/v2 to v3, supplying only the new fields while retaining old material values, quality, media IDs, notes/events, dock values and widget records/overrides. Current documents are not rewritten by the migrator. Partial IPC/save schemas have **no material defaults**: a note-only save cannot reset a material or inject global fields into a widget override. Malformed legacy material data is not silently accepted.
 
-No new runtime dependency, network upload, privileged renderer API, unrestricted file path or shader resource fetch is introduced. Sandboxing, context isolation, sender/argument validation, default-deny website permissions, network-filter disclosures, provider-secret handling, profile retention and `--publish never` packaging remain in place. This version does not grant signing trust, enable automatic updates or authorize another public release. Back up a profile before upgrading; older application versions do not understand the v3 material schema.
+No new runtime dependency, network upload, privileged renderer API, unrestricted file path or shader resource fetch is introduced. Sandboxing, context isolation, sender/argument validation, default-deny website permissions, network-filter disclosures, provider-secret handling, profile retention and `--publish never` packaging remain in place. The separately authorized manual 2.4.0 prerelease below does not grant signing trust, enable automatic updates or authorize future automatic publication. Back up a profile before upgrading; older application versions do not understand the v3 material schema.
+
+## Public prerelease — separately authorized on 2026-11-07
+
+[**Download Lunar Browser 2.4.0 for Windows x64**](https://github.com/akshanshkohli73-hash/lunar-browser/releases/download/v2.4.0/Lunar-Browser-2.4.0-win-x64.exe) · [Release notes](https://github.com/akshanshkohli73-hash/lunar-browser/releases/tag/v2.4.0) · [SHA256SUMS.txt](https://github.com/akshanshkohli73-hash/lunar-browser/releases/download/v2.4.0/SHA256SUMS.txt)
+
+- Manually published **2026-11-07T09:03:17Z** after an explicit release request. Unsigned prerelease, not marked as latest. Source/tag: **`f81a83fe8c4eb9b214025a898c9c76d8cf8fc6b1`**. [Verification run 42356488823](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42356488823) passed both renderer/regressions and Windows source/packaged/NSIS jobs independently.
+- Public installer: **113,736,845 bytes**, Authenticode **`NotSigned`**, SHA-256 **`8cc0584e34a65158e0424d89796a131584a365373400b020e723e4f343370651`**. This is the unchanged installer from artifact **13567721877**, ZIP digest `2ba30b32f462e2bd22c1f378be70cf71696a659f8fd5dd59787237e5c4ff4947`, not a new untested rebuild or a renamed older version.
+- [One-time draft-staging job 128360172489](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42357991999/job/128360172489) verified the source run, artifact provenance, full ZIP digest, extracted installer checksum and both uploaded assets downloaded again. Public promotion was a separate explicit owner operation. The temporary draft-only staging job was removed afterward; ordinary pushes/tags do not publish releases.
+- Anonymous release metadata, the exact source tag and both public download endpoints were checked after publication. A checksum verifies byte identity, not publisher trust or general safety. Windows may warn or block this unsigned preview; **do not disable OS or antivirus protections**. Back up your profile before upgrading. [Full release limitations](RELEASE-2.4.0.md).
+
+The earlier successful candidate record below is retained for audit history. Its installer checksum **644E…4259** is **not** the public release checksum; the published binary is the later fully verified `f81a83f` build specified above.
 
 ## Verification record
 
@@ -73,7 +84,7 @@ No new runtime dependency, network upload, privileged renderer API, unrestricted
   - Evidence: `.artifacts/ui/organic-optics{.json,-off.png,-on.png}`, `organic-studio-dark.png`, `organic-unsupported-fallback.png`, bright/dark and responsive captures.
 - Unit/integration additions exercise v1/v2 migration, retained Simple/Balanced choices, unrelated saves/restart, all new Studio settings, sparse overrides, real backend URLs, touch/leave cleanup, a settling RAF, unsupported SVG/no-WebGL, mounted/inert exit lifetime, one-shot video sampling, canvas-taint fallback and bounded image/video transition cleanup.
 
-### Windows source / packaged application
+### Windows source / packaged application — initial successful candidate
 
 **Passed:** [run 42356102060](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42356102060), runtime/source **`b9eb60d500a9eca98f47a0c0a5ac56935d6d00bc`**, 2026-11-07. Both jobs succeeded: renderer/regressions **128354422357** and Windows native/NSIS **128354422130**.
 
@@ -91,7 +102,7 @@ No new runtime dependency, network upload, privileged renderer API, unrestricted
 
 Native bitmap hash probes changed from **2597167277 → 1530145031** (WebM) and **3962450577 → 3524291468** (MP4) with SVG enabled; repeated fixed-on captures were stable in both source and packaged execution. Independent blur edge-energy probes decreased **525776 → 514158** for WebM and **520885 → 512809** for MP4. Native hashes are the smoke probe's bounded bitmap hashes, not SHA-256; the renderer PNG proof above and installer/archive digests below use SHA-256.
 
-**Unreleased test artifact:** [lunar-windows-x64-unsigned / 13567816386](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42356102060/artifacts/13567816386), ZIP **113,740,776 bytes**. GitHub reports archive SHA-256 **`658b70f5f658ae98bf668924a9884d024e7abcfb60c3a14eb533ac2f9924ed93`**. Inside: `Lunar-Browser-2.4.0-win-x64.exe`, CI-computed SHA-256 **`644E18C24D2F65A03E1ADFE65541BF79F9A9AFB7150FB05834E0436D14B34259`**, Authenticode **`NotSigned`**. These are newly produced 2.4.0 bytes, not substituted 2.3.0/2.2.0 binaries. GitHub artifact retention/authentication applies; this is not a public release or update feed. No signing-trust or Windows-security bypass is offered.
+**Earlier test artifact (not the published binary):** [lunar-windows-x64-unsigned / 13567816386](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42356102060/artifacts/13567816386), ZIP **113,740,776 bytes**. GitHub reports archive SHA-256 **`658b70f5f658ae98bf668924a9884d024e7abcfb60c3a14eb533ac2f9924ed93`**. Inside: `Lunar-Browser-2.4.0-win-x64.exe`, CI-computed SHA-256 **`644E18C24D2F65A03E1ADFE65541BF79F9A9AFB7150FB05834E0436D14B34259`**, Authenticode **`NotSigned`**. These are newly produced 2.4.0 bytes, not substituted 2.3.0/2.2.0 binaries. GitHub artifact retention/authentication applies; this is not a public release or update feed. No signing-trust or Windows-security bypass is offered.
 
 Supporting CI artifacts:
 
@@ -102,4 +113,4 @@ Supporting CI artifacts:
 
 ### Deliberate limitations / manual checks
 
-No universal FPS, GPU/battery improvement, physical ray tracing, accessibility certification, native-view refraction, 4K video or hardware acceleration certification is claimed. Small synthetic clips and software/CI rendering do not establish real-device performance. Human installed-NSIS upgrade/uninstall, OS picker interaction, personal codecs, touch devices, cross-scroll drag/drop, Windows DPI/multi-monitor and low-power/large-display hardware remain manual checks. The new installer must not be described as publicly released unless separately authorized.
+No universal FPS, GPU/battery improvement, physical ray tracing, accessibility certification, native-view refraction, 4K video or hardware acceleration certification is claimed. Small synthetic clips and software/CI rendering do not establish real-device performance. Human installed-NSIS upgrade/uninstall, OS picker interaction, personal codecs, touch devices, cross-scroll drag/drop, Windows DPI/multi-monitor and low-power/large-display hardware remain manual checks. Only the specific 2.4.0 prerelease above was manually authorized and published; future releases still require an explicit request.
