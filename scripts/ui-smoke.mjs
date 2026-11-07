@@ -1,4 +1,8 @@
 import assert from "node:assert/strict";
+import {
+  checkCustomizationLayout,
+  checkDashboardScroll,
+} from "./material-layout-checks.mjs";
 import fs from "node:fs";
 import { preview } from "vite";
 import { chromium } from "playwright-core";
@@ -84,6 +88,24 @@ try {
     name: "Customize dashboard",
     exact: true,
   });
+  await checkCustomizationLayout(
+    page,
+    editor,
+    ".artifacts/ui/customize-1280x840",
+  );
+  for (const [width, height] of [
+    [800, 600],
+    [700, 650],
+    [520, 500],
+  ]) {
+    await page.setViewportSize({ width, height });
+    await checkCustomizationLayout(
+      page,
+      editor,
+      `.artifacts/ui/customize-${width}x${height}`,
+    );
+  }
+  await page.setViewportSize({ width: 1280, height: 840 });
   await editor
     .getByRole("button", { name: "Rose stationery", exact: true })
     .click();
@@ -118,7 +140,7 @@ try {
   const glass = page.locator('[data-widget-id="notes"] > .glass-surface');
   assert.match(
     await glass.evaluate((node) => getComputedStyle(node).backdropFilter),
-    /blur\(14px\)/u,
+    /blur\(16px\)/u,
   );
   assert.equal(
     await glass.evaluate(
@@ -149,12 +171,25 @@ try {
   await blur.focus();
   await blur.press("Home");
   for (let n = 0; n < 20; n++) await blur.press("ArrowRight");
-  await expect(glass).toHaveCSS("backdrop-filter", "blur(20px) saturate(1.18)");
+  await expect(glass).toHaveCSS("backdrop-filter", "blur(23px) saturate(1.12)");
   await editor
     .getByRole("combobox", { name: "Glass rendering mode", exact: true })
     .selectOption("simple");
   await expect(glass).toHaveCSS("backdrop-filter", "none");
   assert.equal(await blur.isDisabled(), true);
+  const simpleBackground = await glass.evaluate(
+    (node) => getComputedStyle(node).backgroundColor,
+  );
+  await opacity.focus();
+  await opacity.press("ArrowRight");
+  await expect(glass).toHaveCSS("--glass-opacity", "0.65");
+  assert.notEqual(
+    await glass.evaluate((node) => getComputedStyle(node).backgroundColor),
+    simpleBackground,
+    "Simple mode must still honor the saved opacity preference",
+  );
+  await opacity.press("ArrowLeft");
+  await expect(glass).toHaveCSS("--glass-opacity", "0.64");
   await editor
     .getByRole("combobox", { name: "Glass rendering mode", exact: true })
     .selectOption("balanced");
@@ -178,6 +213,23 @@ try {
   await expect(page.locator(".dashboard-widget > .glass-surface")).toHaveCount(
     9,
   );
+  for (const [id, level, filter] of [
+    ["clock", "light", "blur(15px) saturate(1.22)"],
+    ["search", "standard", "blur(20px) saturate(1.18)"],
+    ["notes", "deep", "blur(23px) saturate(1.12)"],
+  ]) {
+    const surface = page.locator(`[data-widget-id="${id}"] > .glass-surface`);
+    await expect(surface).toHaveAttribute("data-glass-level", level);
+    await expect(surface).toHaveCSS("backdrop-filter", filter);
+    assert.ok(
+      Number(
+        await surface.evaluate((node) =>
+          getComputedStyle(node).getPropertyValue("--glass-alpha"),
+        ),
+      ) < 0.7,
+      "Balanced glass must not regress to an opaque white card",
+    );
+  }
   for (const kind of [
     "clock",
     "search",
@@ -232,9 +284,15 @@ try {
       style: ".modal-backdrop {visibility:hidden!important}",
     });
   }
-  await page.emulateMedia({ forcedColors: "active" });
-  await expect(glass).toHaveCSS("backdrop-filter", "none");
-  await page.emulateMedia({ forcedColors: "none" });
+  for (const mode of ["simple", "balanced"]) {
+    await editor
+      .getByRole("combobox", { name: "Glass rendering mode", exact: true })
+      .selectOption(mode);
+    await page.emulateMedia({ forcedColors: "active" });
+    await expect(glass).toHaveCSS("backdrop-filter", "none");
+    await expect(glass).toHaveCSS("background-image", "none");
+    await page.emulateMedia({ forcedColors: "none" });
+  }
   for (let n = 0; n < 11; n++) {
     await editor
       .getByRole("combobox", { name: "Widget to add" })
@@ -252,6 +310,24 @@ try {
       .isDisabled(),
     true,
   );
+  await checkDashboardScroll(page);
+  // All 20 materials really enter the viewport here, rather than counting offscreen DOM nodes.
+  await page.setViewportSize({ width: 1280, height: 2800 });
+  const visibleSurfaces = await page
+    .locator(".dashboard-widget > .glass-surface")
+    .evaluateAll(
+      (nodes) =>
+        nodes.filter((node) => {
+          const r = node.getBoundingClientRect();
+          return r.top >= 0 && r.bottom <= innerHeight - 96;
+        }).length,
+    );
+  assert.equal(visibleSurfaces, 20);
+  await page.screenshot({
+    path: ".artifacts/ui/twenty-visible-materials.png",
+    style: ".modal-backdrop{visibility:hidden!important}",
+  });
+  await page.setViewportSize({ width: 1280, height: 840 });
   await page.screenshot({ path: ".artifacts/ui/dashboard-editor.png" });
   await editor
     .getByRole("button", { name: "Cancel dashboard changes", exact: true })
@@ -280,6 +356,37 @@ try {
     ["Settings", "Browsing"],
   ];
   const dock = page.getByRole("navigation", { name: "Dock" });
+  await expect(dock.locator(".lunar-dock-material")).toHaveAttribute(
+    "data-glass-level",
+    "light",
+  );
+  // Actual pointer and keyboard feedback, with motion enabled and then reduced.
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  const home = dock.getByRole("button", { name: "Home", exact: true });
+  const hitBox = await home.boundingBox();
+  await home.hover();
+  await expect
+    .poll(() =>
+      home
+        .locator(".lunar-dock-art")
+        .evaluate((node) => getComputedStyle(node).transform),
+    )
+    .toBe("matrix(1.07, 0, 0, 1.07, 0, -3)");
+  assert.deepEqual(
+    await home.boundingBox(),
+    hitBox,
+    "Magnification must not move the dock hit target",
+  );
+  await home.focus();
+  await home.press("Tab");
+  await expect(
+    dock.getByRole("button", { name: "Widgets", exact: true }),
+  ).toBeFocused();
+  await expect(
+    dock.getByRole("button", { name: "Widgets", exact: true }),
+  ).toHaveCSS("outline-style", "solid");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(home.locator(".lunar-dock-art")).toHaveCSS("transform", "none");
   assert.deepEqual(
     await dock
       .getByRole("button")
@@ -289,6 +396,10 @@ try {
   );
   for (const [name, heading] of panels) {
     await dock.getByRole("button", { name, exact: true }).click();
+    await expect(
+      dock.getByRole("button", { name, exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    assert.equal(await dock.locator(".cdp-run").count(), 1);
     await page
       .getByRole("heading", { name: heading, exact: true })
       .first()
@@ -314,6 +425,22 @@ try {
     .getByRole("heading", { name: "Theme Studio", exact: true })
     .waitFor();
   await page.screenshot({ path: ".artifacts/ui/theme-studio.png" });
+  await page
+    .getByRole("button", { name: "Background & dock", exact: true })
+    .click();
+  const magnify = page.getByRole("checkbox", {
+    name: "Dock magnification",
+    exact: true,
+  });
+  await magnify.uncheck();
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await dock.getByRole("button", { name: "Home", exact: true }).hover();
+  await expect(home.locator(".lunar-dock-art")).toHaveCSS("transform", "none");
+  await magnify.check();
+  await page
+    .getByRole("button", { name: "Cancel dashboard changes", exact: true })
+    .click();
+  await page.emulateMedia({ reducedMotion: "reduce" });
   const menus = [
     "Lunar",
     "File",
@@ -392,14 +519,28 @@ try {
     .last()
     .hover();
   await checkDockTargets();
+  await checkDashboardScroll(page);
   await page.screenshot({ path: ".artifacts/ui/compact-dashboard.png" });
+  await page.setViewportSize({ width: 520, height: 500 });
+  await checkDashboardScroll(page);
+  const smallTargets = await dock.getByRole("button").evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const r = node.getBoundingClientRect();
+      return r.left >= 0 && r.right <= innerWidth;
+    }),
+  );
+  assert.ok(
+    smallTargets.every(Boolean),
+    "All nine dock icons remain reachable at 520px",
+  );
+  await page.screenshot({ path: ".artifacts/ui/small-dashboard.png" });
   assert.deepEqual(
     failures,
     [],
     "No renderer exceptions, duplicate keys or console errors",
   );
   console.log(
-    "PASS: Chromium renderer preview — single workspace, real layout/hit targets, all nine Lunar shortcuts and launcher routes, eight keyboard menus, dock restore, Theme Studio, wallpaper/widget/dock preview/cancel, real glass controls / modes, bright/dark draft previews, forced-color fallback, twenty simultaneous materials and responsive stacking; no console errors.",
+    "PASS: Chromium renderer preview — single workspace, real layout/hit targets, all nine Lunar shortcuts and launcher routes, eight keyboard menus, dock restore, Theme Studio, wallpaper/widget/dock preview/cancel, real glass controls / modes, bright/dark draft previews, forced-color fallback, twenty actually visible static materials, three shared depths, fixed-wallpaper scrolling, independently scrolling customization with fixed actions at four sizes, dock pointer/keyboard/motion settings and responsive stacking; no console errors.",
   );
   console.log(
     "This test is not a native Electron or Windows runtime test. Screenshots: .artifacts/ui/",

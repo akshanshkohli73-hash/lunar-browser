@@ -64,8 +64,8 @@ export const WidgetCell = memo(function WidgetCell({
   return (
     <motion.article
       data-widget-id={widget.id}
-      layout={active && !reduced}
-      initial={reduced ? false : { opacity: 0, y: 5 }}
+      layout={active && !reduced && !editing}
+      initial={reduced ? false : { y: 5 }}
       animate={{ opacity: dragging ? 0.62 : 1, y: 0 }}
       exit={reduced ? undefined : { opacity: 0, scale: 0.98 }}
       transition={{ duration: reduced ? 0 : 0.16 }}
@@ -85,7 +85,8 @@ export const WidgetCell = memo(function WidgetCell({
         material={material}
         override={widget.glass}
         tone={tone}
-        active={active && !dragging && !resizing}
+        active={active && present && !dragging && !resizing}
+        level={definition.material}
         variant={
           (["clock", "search", "notes", "calendar", "weather"] as const).find(
             (kind) => kind === widget.kind,

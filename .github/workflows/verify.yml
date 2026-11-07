@@ -88,6 +88,12 @@ jobs:
             Write-Output "::error title=Packaged Windows integration failed::$detail"
           }
           exit $code
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: windows-material-evidence
+          path: .artifacts/native-ui/
+          if-no-files-found: ignore
       - name: Hash produced installers
         shell: pwsh
         run: |

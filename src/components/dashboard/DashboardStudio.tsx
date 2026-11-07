@@ -1,4 +1,4 @@
-import { DEFAULT_GLASS, glassTone } from "../../../shared/glass";
+import { DEFAULT_GLASS, GLASS_LEVELS, glassTone } from "../../../shared/glass";
 import { GlassSurface } from "../ui/GlassSurface";
 import { GlassMaterialControls, WidgetGlassControls } from "./GlassControls";
 import { useWorkspaceActivity } from "../../state/WorkspaceActivity";
@@ -455,529 +455,563 @@ export default function DashboardStudio({
   return (
     <div className="dashboard-studio">
       <div
-        className="dashboard-preview glass-scene-preview"
-        aria-label="Wallpaper preview"
+        className="dashboard-studio-scroll"
+        role="region"
+        aria-label="Dashboard customization options"
+        tabIndex={0}
       >
-        <Wallpaper
-          value={draft.wallpaper}
-          active={active}
-          preview
-          reduceMotion={reducedMotion}
-        />
-        <GlassSurface
-          material={draft.glass}
-          override={current?.glass}
-          tone={glassTone(draft.text, theme.category)}
-          active={active}
-          className="glass-preview-sample"
+        <div
+          className="dashboard-preview glass-scene-preview"
+          aria-label="Wallpaper preview"
         >
-          <span className="eyebrow">Lunar material · live preview</span>
-          <strong>A little clarity.</strong>
-          <small>
-            {current?.glass
-              ? `${WIDGET_DEFINITIONS[current.kind].title} override`
-              : "Global widget material"}{" "}
-            · above your wallpaper
-          </small>
-        </GlassSurface>
-        <span>Wallpaper preview · nothing is uploaded</span>
-      </div>
-      <p className="muted-text">
-        Changes remain a preview until Apply. Local images: up to 20 MB;
-        MP4/WebM: up to 150 MB. Unsupported codecs report a playback error.
-      </p>
-      {error && (
-        <p className="error-text" role="alert">
-          {error}
-        </p>
-      )}
-      {message && <p role="status">{message}</p>}
-      <fieldset hidden={mode === "widgets"} disabled={busy || !ready}>
-        <legend>Canvas & wallpaper</legend>
-        <div className="wallpaper-presets">
-          {Object.entries(WALLPAPERS).map(([key, item]) => (
-            <button
-              key={key}
-              aria-pressed={
-                draft.wallpaper.kind === "builtin" &&
-                draft.wallpaper.builtin === key
-              }
-              onClick={() =>
-                change({
-                  ...draft,
-                  wallpaper: {
-                    ...draft.wallpaper,
-                    kind: "builtin",
-                    builtin: key as DashboardSettings["wallpaper"]["builtin"],
-                    mediaId: null,
-                  },
-                })
-              }
-            >
-              <img src={item.url} alt="" />
-              <span>{item.name}</span>
-            </button>
-          ))}
+          <Wallpaper
+            value={draft.wallpaper}
+            active={active}
+            preview
+            reduceMotion={reducedMotion}
+          />
+          <GlassSurface
+            material={draft.glass}
+            override={current?.glass}
+            level={
+              current ? WIDGET_DEFINITIONS[current.kind].material : "standard"
+            }
+            tone={glassTone(draft.text, theme.category)}
+            active={active}
+            className="glass-preview-sample"
+          >
+            <span className="eyebrow">
+              {
+                GLASS_LEVELS[
+                  current
+                    ? WIDGET_DEFINITIONS[current.kind].material
+                    : "standard"
+                ].label
+              }{" "}
+              · live preview
+            </span>
+            <strong>A little clarity.</strong>
+            <small>
+              {current?.glass
+                ? `${WIDGET_DEFINITIONS[current.kind].title} override`
+                : "Global widget material"}{" "}
+              · above your wallpaper
+            </small>
+          </GlassSurface>
+          <span>Wallpaper preview · nothing is uploaded</span>
         </div>
-        <div className="button-row">
-          <button
-            disabled={!api}
-            onClick={async () => {
-              if (!api) return;
-              setBusy(true);
-              setError("");
-              try {
-                const asset = await api.chooseWallpaper();
-                if (asset)
+        <p className="muted-text">
+          Changes remain a preview until Apply. Local images: up to 20 MB;
+          MP4/WebM: up to 150 MB. Unsupported codecs report a playback error.
+        </p>
+        {error && (
+          <p className="error-text" role="alert">
+            {error}
+          </p>
+        )}
+        {message && <p role="status">{message}</p>}
+        <fieldset hidden={mode === "widgets"} disabled={busy || !ready}>
+          <legend>Canvas & wallpaper</legend>
+          <div className="wallpaper-presets">
+            {Object.entries(WALLPAPERS).map(([key, item]) => (
+              <button
+                key={key}
+                aria-pressed={
+                  draft.wallpaper.kind === "builtin" &&
+                  draft.wallpaper.builtin === key
+                }
+                onClick={() =>
                   change({
                     ...draft,
                     wallpaper: {
                       ...draft.wallpaper,
-                      kind: asset.kind,
-                      mediaId: asset.id,
+                      kind: "builtin",
+                      builtin: key as DashboardSettings["wallpaper"]["builtin"],
+                      mediaId: null,
                     },
-                  });
-              } catch (failure) {
-                setError(
-                  failure instanceof Error
-                    ? failure.message
-                    : "Could not import wallpaper.",
-                );
-              } finally {
-                setBusy(false);
+                  })
+                }
+              >
+                <img src={item.url} alt="" />
+                <span>{item.name}</span>
+              </button>
+            ))}
+          </div>
+          <div className="button-row">
+            <button
+              disabled={!api}
+              onClick={async () => {
+                if (!api) return;
+                setBusy(true);
+                setError("");
+                try {
+                  const asset = await api.chooseWallpaper();
+                  if (asset)
+                    change({
+                      ...draft,
+                      wallpaper: {
+                        ...draft.wallpaper,
+                        kind: asset.kind,
+                        mediaId: asset.id,
+                      },
+                    });
+                } catch (failure) {
+                  setError(
+                    failure instanceof Error
+                      ? failure.message
+                      : "Could not import wallpaper.",
+                  );
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              <Icon name="image" size={16} />
+              Choose local image or video
+            </button>
+            <button
+              onClick={() =>
+                change({
+                  ...draft,
+                  wallpaper: structuredClone(DEFAULT_DASHBOARD.wallpaper),
+                })
               }
-            }}
-          >
-            <Icon name="image" size={16} />
-            Choose local image or video
-          </button>
+            >
+              Reset wallpaper
+            </button>
+          </div>
+          <div className="dashboard-control-grid">
+            <label>
+              Background sizing
+              <select
+                value={draft.wallpaper.fit}
+                onChange={(e) =>
+                  change({
+                    ...draft,
+                    wallpaper: {
+                      ...draft.wallpaper,
+                      fit: e.target.value === "contain" ? "contain" : "cover",
+                    },
+                  })
+                }
+              >
+                <option value="cover">Fill the canvas</option>
+                <option value="contain">Fit the whole image</option>
+              </select>
+            </label>
+            <label>
+              Background position
+              <select
+                value={draft.wallpaper.position}
+                onChange={(e) =>
+                  change({
+                    ...draft,
+                    wallpaper: {
+                      ...draft.wallpaper,
+                      position: e.target.value as "top" | "center" | "bottom",
+                    },
+                  })
+                }
+              >
+                <option value="center">Center</option>
+                <option value="top">Top</option>
+                <option value="bottom">Bottom</option>
+              </select>
+            </label>
+            <label>
+              Overlay opacity
+              <input
+                type="range"
+                min={0}
+                max={0.85}
+                step={0.05}
+                value={draft.wallpaper.overlay}
+                onChange={(e) =>
+                  change({
+                    ...draft,
+                    wallpaper: {
+                      ...draft.wallpaper,
+                      overlay: Number(e.target.value),
+                    },
+                  })
+                }
+              />
+              <output>{Math.round(draft.wallpaper.overlay * 100)}%</output>
+            </label>
+            <label>
+              Background blur
+              <input
+                type="range"
+                min={0}
+                max={20}
+                value={draft.wallpaper.blur}
+                onChange={(e) =>
+                  change({
+                    ...draft,
+                    wallpaper: {
+                      ...draft.wallpaper,
+                      blur: Number(e.target.value),
+                    },
+                  })
+                }
+              />
+              <output>{draft.wallpaper.blur}px</output>
+            </label>
+            <label>
+              Dashboard text
+              <select
+                value={draft.text}
+                onChange={(e) =>
+                  change({
+                    ...draft,
+                    text: e.target.value as DashboardSettings["text"],
+                  })
+                }
+              >
+                <option value="theme">
+                  Automatic for built-ins; theme for local media
+                </option>
+                <option value="light">Light text</option>
+                <option value="dark">Dark text</option>
+              </select>
+            </label>
+            <label>
+              Content width
+              <select
+                value={draft.alignment}
+                onChange={(e) =>
+                  change({
+                    ...draft,
+                    alignment: e.target.value === "wide" ? "wide" : "center",
+                  })
+                }
+              >
+                <option value="center">Comfortably centered</option>
+                <option value="wide">Use available width</option>
+              </select>
+            </label>
+          </div>
+          <label className="setting-toggle">
+            Subtle background drift (respects reduced motion)
+            <input
+              type="checkbox"
+              checked={draft.wallpaper.effects}
+              onChange={(e) =>
+                change({
+                  ...draft,
+                  wallpaper: { ...draft.wallpaper, effects: e.target.checked },
+                })
+              }
+            />
+          </label>
+          {draft.wallpaper.kind === "video" && (
+            <>
+              <label className="setting-toggle">
+                Loop video
+                <input
+                  type="checkbox"
+                  checked={draft.wallpaper.loop}
+                  onChange={(e) =>
+                    change({
+                      ...draft,
+                      wallpaper: { ...draft.wallpaper, loop: e.target.checked },
+                    })
+                  }
+                />
+              </label>
+              <label className="setting-toggle">
+                Show manual sound controls
+                <input
+                  type="checkbox"
+                  checked={draft.wallpaper.audioControls}
+                  onChange={(e) =>
+                    change({
+                      ...draft,
+                      wallpaper: {
+                        ...draft.wallpaper,
+                        audioControls: e.target.checked,
+                      },
+                    })
+                  }
+                />
+              </label>
+              <p className="muted-text">
+                Video always starts/resumes muted. Hidden/inactive dashboards
+                pause playback.
+              </p>
+            </>
+          )}
+        </fieldset>
+        <fieldset disabled={busy || !ready} className="glass-settings">
+          <legend>Liquid Glass widgets</legend>
+          <label className="setting-toggle">
+            Enable Liquid Glass
+            <input
+              type="checkbox"
+              checked={draft.glass.enabled}
+              onChange={(event) =>
+                change({
+                  ...draft,
+                  glass: { ...draft.glass, enabled: event.target.checked },
+                })
+              }
+            />
+          </label>
+          <label>
+            Glass rendering mode
+            <select
+              value={draft.glass.performance}
+              onChange={(event) =>
+                change({
+                  ...draft,
+                  glass: {
+                    ...draft.glass,
+                    performance:
+                      event.target.value === "simple" ? "simple" : "balanced",
+                  },
+                })
+              }
+            >
+              <option value="balanced">Balanced · softly blurred glass</option>
+              <option value="simple">Simple · low power / no blur</option>
+            </select>
+          </label>
+          <GlassMaterialControls
+            value={draft.glass}
+            disabled={!draft.glass.enabled}
+            simple={draft.glass.performance === "simple"}
+            onChange={(patch) =>
+              change({ ...draft, glass: { ...draft.glass, ...patch } })
+            }
+          />
+          <p className="muted-text">
+            Light Glass is used for glanceable widgets, Standard Glass for
+            general widgets, and Deep Glass for notes and calendars. Blur is the
+            shared base intensity; each depth scales it, capped at 24px. A light
+            readability wash protects text contrast. Effects reduce when the
+            workspace is inactive; reduced-motion and reduced-transparency
+            system preferences are respected. Video blur still has GPU cost:
+            choose Simple on lower-powered devices.
+          </p>
           <button
             onClick={() =>
               change({
                 ...draft,
-                wallpaper: structuredClone(DEFAULT_DASHBOARD.wallpaper),
+                glass: structuredClone(DEFAULT_GLASS),
+                widgets: draft.widgets.map((widget) => {
+                  const { glass: _glass, ...rest } = widget;
+                  return rest;
+                }),
               })
             }
           >
-            Reset wallpaper
+            Reset glass defaults
           </button>
-        </div>
-        <div className="dashboard-control-grid">
-          <label>
-            Background sizing
-            <select
-              value={draft.wallpaper.fit}
-              onChange={(e) =>
-                change({
-                  ...draft,
-                  wallpaper: {
-                    ...draft.wallpaper,
-                    fit: e.target.value === "contain" ? "contain" : "cover",
-                  },
-                })
-              }
-            >
-              <option value="cover">Fill the canvas</option>
-              <option value="contain">Fit the whole image</option>
-            </select>
-          </label>
-          <label>
-            Background position
-            <select
-              value={draft.wallpaper.position}
-              onChange={(e) =>
-                change({
-                  ...draft,
-                  wallpaper: {
-                    ...draft.wallpaper,
-                    position: e.target.value as "top" | "center" | "bottom",
-                  },
-                })
-              }
-            >
-              <option value="center">Center</option>
-              <option value="top">Top</option>
-              <option value="bottom">Bottom</option>
-            </select>
-          </label>
-          <label>
-            Overlay opacity
-            <input
-              type="range"
-              min={0}
-              max={0.85}
-              step={0.05}
-              value={draft.wallpaper.overlay}
-              onChange={(e) =>
-                change({
-                  ...draft,
-                  wallpaper: {
-                    ...draft.wallpaper,
-                    overlay: Number(e.target.value),
-                  },
-                })
-              }
-            />
-            <output>{Math.round(draft.wallpaper.overlay * 100)}%</output>
-          </label>
-          <label>
-            Background blur
-            <input
-              type="range"
-              min={0}
-              max={20}
-              value={draft.wallpaper.blur}
-              onChange={(e) =>
-                change({
-                  ...draft,
-                  wallpaper: {
-                    ...draft.wallpaper,
-                    blur: Number(e.target.value),
-                  },
-                })
-              }
-            />
-            <output>{draft.wallpaper.blur}px</output>
-          </label>
-          <label>
-            Dashboard text
-            <select
-              value={draft.text}
-              onChange={(e) =>
-                change({
-                  ...draft,
-                  text: e.target.value as DashboardSettings["text"],
-                })
-              }
-            >
-              <option value="theme">
-                Automatic for built-ins; theme for local media
-              </option>
-              <option value="light">Light text</option>
-              <option value="dark">Dark text</option>
-            </select>
-          </label>
-          <label>
-            Content width
-            <select
-              value={draft.alignment}
-              onChange={(e) =>
-                change({
-                  ...draft,
-                  alignment: e.target.value === "wide" ? "wide" : "center",
-                })
-              }
-            >
-              <option value="center">Comfortably centered</option>
-              <option value="wide">Use available width</option>
-            </select>
-          </label>
-        </div>
-        <label className="setting-toggle">
-          Subtle background drift (respects reduced motion)
-          <input
-            type="checkbox"
-            checked={draft.wallpaper.effects}
-            onChange={(e) =>
-              change({
-                ...draft,
-                wallpaper: { ...draft.wallpaper, effects: e.target.checked },
-              })
-            }
-          />
-        </label>
-        {draft.wallpaper.kind === "video" && (
-          <>
-            <label className="setting-toggle">
-              Loop video
-              <input
-                type="checkbox"
-                checked={draft.wallpaper.loop}
-                onChange={(e) =>
-                  change({
-                    ...draft,
-                    wallpaper: { ...draft.wallpaper, loop: e.target.checked },
-                  })
-                }
-              />
-            </label>
-            <label className="setting-toggle">
-              Show manual sound controls
-              <input
-                type="checkbox"
-                checked={draft.wallpaper.audioControls}
-                onChange={(e) =>
-                  change({
-                    ...draft,
-                    wallpaper: {
-                      ...draft.wallpaper,
-                      audioControls: e.target.checked,
-                    },
-                  })
-                }
-              />
-            </label>
-            <p className="muted-text">
-              Video always starts/resumes muted. Hidden/inactive dashboards
-              pause playback.
-            </p>
-          </>
-        )}
-      </fieldset>
-      <fieldset disabled={busy || !ready} className="glass-settings">
-        <legend>Liquid Glass widgets</legend>
-        <label className="setting-toggle">
-          Enable Liquid Glass
-          <input
-            type="checkbox"
-            checked={draft.glass.enabled}
-            onChange={(event) =>
-              change({
-                ...draft,
-                glass: { ...draft.glass, enabled: event.target.checked },
-              })
-            }
-          />
-        </label>
-        <label>
-          Glass rendering mode
-          <select
-            value={draft.glass.performance}
-            onChange={(event) =>
-              change({
-                ...draft,
-                glass: {
-                  ...draft.glass,
-                  performance:
-                    event.target.value === "simple" ? "simple" : "balanced",
-                },
-              })
-            }
-          >
-            <option value="balanced">Balanced · softly blurred glass</option>
-            <option value="simple">Simple · low power / no blur</option>
-          </select>
-        </label>
-        <GlassMaterialControls
-          value={draft.glass}
-          disabled={!draft.glass.enabled}
-          simple={draft.glass.performance === "simple"}
-          onChange={(patch) =>
-            change({ ...draft, glass: { ...draft.glass, ...patch } })
-          }
-        />
-        <p className="muted-text">
-          A light readability wash protects text contrast. Effects reduce when
-          the workspace is inactive; reduced-motion and reduced-transparency
-          system preferences are respected. Video blur still has GPU cost:
-          choose Simple on lower-powered devices.
-        </p>
-        <button
-          onClick={() =>
-            change({
-              ...draft,
-              glass: structuredClone(DEFAULT_GLASS),
-              widgets: draft.widgets.map((widget) => {
-                const { glass: _glass, ...rest } = widget;
-                return rest;
-              }),
-            })
-          }
-        >
-          Reset glass defaults
-        </button>
-      </fieldset>
-      <fieldset disabled={busy || !ready}>
-        <legend>Widgets · 12-column collision-safe layout</legend>
-        <div className="widget-editor-list">
-          {draft.widgets.map((widget) => (
-            <button
-              aria-pressed={selected === widget.id}
-              key={widget.id}
-              onClick={() => setSelected(widget.id)}
-            >
-              {WIDGET_DEFINITIONS[widget.kind].title}
-              {!widget.visible && " · hidden"}
-            </button>
-          ))}
-        </div>
-        <div className="button-row">
-          <select
-            aria-label="Widget to add"
-            value={kind}
-            onChange={(e) => setKind(e.target.value as WidgetKind)}
-          >
-            {Object.entries(WIDGET_DEFINITIONS).map(([key, value]) => (
-              <option key={key} value={key}>
-                {value.title}
-              </option>
+        </fieldset>
+        <fieldset disabled={busy || !ready}>
+          <legend>Widgets · 12-column collision-safe layout</legend>
+          <div className="widget-editor-list">
+            {draft.widgets.map((widget) => (
+              <button
+                aria-pressed={selected === widget.id}
+                key={widget.id}
+                onClick={() => setSelected(widget.id)}
+              >
+                {WIDGET_DEFINITIONS[widget.kind].title}
+                {!widget.visible && " · hidden"}
+              </button>
             ))}
-          </select>
-          <button
-            disabled={draft.widgets.length >= 20}
-            onClick={() => {
-              const widget = createWidget(
-                kind,
-                `widget_${crypto.randomUUID()}`,
-              );
-              change({
-                ...draft,
-                widgets: arrangeWidgets([...draft.widgets, widget]),
-              });
-              setSelected(widget.id);
-            }}
-          >
-            Add widget
-          </button>
-          <button
-            onClick={() => {
-              change({
-                ...draft,
-                widgets: structuredClone(DEFAULT_DASHBOARD.widgets),
-              });
-              setSelected(DEFAULT_DASHBOARD.widgets[0].id);
-            }}
-          >
-            Reset widget layout
-          </button>
-        </div>
-        {current && (
-          <div className="widget-settings">
-            <h3>{WIDGET_DEFINITIONS[current.kind].title}</h3>
-            <p>{WIDGET_DEFINITIONS[current.kind].description}</p>
-            <label className="setting-toggle">
-              Visible
-              <input
-                type="checkbox"
-                checked={current.visible}
-                onChange={(e) =>
-                  changeWidget({ ...current, visible: e.target.checked })
-                }
-              />
-            </label>
-            <div className="button-row">
-              <button
-                aria-label="Move widget left"
-                disabled={current.x === 0}
-                onClick={() => move(-1, 0)}
-              >
-                <Icon name="back" size={14} />
-              </button>
-              <button
-                aria-label="Move widget right"
-                disabled={current.x + current.w === 12}
-                onClick={() => move(1, 0)}
-              >
-                <Icon name="forward" size={14} />
-              </button>
-              <button
-                aria-label="Move widget up"
-                disabled={current.y === 0}
-                onClick={() => move(0, -1)}
-              >
-                <Icon name="up" size={14} />
-              </button>
-              <button
-                aria-label="Move widget down"
-                disabled={current.y + current.h === 200}
-                onClick={() => move(0, 1)}
-              >
-                <Icon name="down" size={14} />
-              </button>
-              {WIDGET_DEFINITIONS[current.kind].sizes.length > 1 && (
+          </div>
+          <div className="button-row">
+            <select
+              aria-label="Widget to add"
+              value={kind}
+              onChange={(e) => setKind(e.target.value as WidgetKind)}
+            >
+              {Object.entries(WIDGET_DEFINITIONS).map(([key, value]) => (
+                <option key={key} value={key}>
+                  {value.title}
+                </option>
+              ))}
+            </select>
+            <button
+              disabled={draft.widgets.length >= 20}
+              onClick={() => {
+                const widget = createWidget(
+                  kind,
+                  `widget_${crypto.randomUUID()}`,
+                );
+                change({
+                  ...draft,
+                  widgets: arrangeWidgets([...draft.widgets, widget]),
+                });
+                setSelected(widget.id);
+              }}
+            >
+              Add widget
+            </button>
+            <button
+              onClick={() => {
+                change({
+                  ...draft,
+                  widgets: structuredClone(DEFAULT_DASHBOARD.widgets),
+                });
+                setSelected(DEFAULT_DASHBOARD.widgets[0].id);
+              }}
+            >
+              Reset widget layout
+            </button>
+          </div>
+          {current && (
+            <div className="widget-settings">
+              <h3>
+                {WIDGET_DEFINITIONS[current.kind].title}{" "}
+                <small className="material-level-label">
+                  {
+                    GLASS_LEVELS[WIDGET_DEFINITIONS[current.kind].material]
+                      .label
+                  }
+                </small>
+              </h3>
+              <p>{WIDGET_DEFINITIONS[current.kind].description}</p>
+              <label className="setting-toggle">
+                Visible
+                <input
+                  type="checkbox"
+                  checked={current.visible}
+                  onChange={(e) =>
+                    changeWidget({ ...current, visible: e.target.checked })
+                  }
+                />
+              </label>
+              <div className="button-row">
+                <button
+                  aria-label="Move widget left"
+                  disabled={current.x === 0}
+                  onClick={() => move(-1, 0)}
+                >
+                  <Icon name="back" size={14} />
+                </button>
+                <button
+                  aria-label="Move widget right"
+                  disabled={current.x + current.w === 12}
+                  onClick={() => move(1, 0)}
+                >
+                  <Icon name="forward" size={14} />
+                </button>
+                <button
+                  aria-label="Move widget up"
+                  disabled={current.y === 0}
+                  onClick={() => move(0, -1)}
+                >
+                  <Icon name="up" size={14} />
+                </button>
+                <button
+                  aria-label="Move widget down"
+                  disabled={current.y + current.h === 200}
+                  onClick={() => move(0, 1)}
+                >
+                  <Icon name="down" size={14} />
+                </button>
+                {WIDGET_DEFINITIONS[current.kind].sizes.length > 1 && (
+                  <button
+                    onClick={() => {
+                      const sizes = WIDGET_DEFINITIONS[current.kind].sizes;
+                      const index = sizes.findIndex(
+                        ([w, h]) => w === current.w && h === current.h,
+                      );
+                      const size = sizes[(index + 1) % sizes.length];
+                      changeWidget({ ...current, w: size[0], h: size[1] });
+                    }}
+                  >
+                    Resize widget
+                  </button>
+                )}
                 <button
                   onClick={() => {
-                    const sizes = WIDGET_DEFINITIONS[current.kind].sizes;
-                    const index = sizes.findIndex(
-                      ([w, h]) => w === current.w && h === current.h,
+                    change({
+                      ...draft,
+                      widgets: draft.widgets.filter((w) => w.id !== current.id),
+                    });
+                    setSelected(
+                      draft.widgets.find((w) => w.id !== current.id)?.id ?? "",
                     );
-                    const size = sizes[(index + 1) % sizes.length];
-                    changeWidget({ ...current, w: size[0], h: size[1] });
                   }}
                 >
-                  Resize widget
+                  Remove widget
                 </button>
-              )}
-              <button
-                onClick={() => {
-                  change({
-                    ...draft,
-                    widgets: draft.widgets.filter((w) => w.id !== current.id),
-                  });
-                  setSelected(
-                    draft.widgets.find((w) => w.id !== current.id)?.id ?? "",
-                  );
-                }}
-              >
-                Remove widget
-              </button>
+              </div>
+              <p className="muted-text">
+                Column {current.x + 1}, row {current.y + 1} · {current.w} ×{" "}
+                {current.h}. Other widgets move aside when needed.
+              </p>
+              <WidgetSettings widget={current} change={changeWidget} />
+              <WidgetGlassControls
+                global={draft.glass}
+                value={current.glass}
+                title={WIDGET_DEFINITIONS[current.kind].title}
+                onChange={(glass) => changeWidget({ ...current, glass })}
+              />
             </div>
-            <p className="muted-text">
-              Column {current.x + 1}, row {current.y + 1} · {current.w} ×{" "}
-              {current.h}. Other widgets move aside when needed.
-            </p>
-            <WidgetSettings widget={current} change={changeWidget} />
-            <WidgetGlassControls
-              global={draft.glass}
-              value={current.glass}
-              title={WIDGET_DEFINITIONS[current.kind].title}
-              onChange={(glass) => changeWidget({ ...current, glass })}
+          )}
+        </fieldset>
+        <fieldset hidden={mode === "widgets"} disabled={busy || !ready}>
+          <legend>Desktop dock</legend>
+          <label>
+            Dock size
+            <select
+              value={draft.dock.size}
+              onChange={(e) =>
+                change({
+                  ...draft,
+                  dock: {
+                    ...draft.dock,
+                    size:
+                      e.target.value === "compact" ? "compact" : "comfortable",
+                  },
+                })
+              }
+            >
+              <option value="comfortable">Comfortable</option>
+              <option value="compact">Compact</option>
+            </select>
+          </label>
+          <label>
+            Dock opacity
+            <input
+              type="range"
+              min={0.5}
+              max={1}
+              step={0.05}
+              value={draft.dock.opacity}
+              onChange={(e) =>
+                change({
+                  ...draft,
+                  dock: { ...draft.dock, opacity: Number(e.target.value) },
+                })
+              }
             />
-          </div>
-        )}
-      </fieldset>
-      <fieldset hidden={mode === "widgets"} disabled={busy || !ready}>
-        <legend>Desktop dock</legend>
-        <label>
-          Dock size
-          <select
-            value={draft.dock.size}
-            onChange={(e) =>
-              change({
-                ...draft,
-                dock: {
-                  ...draft.dock,
-                  size:
-                    e.target.value === "compact" ? "compact" : "comfortable",
-                },
-              })
-            }
-          >
-            <option value="comfortable">Comfortable</option>
-            <option value="compact">Compact</option>
-          </select>
-        </label>
-        <label>
-          Dock opacity
-          <input
-            type="range"
-            min={0.5}
-            max={1}
-            step={0.05}
-            value={draft.dock.opacity}
-            onChange={(e) =>
-              change({
-                ...draft,
-                dock: { ...draft.dock, opacity: Number(e.target.value) },
-              })
-            }
-          />
-        </label>
-        <label className="setting-toggle">
-          Dock magnification
-          <input
-            type="checkbox"
-            checked={draft.dock.magnify}
-            onChange={(e) =>
-              change({
-                ...draft,
-                dock: { ...draft.dock, magnify: e.target.checked },
-              })
-            }
-          />
-        </label>
-      </fieldset>
-      <div className="button-row dashboard-apply">
+          </label>
+          <label className="setting-toggle">
+            Dock magnification
+            <input
+              type="checkbox"
+              checked={draft.dock.magnify}
+              onChange={(e) =>
+                change({
+                  ...draft,
+                  dock: { ...draft.dock, magnify: e.target.checked },
+                })
+              }
+            />
+          </label>
+        </fieldset>
+      </div>
+      <div
+        className="button-row dashboard-apply"
+        role="group"
+        aria-label="Dashboard actions"
+      >
         <button
           className="primary-button"
           disabled={!api || !ready || busy}

@@ -124,7 +124,7 @@
 }
 .cdp-root .cdp-browser-workspace {
   position: absolute;
-  inset: 28px 0 96px;
+  inset: 28px 0 var(--lunar-dock-clearance, 96px);
   z-index: 4;
   display: flex;
   flex-direction: column;
@@ -678,9 +678,12 @@ select {
 }
 .lunar-modal {
   width: min(100%, 540px);
-  max-height: calc(100dvh - 60px);
-  overflow: auto;
-  padding: 23px;
+  max-height: calc(100dvh - 56px);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
   border: 1px solid var(--lunar-border);
   border-radius: var(--lunar-radius);
   background: var(--lunar-bg);
@@ -691,12 +694,19 @@ select {
   line-height: 1.65;
 }
 .lunar-modal > header {
+  flex-shrink: 0;
+  padding: 18px 23px 15px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 15px;
-  margin-bottom: 15px;
   border-bottom: 1px solid var(--lunar-border);
+}
+.lunar-modal-body {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: 20px 23px 23px;
 }
 .lunar-modal > header h2 {
   font-size: 15px;
@@ -1395,8 +1405,8 @@ kbd {
   position: relative;
   isolation: isolate;
   height: 100%;
-  min-height: 100%;
-  overflow: auto;
+  min-height: 0;
+  overflow: hidden;
   color: var(--lunar-text);
   background: var(--lunar-bg);
   --dashboard-ink: var(--lunar-text);
@@ -1417,7 +1427,7 @@ kbd {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  z-index: -1;
+  z-index: 0;
   pointer-events: none;
 }
 .dashboard-wallpaper img,
@@ -1445,9 +1455,15 @@ kbd {
 }
 .dashboard-body {
   position: relative;
-  padding: 20px 30px 26px;
+  padding: 20px 30px calc(32px + env(safe-area-inset-bottom, 0px));
   width: 100%;
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scroll-padding: 18px 0 32px;
+  background: transparent;
   color: var(--dashboard-ink);
   container-type: inline-size;
 }
@@ -1984,7 +2000,7 @@ html .cdp-root .cdp-dock {
 }
 @media (max-width: 850px) {
   .dashboard-body {
-    padding: 15px;
+    padding: 15px 15px calc(32px + env(safe-area-inset-bottom, 0px));
   }
   .dashboard-control-grid {
     grid-template-columns: 1fr;
@@ -2044,14 +2060,50 @@ html[data-dock-size="comfortable"] .cdp-root .cdp-dock-btn {
 }
 .lunar-modal:has(.dashboard-studio) {
   width: min(100%, 780px);
-  scroll-padding: 75px 0 100px;
+  height: min(860px, calc(100dvh - 56px));
 }
-.lunar-modal:has(.dashboard-studio) > header {
-  position: sticky;
-  top: -23px;
-  z-index: 3;
-  background: var(--lunar-bg);
-  padding-top: 12px;
+.lunar-modal-body:has(.dashboard-studio) {
+  display: flex;
+  padding: 0;
+  overflow: hidden;
+  flex: 1;
+  scrollbar-gutter: auto;
+}
+.lunar-modal .dashboard-studio {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  gap: 0;
+}
+.dashboard-studio-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+.dashboard-studio-scroll > * {
+  flex-shrink: 0;
+}
+.lunar-modal .dashboard-studio-scroll {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scroll-padding: 18px;
+  padding: 20px 23px 24px;
+}
+.lunar-modal .dashboard-apply {
+  flex-shrink: 0;
+  position: static;
+  margin: 0;
+  padding: 12px 23px;
+  box-shadow: 0 -6px 20px -18px #173c2d66;
+}
+.material-level-label {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--lunar-text-muted);
 }
 .dashboard-apply {
   z-index: 2;
@@ -2060,7 +2112,7 @@ html[data-dock-size="comfortable"] .cdp-root .cdp-dock-btn {
 
 /* Lunar controls reuse the Coquette frame, not the portfolio's application registry. */
 .lunar-shell > .cdp-browser-workspace {
-  inset: 32px 0 92px;
+  inset: 32px 0 var(--lunar-dock-clearance, 96px);
 }
 .lunar-shell .lunar-menubar {
   height: 32px;
@@ -2158,7 +2210,7 @@ html[data-dock-size="comfortable"] .cdp-root .cdp-dock-btn {
 }
 .lunar-shell .lunar-desktop-sheet {
   position: absolute;
-  inset: 32px 0 92px;
+  inset: 32px 0 var(--lunar-dock-clearance, 96px);
   overflow: auto;
   z-index: 1;
   padding: 36px clamp(20px, 7vw, 100px);
@@ -2611,4 +2663,191 @@ html[data-reduced-motion="true"] .lunar-dock-button {
 /* Glass captions use material contrast, not a light-theme accent inherited from chrome. */
 .glass-surface .eyebrow {
   color: var(--glass-muted);
+}
+
+/* Spatial refinement: reserve the same dock footprint for browser and desktop.
+   This is outside the native viewport; don't subtract a second dock inside it. */
+.lunar-shell {
+  --lunar-dock-height: 62px;
+  --lunar-dock-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  --lunar-dock-clearance: calc(
+    var(--lunar-dock-height) + var(--lunar-dock-bottom) + 20px
+  );
+}
+html[data-dock-size="compact"] .lunar-shell {
+  --lunar-dock-height: 42px;
+}
+html .lunar-shell .lunar-dock {
+  height: var(--lunar-dock-height);
+  bottom: var(--lunar-dock-bottom);
+  isolation: isolate;
+  background: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 0;
+  box-shadow: none;
+  border-radius: 18px;
+}
+.lunar-shell .lunar-dock > .lunar-dock-material {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  --glass-radius: 18px;
+}
+.lunar-dock .lunar-dock-art {
+  border-color: color-mix(in srgb, var(--lunar-primary) 18%, transparent);
+  background: color-mix(in srgb, var(--lunar-bg) 66%, transparent);
+  box-shadow:
+    inset 0 1px 0 #ffffff70,
+    0 2px 4px -3px #173c2d40;
+  transition:
+    transform 170ms cubic-bezier(0.2, 0.7, 0.3, 1),
+    background-color 150ms,
+    box-shadow 150ms;
+  transform-origin: 50% 100%;
+}
+.lunar-dock .is-active .lunar-dock-art {
+  background: var(--lunar-primary);
+  border-color: var(--lunar-primary);
+  box-shadow:
+    inset 0 1px 0 #ffffff24,
+    0 3px 7px -4px #173c2d66;
+}
+.lunar-dock .lunar-dock-button:hover:not(:disabled) .lunar-dock-art {
+  box-shadow:
+    inset 0 1px 0 #ffffff8f,
+    0 4px 10px -6px #173c2d66;
+}
+/* The hit boxes and indicator remain still; only the icon responds. No bouncing. */
+html[data-dock-magnify="true"] .lunar-shell .lunar-dock-button:hover {
+  transform: none;
+}
+html[data-dock-magnify="true"]
+  .lunar-dock-button:hover:not(:disabled)
+  .lunar-dock-art {
+  transform: translateY(-3px) scale(1.07);
+}
+@media (hover: hover) and (pointer: fine) {
+  html[data-dock-magnify="true"]
+    .lunar-dock-button:has(+ .lunar-dock-button:hover)
+    .lunar-dock-art,
+  html[data-dock-magnify="true"]
+    .lunar-dock-button:hover
+    + .lunar-dock-button
+    .lunar-dock-art {
+    transform: translateY(-1px) scale(1.025);
+  }
+}
+.lunar-dock .lunar-dock-button:active:not(:disabled) .lunar-dock-art {
+  transform: translateY(1px) scale(0.97);
+}
+.lunar-dock .lunar-dock-button:focus-visible {
+  outline: 2px solid var(--lunar-primary);
+  outline-offset: 4px;
+}
+.lunar-dock .cdp-run {
+  width: 10px;
+  height: 3px;
+  bottom: -5px;
+  border-radius: 3px;
+  pointer-events: none;
+}
+.dashboard-widget.widget-bookmarks h2,
+.dashboard-widget.widget-notes h2,
+.dashboard-widget.widget-calendar h2 {
+  padding-bottom: 9px;
+  border-bottom: 1px solid color-mix(in srgb, var(--glass-ink) 10%, transparent);
+}
+.dashboard-widget.widget-bookmarks .widget-link-list button {
+  border-radius: 8px;
+  padding: 8px 7px;
+}
+.dashboard-widget.widget-notes .widget-note {
+  padding-left: 12px;
+  border-left: 1px solid color-mix(in srgb, var(--glass-ink) 12%, transparent);
+}
+.dashboard-widget.widget-calendar .widget-content {
+  gap: 5px;
+}
+.dashboard-widget.widget-calendar h2 {
+  border: 0;
+  padding-bottom: 0;
+}
+.dashboard-widget.widget-clock time {
+  font-weight: 280;
+}
+.dashboard-widget.widget-focus .widget-countdown {
+  letter-spacing: -2px;
+}
+.dashboard-widget.widget-weather .widget-temperature {
+  letter-spacing: -1.5px;
+}
+.dashboard-widget .shortcut-links button {
+  border-radius: 10px;
+}
+@media (max-width: 540px) {
+  .modal-backdrop {
+    padding: 10px;
+  }
+  .lunar-modal {
+    max-height: calc(100dvh - 20px);
+  }
+  .lunar-modal:has(.dashboard-studio) {
+    height: calc(100dvh - 20px);
+  }
+  .lunar-modal > header {
+    padding: 13px 15px;
+  }
+  .lunar-modal .dashboard-studio-scroll {
+    padding: 15px;
+  }
+  .lunar-modal .dashboard-apply {
+    padding: 10px 15px;
+    gap: 6px;
+  }
+  html[data-dock-size="comfortable"]
+    .lunar-shell
+    .lunar-dock
+    .lunar-dock-button {
+    width: clamp(26px, 7.2vw, 36px);
+    height: clamp(26px, 7.2vw, 36px);
+  }
+  html[data-dock-size="compact"] .lunar-shell .lunar-dock .lunar-dock-button {
+    width: clamp(24px, 6.2vw, 30px);
+    height: clamp(24px, 6.2vw, 30px);
+  }
+  .lunar-shell .lunar-dock {
+    gap: 5px;
+    padding-inline: 9px;
+  }
+  .lunar-dock-art svg {
+    width: 21px;
+    height: 21px;
+  }
+  .dashboard-heading {
+    flex-wrap: wrap;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lunar-dock .lunar-dock-art {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+html[data-reduced-motion="true"] .lunar-dock .lunar-dock-art {
+  transition: none !important;
+  transform: none !important;
+}
+@media (forced-colors: active) {
+  .lunar-dock .lunar-dock-art {
+    border: 1px solid ButtonText;
+    box-shadow: none;
+  }
+  .lunar-dock .is-active .lunar-dock-art {
+    outline: 2px solid Highlight;
+  }
+  .lunar-dock .cdp-run {
+    background: Highlight;
+  }
 }

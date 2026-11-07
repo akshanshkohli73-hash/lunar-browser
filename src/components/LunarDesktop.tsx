@@ -6,6 +6,9 @@ import { useBrowser } from "../state/BrowserContext";
 import { useMinuteClock } from "./useMinuteClock";
 import { Icon } from "./ui/Icon";
 import { Modal } from "./ui/Modal";
+import { GlassSurface } from "./ui/GlassSurface";
+import { glassTone } from "../../shared/glass";
+import { useWorkspaceActivity } from "../state/WorkspaceActivity";
 import { WALLPAPERS } from "./dashboard/Wallpaper";
 
 export default function LunarDesktop({
@@ -16,13 +19,22 @@ export default function LunarDesktop({
     isOccluded?: boolean;
   }>;
 }) {
-  const { theme, ready, api, openPage, tabs, previewPage, report } =
-    useBrowser();
+  const {
+    theme,
+    ready,
+    api,
+    openPage,
+    tabs,
+    previewPage,
+    report,
+    presentationDashboard,
+  } = useBrowser();
   const [desktop, setDesktop] = useState(false),
     [menu, setMenu] = useState<MenuName | null>(null),
     [launcher, setLauncher] = useState(false),
     [query, setQuery] = useState("");
   const now = useMinuteClock(true);
+  const materialActive = useWorkspaceActivity();
   const activate = useCallback(() => {
     setDesktop(false);
     setMenu(null);
@@ -118,6 +130,18 @@ export default function LunarDesktop({
         </section>
       )}
       <nav className="cdp-dock lunar-dock" aria-label="Dock">
+        <GlassSurface
+          aria-hidden="true"
+          className="lunar-dock-material"
+          level="light"
+          material={{
+            ...presentationDashboard.glass,
+            // Retain the independent 50–100% dock preference; map to the material range.
+            opacity: 0.6 + (presentationDashboard.dock.opacity - 0.5) * 0.8,
+          }}
+          tone={glassTone("theme", theme.category)}
+          active={materialActive && !menu && !launcher}
+        />
         {CONTROL_PANELS.map((item) => (
           <button
             key={item.id}

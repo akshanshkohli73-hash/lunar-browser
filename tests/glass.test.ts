@@ -8,6 +8,10 @@ import {
   widgetGlassSchema,
   resolveGlass,
   glassTone,
+  GLASS_LEVELS,
+  glassDepth,
+  type GlassLevel,
+  type GlassTone,
 } from "../shared/glass";
 import { DEFAULT_DASHBOARD, dashboardPatchSchema } from "../shared/dashboard";
 import { StorageService } from "../electron/services/storage";
@@ -130,6 +134,36 @@ describe("validated, persistent glass materials", () => {
       }).success,
     ).toBe(false);
   });
+  it("shares three bounded depths without changing saved material preferences", () => {
+    expect(Object.keys(GLASS_LEVELS)).toEqual(["light", "standard", "deep"]);
+    for (const level of Object.keys(GLASS_LEVELS) as GlassLevel[])
+      for (const tone of ["light", "dark"] as GlassTone[])
+        for (const opacity of [0.6, 0.72, 1]) {
+          const settings = { ...DEFAULT_GLASS, opacity, blur: 24 };
+          const before = structuredClone(settings);
+          const depth = glassDepth(
+            resolveGlass(settings, undefined, true),
+            level,
+            tone,
+          );
+          expect(depth.blur).toBeLessThanOrEqual(24);
+          expect(depth.alpha).toBeGreaterThan(0.45);
+          expect(depth.alpha).toBeLessThanOrEqual(1);
+          if (opacity === 1) expect(depth.alpha).toBe(1);
+          expect(
+            glassDepth(resolveGlass(settings, undefined, false), level, tone)
+              .blur,
+          ).toBe(0);
+          expect(settings).toEqual(before);
+        }
+    const material = resolveGlass(DEFAULT_GLASS, undefined, true);
+    const depths = (Object.keys(GLASS_LEVELS) as GlassLevel[]).map((level) =>
+      glassDepth(material, level, "light"),
+    );
+    expect(depths.map((d) => d.blur)).toEqual([11, 14, 16]);
+    expect(depths[0].alpha).toBeLessThan(depths[1].alpha);
+    expect(depths[1].alpha).toBeLessThan(depths[2].alpha);
+  });
   it("maintains conservative text contrast at both wallpaper extremes and extreme tint choices", () => {
     const css = fs.readFileSync(
       path.join(process.cwd(), "src/components/ui/glass.css"),
@@ -167,21 +201,33 @@ describe("validated, persistent glass materials", () => {
     for (const block of [light, dark])
       for (const tint of ["#000000", "#ffffff", "#ff00ff", "#00ff00"])
         for (const wallpaper of ["#000000", "#ffffff"]) {
-          const paper = hex(token(block, "paper")),
-            alpha = parseFloat(token(block, "wash-end")) / 100;
-          const material = mix(paper, hex(tint), 0.88),
-            base = mix(mix(material, hex(wallpaper), 0.6), paper, 1 - alpha);
-          // The dark edge uses at most ~10% white light; highlights only improve light-surface contrast.
-          const guarded =
-            block === dark ? mix([255, 255, 255], base, 0.1) : base;
-          for (const name of ["ink", "muted"]) {
-            const a = luminance(guarded),
-              b = luminance(hex(token(block, name)));
-            expect(
-              (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05),
-              `${name} / ${tint} / ${wallpaper}`,
-            ).toBeGreaterThanOrEqual(4.5);
-          }
+          for (const level of Object.keys(GLASS_LEVELS) as GlassLevel[])
+            for (const opacity of [0.6, 0.72, 1]) {
+              const tone = block === dark ? "dark" : "light";
+              const depth = glassDepth(
+                resolveGlass({ ...DEFAULT_GLASS, opacity }, undefined, true),
+                level,
+                tone,
+              );
+              const paper = hex(token(block, "paper"));
+              const material = mix(paper, hex(tint), 0.94);
+              const base = mix(
+                mix(material, hex(wallpaper), depth.alpha),
+                paper,
+                1 - depth.wash,
+              );
+              // Maximum dark-tone specular overlays together are less than 3% white.
+              const guarded =
+                block === dark ? mix([255, 255, 255], base, 0.03) : base;
+              for (const name of ["ink", "muted"]) {
+                const a = luminance(guarded),
+                  b = luminance(hex(token(block, name)));
+                expect(
+                  (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05),
+                  `${name} / ${tone} / ${level} / ${opacity} / ${tint} / ${wallpaper}`,
+                ).toBeGreaterThanOrEqual(4.5);
+              }
+            }
         }
   });
 });

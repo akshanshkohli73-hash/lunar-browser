@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { DEFAULT_GLASS, glassSchema, widgetGlassSchema } from "./glass";
+import {
+  DEFAULT_GLASS,
+  glassSchema,
+  widgetGlassSchema,
+  type GlassLevel,
+} from "./glass";
 import { destinationSchema, idSchema } from "./schemas";
 
 export const mediaIdSchema = z
@@ -223,10 +228,12 @@ export const WIDGET_DEFINITIONS: Record<
   {
     title: string;
     description: string;
+    material: GlassLevel;
     sizes: ReadonlyArray<readonly [number, number]>;
   }
 > = {
   clock: {
+    material: "light",
     title: "Clock & date",
     description: "A quiet moment, in your local time.",
     sizes: [
@@ -235,6 +242,7 @@ export const WIDGET_DEFINITIONS: Record<
     ],
   },
   search: {
+    material: "standard",
     title: "Search",
     description: "Search or open a web address.",
     sizes: [
@@ -243,6 +251,7 @@ export const WIDGET_DEFINITIONS: Record<
     ],
   },
   bookmarks: {
+    material: "standard",
     title: "Bookmarks",
     description: "Your saved pages, optionally by folder.",
     sizes: [
@@ -251,11 +260,13 @@ export const WIDGET_DEFINITIONS: Record<
     ],
   },
   weather: {
+    material: "light",
     title: "Weather",
     description: "Open-Meteo, only when you explicitly request it.",
     sizes: [[4, 4]],
   },
   calendar: {
+    material: "deep",
     title: "Calendar",
     description: "A local calendar and your own events.",
     sizes: [
@@ -264,6 +275,7 @@ export const WIDGET_DEFINITIONS: Record<
     ],
   },
   notes: {
+    material: "deep",
     title: "Notes",
     description: "A shared dashboard notepad saved only in this profile.",
     sizes: [
@@ -272,6 +284,7 @@ export const WIDGET_DEFINITIONS: Record<
     ],
   },
   recent: {
+    material: "deep",
     title: "Recently visited",
     description: "Optional history display; off until you allow it.",
     sizes: [
@@ -280,6 +293,7 @@ export const WIDGET_DEFINITIONS: Record<
     ],
   },
   shortcuts: {
+    material: "standard",
     title: "Shortcut tiles",
     description: "Your own named destinations.",
     sizes: [
@@ -288,6 +302,7 @@ export const WIDGET_DEFINITIONS: Record<
     ],
   },
   focus: {
+    material: "light",
     title: "Focus timer",
     description: "A local countdown; no account or background audio.",
     sizes: [[4, 3]],

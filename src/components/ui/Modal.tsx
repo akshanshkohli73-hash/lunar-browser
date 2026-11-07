@@ -19,11 +19,14 @@ export function Modal({
         ? document.activeElement
         : null;
     const node = ref.current;
-    const focusable = () => [
-      ...(node?.querySelectorAll<HTMLElement>(
-        'button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex="0"]',
-      ) ?? []),
-    ];
+    const focusable = () =>
+      [
+        ...(node?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex="0"]',
+        ) ?? []),
+      ].filter(
+        (element) => !element.closest('[hidden],[inert],[aria-hidden="true"]'),
+      );
     focusable()[0]?.focus();
     const keydown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -69,7 +72,7 @@ export function Modal({
             <Icon name="x" />
           </button>
         </header>
-        {children}
+        <div className="lunar-modal-body">{children}</div>
       </div>
     </div>,
     document.body,

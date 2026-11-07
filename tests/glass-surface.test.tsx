@@ -100,11 +100,17 @@ describe("reusable glass surface and unchanged widget identities", () => {
     view.rerender(
       <GlassSurface
         material={{ ...DEFAULT_GLASS, opacity: 0.64, tint: "#dccabc" }}
+        level="deep"
       >
         <Draft />
       </GlassSurface>,
     );
     expect(mounts).toBe(1);
+    expect(
+      view.container
+        .querySelector(".glass-surface")
+        ?.getAttribute("data-glass-level"),
+    ).toBe("deep");
     expect(
       (screen.getByRole("textbox", { name: "Local draft" }) as HTMLInputElement)
         .value,
@@ -142,6 +148,44 @@ describe("reusable glass surface and unchanged widget identities", () => {
     expect(node.dataset.glassMode).toBe("simple");
     expect(node.textContent).toBe("Still here");
   });
+  it("shares one foreground subscription across nested shell/workspace activity gates", () => {
+    const listener = vi.spyOn(window, "addEventListener");
+    function Probe() {
+      return (
+        <GlassSurface
+          material={DEFAULT_GLASS}
+          active={useWorkspaceActivity()}
+          data-testid="nested"
+        />
+      );
+    }
+    const view = render(
+      <WorkspaceActivity active>
+        <WorkspaceActivity active>
+          <Probe />
+        </WorkspaceActivity>
+      </WorkspaceActivity>,
+    );
+    expect(
+      listener.mock.calls.filter(([name]) => name === "blur"),
+    ).toHaveLength(1);
+    expect(
+      listener.mock.calls.filter(([name]) => name === "focus"),
+    ).toHaveLength(1);
+    act(() => window.dispatchEvent(new Event("blur")));
+    expect(screen.getByTestId("nested").dataset.glassMode).toBe("simple");
+    act(() => window.dispatchEvent(new Event("focus")));
+    expect(screen.getByTestId("nested").dataset.glassMode).toBe("glass");
+    view.rerender(
+      <WorkspaceActivity active>
+        <WorkspaceActivity active={false}>
+          <Probe />
+        </WorkspaceActivity>
+      </WorkspaceActivity>,
+    );
+    expect(screen.getByTestId("nested").dataset.glassMode).toBe("simple");
+    listener.mockRestore();
+  });
   it("wraps every existing widget kind with exactly one material, retaining its real layout/component", () => {
     const widgets = (Object.keys(WIDGET_DEFINITIONS) as WidgetKind[]).map(
       (kind) => createWidget(kind, kind),
@@ -172,7 +216,16 @@ describe("reusable glass surface and unchanged widget identities", () => {
       </BrowserProvider>,
     );
     expect(view.container.querySelectorAll(".glass-surface")).toHaveLength(9);
-    for (const widget of widgets)
+    for (const widget of widgets) {
+      const surface = screen
+        .getByRole("article", {
+          name: `${WIDGET_DEFINITIONS[widget.kind].title} widget`,
+        })
+        .querySelector<HTMLElement>(".glass-surface")!;
+      expect(surface.dataset.glassLevel).toBe(
+        WIDGET_DEFINITIONS[widget.kind].material,
+      );
+      expect(surface.style.getPropertyValue("--glass-alpha")).not.toBe("");
       expect(
         screen
           .getByRole("article", {
@@ -180,6 +233,7 @@ describe("reusable glass surface and unchanged widget identities", () => {
           })
           .querySelectorAll(".glass-surface"),
       ).toHaveLength(1);
+    }
     expect(
       screen.getByRole("textbox", { name: "Dashboard note" }),
     ).toBeDefined();

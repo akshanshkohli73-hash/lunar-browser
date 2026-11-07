@@ -1,16 +1,13 @@
-/* Lunar liquid material: one backdrop pass, a fixed readability wash, static edge light.
-   Only transform/opacity animate; blur/reflections never chase the pointer or run a timer. */
+/* One live backdrop pass per surface. Shared depth tokens live in shared/glass.ts.
+   No nested blur, pointer lights, will-change layers or per-frame material work. */
 .glass-surface {
-  --glass-paper: #f3f8ef;
-  --glass-ink: #17352a;
-  --glass-muted: #294134;
-  --glass-wash-start: 38%;
-  --glass-wash-end: 35%;
-  --glass-fallback-wash: 55%;
-  --glass-shine: #ffffff99;
-  --glass-diagonal: #ffffff24;
+  --glass-paper: #f1f7ea;
+  --glass-ink: #102a20;
+  --glass-muted: #152d21;
+  --glass-shine: #ffffff90;
+  --glass-diagonal: #ffffff1f;
   --glass-edge: #ffffff;
-  --glass-depth: #16382c;
+  --glass-depth: #173c2d;
   --glass-radius: 15px;
   position: relative;
   isolation: isolate;
@@ -18,67 +15,50 @@
   min-height: 0;
   border-radius: var(--glass-radius);
   color: var(--glass-ink);
-  /* Readable fallback is the baseline, not a barely visible transparent box. */
+  /* Conservative no-filter/Simple fallback; glass selectively reduces this below. */
   background-color: var(--glass-paper);
   background-color: color-mix(
     in srgb,
-    color-mix(in srgb, var(--glass-paper) 88%, var(--glass-tint))
-      calc(var(--glass-opacity) * 100%),
+    color-mix(in srgb, var(--glass-paper) 94%, var(--glass-tint))
+      calc((0.5 + var(--glass-opacity) * 0.5) * 100%),
     transparent
   );
-  background-image: linear-gradient(
-    color-mix(
-      in srgb,
-      var(--glass-paper) var(--glass-fallback-wash),
-      transparent
-    ),
-    color-mix(
-      in srgb,
-      var(--glass-paper) var(--glass-fallback-wash),
-      transparent
-    )
-  );
   border: 1px solid var(--lunar-border);
-  border: 1px solid
-    color-mix(
-      in srgb,
-      var(--glass-edge) calc(var(--glass-border) * 65%),
-      transparent
-    );
+  border-color: color-mix(
+    in srgb,
+    var(--glass-edge) calc(var(--glass-border) * 72%),
+    transparent
+  );
   box-shadow:
     inset 0 1px 0
       color-mix(
         in srgb,
-        var(--glass-edge) calc(var(--glass-border) * 65%),
+        var(--glass-edge) calc(var(--glass-border) * 82%),
         transparent
       ),
-    0 8px 22px -9px
+    0 var(--glass-elevation) 32px var(--glass-spread)
       color-mix(
         in srgb,
-        var(--glass-depth) calc(var(--glass-shadow) * 30%),
+        var(--glass-depth) calc(var(--glass-shadow) * 44%),
         transparent
       ),
-    0 2px 5px -2px
+    0 3px 8px -4px
       color-mix(
         in srgb,
-        var(--glass-depth) calc(var(--glass-shadow) * 22%),
+        var(--glass-depth) calc(var(--glass-shadow) * 36%),
         transparent
       );
-  transition:
-    transform 160ms ease,
-    border-color 160ms ease;
+  transition: border-color 160ms ease;
 }
 .glass-surface[data-glass-tone="dark"] {
-  --glass-paper: #172c26;
-  --glass-ink: #f2f8ee;
-  --glass-muted: #e0ecdc;
-  --glass-edge: #cfe6d1;
+  --glass-paper: #162e27;
+  --glass-ink: #f4f8ef;
+  --glass-muted: #eaf1e4;
+  --glass-edge: #d8edda;
   --glass-depth: #020b07;
-  --glass-wash-start: 62%;
-  --glass-wash-end: 60%;
-  --glass-fallback-wash: 65%;
-  --glass-shine: #ffffff14;
-  --glass-diagonal: #ffffff05;
+  /* Combined highlights remain below 3% white, even at maximum reflection. */
+  --glass-shine: #ffffff05;
+  --glass-diagonal: #ffffff02;
 }
 @supports (
   (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))
@@ -86,22 +66,24 @@
   .glass-surface[data-glass-mode="glass"] {
     background-color: color-mix(
       in srgb,
-      color-mix(in srgb, var(--glass-paper) 88%, var(--glass-tint))
-        calc(var(--glass-opacity) * 100%),
+      color-mix(in srgb, var(--glass-paper) 94%, var(--glass-tint))
+        calc(var(--glass-alpha) * 100%),
       transparent
     );
-    /* A modest paper wash keeps text contrast steady over extremes of wallpaper. */
     background-image: linear-gradient(
-      155deg,
+      152deg,
       color-mix(
         in srgb,
         var(--glass-paper) var(--glass-wash-start),
         transparent
       ),
       color-mix(in srgb, var(--glass-paper) var(--glass-wash-end), transparent)
+        68%
     );
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.18);
-    backdrop-filter: blur(var(--glass-blur)) saturate(1.18);
+    -webkit-backdrop-filter: blur(var(--glass-effective-blur))
+      saturate(var(--glass-saturation));
+    backdrop-filter: blur(var(--glass-effective-blur))
+      saturate(var(--glass-saturation));
   }
 }
 .glass-surface::before,
@@ -116,28 +98,28 @@
 .glass-surface::before {
   opacity: var(--glass-reflection);
   background:
-    radial-gradient(ellipse at 5% -30%, var(--glass-shine), transparent 62%),
+    radial-gradient(ellipse at 4% -38%, var(--glass-shine), transparent 64%),
     linear-gradient(
-      120deg,
+      122deg,
       var(--glass-diagonal),
-      transparent 28%,
-      transparent 78%,
+      transparent 25%,
+      transparent 79%,
       var(--glass-diagonal)
     );
 }
 .glass-surface::after {
-  border: 1px solid transparent;
+  inset: 1px;
   box-shadow:
     inset 1px 0 0
       color-mix(
         in srgb,
-        var(--glass-edge) calc(var(--glass-border) * 32%),
+        var(--glass-edge) calc(var(--glass-border) * 35%),
         transparent
       ),
     inset 0 -1px 0
       color-mix(
         in srgb,
-        var(--glass-edge) calc(var(--glass-border) * 19%),
+        var(--glass-edge) calc(var(--glass-border) * 22%),
         transparent
       );
 }
@@ -155,8 +137,15 @@
 .glass-surface[data-glass-mode="simple"]::before {
   opacity: 0;
 }
+.glass-surface[data-glass-mode="solid"]::after {
+  display: none;
+}
 .glass-surface[data-glass-active="true"]:hover {
-  transform: translateY(-2px);
+  border-color: color-mix(
+    in srgb,
+    var(--glass-edge) calc(var(--glass-border) * 90%),
+    transparent
+  );
 }
 .glass-surface:focus-within {
   outline: 2px solid var(--lunar-primary);
@@ -180,6 +169,7 @@ html[data-reduced-motion="true"] .glass-surface button {
   transition: none !important;
   transform: none !important;
 }
+/* Last in the cascade: accessibility must also win over Simple-mode fallbacks. */
 @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
   .glass-surface[data-glass-mode] {
     background: var(--glass-paper);
@@ -197,28 +187,4 @@ html[data-reduced-motion="true"] .glass-surface button {
     color: CanvasText;
     border: 1px solid CanvasText;
   }
-}
-.glass-surface[data-glass-mode="simple"] {
-  background-color: color-mix(
-    in srgb,
-    color-mix(in srgb, var(--glass-paper) 88%, var(--glass-tint))
-      calc(var(--glass-opacity) * 100%),
-    transparent
-  );
-  background-image: linear-gradient(
-    color-mix(
-      in srgb,
-      var(--glass-paper) var(--glass-fallback-wash),
-      transparent
-    ),
-    color-mix(
-      in srgb,
-      var(--glass-paper) var(--glass-fallback-wash),
-      transparent
-    )
-  );
-}
-
-.glass-surface[data-glass-mode="solid"]::after {
-  display: none;
 }

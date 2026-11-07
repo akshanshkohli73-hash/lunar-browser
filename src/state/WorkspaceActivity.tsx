@@ -5,7 +5,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-const Activity = createContext(true);
+const Activity = createContext<boolean | null>(null);
 /** One visibility subscription for a workspace, not one per glass surface or video frame. */
 export function WorkspaceActivity({
   active,
@@ -14,8 +14,11 @@ export function WorkspaceActivity({
   active: boolean;
   children: ReactNode;
 }) {
+  const parent = useContext(Activity);
+  const topLevel = parent === null;
   const [foreground, setForeground] = useState(() => !document.hidden);
   useEffect(() => {
+    if (!topLevel) return;
     const visible = () => setForeground(!document.hidden),
       blur = () => setForeground(false);
     document.addEventListener("visibilitychange", visible);
@@ -26,11 +29,11 @@ export function WorkspaceActivity({
       window.removeEventListener("focus", visible);
       window.removeEventListener("blur", blur);
     };
-  }, []);
+  }, [topLevel]);
   return (
-    <Activity.Provider value={active && foreground}>
+    <Activity.Provider value={active && (parent ?? foreground)}>
       {children}
     </Activity.Provider>
   );
 }
-export const useWorkspaceActivity = () => useContext(Activity);
+export const useWorkspaceActivity = () => useContext(Activity) ?? true;

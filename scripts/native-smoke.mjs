@@ -1,4 +1,8 @@
 import assert from "node:assert/strict";
+import {
+  checkCustomizationLayout,
+  checkDashboardScroll,
+} from "./material-layout-checks.mjs";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -65,6 +69,13 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
   await new Promise((resolve) => server.listen(0, "0.0.0.0", resolve));
   const port = server.address().port,
     origin = `http://127.0.0.1:${port}`;
+  fs.mkdirSync(path.join(repo, ".artifacts/native-ui"), { recursive: true });
+  const evidence = path.join(
+    repo,
+    ".artifacts/native-ui",
+    packaged ? "packaged" : "development",
+  );
+  const videoMeasurements = [];
   let electron, ui;
   const launch = async () => {
     electron = await _electron.launch({
@@ -200,17 +211,27 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       return Buffer.concat([size, name, data, checksum]);
     };
     const ihdr = Buffer.alloc(13);
-    ihdr.writeUInt32BE(1, 0);
-    ihdr.writeUInt32BE(1, 4);
+    const imageWidth = 320,
+      imageHeight = 200;
+    ihdr.writeUInt32BE(imageWidth, 0);
+    ihdr.writeUInt32BE(imageHeight, 4);
     ihdr[8] = 8;
     ihdr[9] = 6;
+    // Actual contrast/pattern fixture, not a one-pixel image or a renderer data-URL stand-in.
+    const imageRows = Buffer.alloc((imageWidth * 4 + 1) * imageHeight);
+    for (let y = 0; y < imageHeight; y++)
+      for (let x = 0; x < imageWidth; x++) {
+        const offset = y * (imageWidth * 4 + 1) + 1 + x * 4;
+        const light = ((x >> 4) + (y >> 4)) % 2 === 0;
+        imageRows.set(light ? [231, 246, 215, 255] : [37, 68, 53, 255], offset);
+      }
     const chosenFile = path.join(profile, "selected-wallpaper.png");
     fs.writeFileSync(
       chosenFile,
       Buffer.concat([
         Buffer.from("89504e470d0a1a0a", "hex"),
         pngChunk("IHDR", ihdr),
-        pngChunk("IDAT", deflateSync(Buffer.from([0, 120, 153, 119, 255]))),
+        pngChunk("IDAT", deflateSync(imageRows)),
         pngChunk("IEND", Buffer.alloc(0)),
       ]),
     );
@@ -246,7 +267,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
         });
     assert.equal(
       await decodeWallpaper(),
-      1,
+      imageWidth,
       "The UI must decode an actual profile-owned image through lunar-media",
     );
     assert.equal(
@@ -258,6 +279,8 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       false,
       "Websites must not share the UI's private media handler",
     );
+    await checkDashboardScroll(ui);
+    await ui.screenshot({ path: `${evidence}-selected-image.png` });
     // Real local video probe: transport/decoder/playback evidence, not DOM media mocks.
     for (const format of ["webm", "mp4"]) {
       const clip = path.join(
@@ -348,6 +371,71 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
         "none",
       );
 
+      const ancestors = await material.evaluate((node) => {
+        const result = [];
+        for (
+          let parent = node.parentElement;
+          parent && !parent.classList.contains("new-tab-dashboard");
+          parent = parent.parentElement
+        ) {
+          const style = getComputedStyle(parent);
+          result.push({
+            name: parent.className,
+            background: style.backgroundColor,
+            image: style.backgroundImage,
+            opacity: style.opacity,
+            filter: style.filter,
+            backdrop: style.backdropFilter,
+          });
+        }
+        return result;
+      });
+      for (const layer of ancestors) {
+        assert.equal(
+          layer.background,
+          "rgba(0, 0, 0, 0)",
+          `Opaque glass ancestor: ${layer.name}`,
+        );
+        assert.equal(layer.image, "none");
+        assert.equal(layer.opacity, "1");
+        assert.equal(layer.filter, "none");
+        assert.equal(
+          layer.backdrop,
+          "none",
+          "Do not nest widget backdrop passes",
+        );
+      }
+      const glassBox = await material.boundingBox();
+      assert.ok(glassBox);
+      const sampleGlass = () =>
+        electron.evaluate(
+          async ({ BrowserWindow }, rect) => {
+            const image =
+              await BrowserWindow.getAllWindows()[0].webContents.capturePage(
+                rect,
+              );
+            const pixels = image.toBitmap();
+            const width = image.getSize().width;
+            let hash = 5381,
+              energy = 0;
+            for (let i = 0; i < pixels.length; i++)
+              hash = ((hash * 33) ^ pixels[i]) >>> 0;
+            for (let i = 4; i < pixels.length; i += 4)
+              if ((i / 4) % width !== 0)
+                for (let channel = 0; channel < 3; channel++)
+                  energy += Math.abs(
+                    pixels[i + channel] - pixels[i - 4 + channel],
+                  );
+            return { hash, edgeEnergy: energy };
+          },
+          {
+            x: Math.round(glassBox.x + 12),
+            y: Math.round(glassBox.y + 52),
+            width: Math.round(glassBox.width - 24),
+            height: Math.round(glassBox.height - 88),
+          },
+        );
+
       const box = await video.boundingBox();
       assert.ok(box);
       const capture = () =>
@@ -387,11 +475,110 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
         );
       await seek(0.2);
       const firstFrame = await capture();
+      const firstGlass = await sampleGlass();
       await seek(0.85);
       assert.notEqual(
         await capture(),
         firstFrame,
         `${format}: actual painted background frames must change, not merely report ready metadata`,
+      );
+      assert.notEqual(
+        (await sampleGlass()).hash,
+        firstGlass.hash,
+        `${format}: video colors must actually pass through the widget material`,
+      );
+      const savedGlass = (await api("getDashboard")).glass;
+      await api("updateDashboard", { glass: { ...savedGlass, blur: 0 } });
+      await expect(material).toHaveCSS(
+        "backdrop-filter",
+        "blur(0px) saturate(1.12)",
+      );
+      const unfiltered = await sampleGlass();
+      await api("updateDashboard", { glass: { ...savedGlass, blur: 24 } });
+      await expect(material).toHaveCSS(
+        "backdrop-filter",
+        "blur(24px) saturate(1.12)",
+      );
+      const filtered = await sampleGlass();
+      assert.notEqual(
+        filtered.hash,
+        unfiltered.hash,
+        "Backdrop blur must change painted pixels over the paused actual video",
+      );
+      assert.ok(
+        filtered.edgeEnergy < unfiltered.edgeEnergy,
+        `Filtering must smooth the underlying video, not just report CSS: ${JSON.stringify({ unfiltered, filtered })}`,
+      );
+      await api("updateDashboard", { glass: savedGlass });
+      await expect(material).toHaveCSS("--glass-blur", `${savedGlass.blur}px`);
+      const measurement = await video.evaluate(async (v) => {
+        v.muted = true;
+        await v.play();
+        const before = v.getVideoPlaybackQuality();
+        return await new Promise((resolve) => {
+          let frames = 0,
+            last = performance.now(),
+            maxGapMs = 0,
+            callback;
+          const start = last;
+          const tick = (now) => {
+            frames++;
+            maxGapMs = Math.max(maxGapMs, now - last);
+            last = now;
+            callback = v.requestVideoFrameCallback(tick);
+          };
+          callback = v.requestVideoFrameCallback(tick);
+          setTimeout(() => {
+            v.cancelVideoFrameCallback(callback);
+            const after = v.getVideoPlaybackQuality();
+            const surfaces = [
+              ...document.querySelectorAll(
+                ".dashboard-widget > .glass-surface",
+              ),
+            ];
+            const visible = surfaces.filter((node) => {
+              const r = node.getBoundingClientRect();
+              return r.top < innerHeight - 96 && r.bottom > 140;
+            }).length;
+            resolve({
+              observedMs: Math.round(performance.now() - start),
+              frames,
+              maxGapMs: Math.round(maxGapMs),
+              decodedFrames: after.totalVideoFrames - before.totalVideoFrames,
+              droppedFrames:
+                after.droppedVideoFrames - before.droppedVideoFrames,
+              configuredSurfaces: surfaces.length,
+              visibleSurfaces: visible,
+            });
+          }, 2200);
+        });
+      });
+      assert.ok(
+        measurement.frames >= 4 && measurement.visibleSurfaces >= 3,
+        `Actual video must keep advancing with several visible glass surfaces: ${JSON.stringify(measurement)}`,
+      );
+      const gpu = await electron.evaluate(({ app }) =>
+        app.getGPUFeatureStatus(),
+      );
+      const observation = {
+        format,
+        ...measurement,
+        unfiltered,
+        filtered,
+        gpuCompositing: gpu.gpu_compositing,
+      };
+      videoMeasurements.push(observation);
+      fs.writeFileSync(
+        `${evidence}-video-observations.json`,
+        JSON.stringify(videoMeasurements, null, 2) + "\n",
+      );
+      if (process.env.GITHUB_ACTIONS === "true")
+        console.log(
+          `::notice title=${packaged ? "Packaged" : "Development"} ${format} video-glass observation::${JSON.stringify(observation)}`,
+        );
+      await ui.screenshot({ path: `${evidence}-${format}-glass.png` });
+      console.log(
+        `Video/glass observation (CI, not hardware certification): ${format} ${JSON.stringify(measurement)}`,
       );
       const note = await ui
         .getByRole("textbox", { name: "Dashboard note" })
@@ -467,6 +654,19 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       name: "Customize dashboard",
       exact: true,
     });
+    await checkCustomizationLayout(ui, editor, `${evidence}-customize`);
+    const previousSize = await electron.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0].getSize(),
+    );
+    await electron.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0].setSize(800, 600),
+    );
+    await checkCustomizationLayout(ui, editor, `${evidence}-customize-800x600`);
+    await electron.evaluate(
+      ({ BrowserWindow }, [width, height]) =>
+        BrowserWindow.getAllWindows()[0].setSize(width, height),
+      previousSize,
+    );
     await editor
       .getByRole("button", { name: "Rose stationery", exact: true })
       .click();
@@ -479,7 +679,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       .getByRole("button", { name: "Cancel dashboard changes", exact: true })
       .click();
     await expect(editor).toBeHidden();
-    assert.equal(await decodeWallpaper(), 1);
+    assert.equal(await decodeWallpaper(), imageWidth);
     await ui
       .getByRole("button", { name: "Customize dashboard", exact: true })
       .click();
@@ -1333,8 +1533,12 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       restored.tabs.tabs.map((tab) => tab.url),
       saved.tabs.tabs.map((tab) => tab.url),
     );
+    fs.writeFileSync(
+      `${evidence}-video-observations.json`,
+      JSON.stringify(videoMeasurements, null, 2) + "\n",
+    );
     console.log(
-      `PASS: ${packaged ? "Packaged" : "Development"} native Electron on ${process.platform}: isolated Chromium tabs, navigation/loading/stop, background focus and native Ctrl+L, geometry/resize, overlay detachment, real Shield request interception on/off, profile-owned media decoding/scope, dashboard preview/cancel/layout and restart, scoped cookie/storage clearing and permission reset, content zoom geometry, real extension content script/unload, download bytes, sender rejection, malformed IPC, restart/persistence and explicit repeated-close webContents cleanup.`,
+      `PASS: ${packaged ? "Packaged" : "Development"} native Electron on ${process.platform}: isolated Chromium tabs, navigation/loading/stop, background focus and native Ctrl+L, geometry/resize, overlay detachment, real Shield request interception on/off, profile-owned patterned image/video decoding/scope, painted glass response and blur smoothing, multi-widget video frame observations, independent modal scrolling at native minimum bounds, fixed-wallpaper/dashboard safe space, dashboard preview/cancel/layout and restart, scoped cookie/storage clearing and permission reset, content zoom geometry, real extension content script/unload, download bytes, sender rejection, malformed IPC, restart/persistence and explicit repeated-close webContents cleanup.`,
     );
     console.log(
       "Installed NSIS launch/upgrade/uninstall, multi-monitor Windows DPI, additional video codecs and OS device consent still need manual verification. Known H.264 MP4 / VP8 WebM decoding, painted frames, seeking, persistence and controls executed above. No signing service is required.",
