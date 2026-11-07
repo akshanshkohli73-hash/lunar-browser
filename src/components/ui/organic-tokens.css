@@ -8,9 +8,12 @@
   --organic-font-display:
     Georgia, "Iowan Old Style", "Palatino Linotype", serif;
   --organic-font-body: "Segoe UI", system-ui, -apple-system, sans-serif;
-  --organic-radius-widget: 18px 13px 18px 13px;
-  --organic-radius-panel: 20px;
-  --organic-radius-control: 11px;
+  --organic-radius-widget: calc(var(--lunar-radius, 12px) * 1.5)
+    calc(var(--lunar-radius, 12px) * 1.0833333333)
+    calc(var(--lunar-radius, 12px) * 1.5)
+    calc(var(--lunar-radius, 12px) * 1.0833333333);
+  --organic-radius-panel: calc(var(--lunar-radius, 12px) * 1.6666666667);
+  --organic-radius-control: calc(var(--lunar-radius, 12px) * 0.9166666667);
   --organic-radius-capsule: 999px;
   --organic-space-1: 4px;
   --organic-space-2: 8px;

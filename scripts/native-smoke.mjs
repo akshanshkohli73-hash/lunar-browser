@@ -487,6 +487,15 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
         firstGlass.hash,
         `${format}: video colors must actually pass through the widget material`,
       );
+      // A computed filter is not proof the compositor has committed it. Flush
+      // two rendering opportunities before native capture, including paused H.264.
+      const settleBackdrop = () =>
+        ui.evaluate(
+          () =>
+            new Promise((resolve) =>
+              requestAnimationFrame(() => requestAnimationFrame(resolve)),
+            ),
+        );
       const savedGlass = (await api("getDashboard")).glass;
       await api("updateDashboard", {
         glass: { ...savedGlass, blur: 0, performance: "balanced" },
@@ -495,6 +504,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
         "backdrop-filter",
         "blur(0px) saturate(1.12)",
       );
+      await settleBackdrop();
       const unfiltered = await sampleGlass();
       await api("updateDashboard", {
         glass: { ...savedGlass, blur: 24, performance: "balanced" },
@@ -503,6 +513,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
         "backdrop-filter",
         "blur(24px) saturate(1.12)",
       );
+      await settleBackdrop();
       const filtered = await sampleGlass();
       assert.notEqual(
         filtered.hash,
@@ -526,6 +537,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
         "data-glass-backend",
         "css-backdrop",
       );
+      await settleBackdrop();
       const opticalOff = await sampleGlass();
       await api("updateDashboard", {
         glass: {
@@ -540,6 +552,13 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
         "data-glass-backend",
         "svg-backdrop",
       );
+      await settleBackdrop();
+      await expect
+        .poll(async () => (await sampleGlass()).hash, {
+          timeout: 3000,
+          message: `${format}: wait for the native compositor to paint optical displacement`,
+        })
+        .not.toBe(opticalOff.hash);
       const opticalOn = await sampleGlass(),
         opticalStable = await sampleGlass();
       assert.notEqual(

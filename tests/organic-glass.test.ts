@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_GLASS,
+  chromeGlassMaterial,
   adaptiveGlassTone,
   glassDepth,
   glassSchema,
@@ -186,4 +187,13 @@ describe("bounded material and motion math", () => {
         fast.stiffness > slow.stiffness,
     ).toBe(true);
   });
+});
+
+it("keeps existing theme chrome blur effective without altering shared material preferences or widget overrides", () => {
+  const before = structuredClone(DEFAULT_GLASS);
+  expect(chromeGlassMaterial(DEFAULT_GLASS, 12).blur).toBe(14);
+  expect(chromeGlassMaterial(DEFAULT_GLASS, 0).blur).toBe(0);
+  expect(chromeGlassMaterial(DEFAULT_GLASS, 32).blur).toBe(24);
+  expect(chromeGlassMaterial({ ...DEFAULT_GLASS, blur: 0 }, 32).blur).toBe(0);
+  expect(DEFAULT_GLASS).toEqual(before);
 });

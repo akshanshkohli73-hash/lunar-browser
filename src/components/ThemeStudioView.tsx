@@ -234,7 +234,7 @@ export default function ThemeStudioView() {
               <output>{draft.appearance.cornerRadius}px</output>
             </label>
             <label className="setting-row">
-              Glass blur{" "}
+              Chrome glass blur baseline{" "}
               <input
                 type="range"
                 aria-label="Glass blur"

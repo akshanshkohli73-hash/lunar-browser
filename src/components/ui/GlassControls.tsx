@@ -1,3 +1,4 @@
+import { chromeGlassMaterial } from "../../../shared/glass";
 import {
   forwardRef,
   type ButtonHTMLAttributes,
@@ -23,9 +24,15 @@ export const GlassButton = forwardRef<
   );
 });
 export function GlassBacking({ className = "", ...props }: GlassSurfaceProps) {
+  const context = useGlassMaterial();
+  const material = chromeGlassMaterial(
+    props.material ?? context.settings,
+    context.chromeBlur,
+  );
   return (
     <GlassSurface
       {...props}
+      material={material}
       aria-hidden="true"
       className={`glass-backing ${className}`}
     />
@@ -43,9 +50,11 @@ export function GlassPanel({
   className = "",
   ...props
 }: HTMLAttributes<HTMLDivElement>) {
+  const context = useGlassMaterial();
   return (
     <GlassSurface
       {...props}
+      material={chromeGlassMaterial(context.settings, context.chromeBlur)}
       level="deep"
       className={`glass-panel ${className}`}
     >

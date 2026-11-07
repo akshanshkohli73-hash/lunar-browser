@@ -15,7 +15,7 @@ This is a staged evolution of the existing Coquette application, not a new dashb
 | 5 · Chrome              | Shared backings in the integrated menu bar, tab strip, toolbar, address field, bookmark bar, dock, dropdowns, modals, assistant and settings. Dark material ink follows its backing, not a conflicting light-theme selector. No extra titlebar, iframe, webpage screenshot or changed viewport reservation.                                                           |
 | 6 · Motion              | Central Framer spring presets, gentle widget entry/layout/drop, hover/press, settings-tab entry, panel/menu entry/exit, finite wallpaper transitions, proximity dock and shared active indicator. Keyboard focus remains explicit; hit boxes stay stationary. Mounted exiting portals retain native occlusion and become inert until actual unmount.                  |
 | 7 · Studio              | All controls below reach real rendering/interaction, support draft preview, explicit Apply/Cancel/reset and validated persistence. Existing colors, themes, layouts, wallpaper and sparse overrides survive migration / unrelated saves.                                                                                                                              |
-| 8 · Regression          | Local 202-test suite, real Chromium layout/hit-target/pixel/fallback checks, production dependency audit and package validation passed. Windows source/packaged verification is tracked separately below; it is not inferred from the web preview.                                                                                                                    |
+| 8 · Regression          | Local 203-test suite, real Chromium layout/hit-target/pixel/fallback checks, production dependency audit and package validation passed. Windows source/packaged verification is tracked separately below; it is not inferred from the web preview.                                                                                                                    |
 
 ### Material, environment and performance
 
@@ -50,6 +50,8 @@ Open **Customize dashboard**, or **Appearance → Background & dock**.
 
 An additional **Adaptive wallpaper tint** option controls deterministic wallpaper-derived tint/tone. Explicit dashboard Light/Dark text choices remain authoritative. OS accessibility preferences take precedence; unavailable controls are disabled with an explanation.
 
+The retained palette editor’s **Glass blur** control now scales chrome blur against its 12px theme baseline, while the material base and widget overrides remain independent. Saved **Corner radius** and **Tab shape** continue to affect real organic panel/widget corners and tab geometry; renderer checks cover these existing controls too.
+
 Per-widget controls create **sparse** material overrides; they cannot override global quality, motion, adaptive policy or a global off switch. The glass reset clears material overrides/defaults only, without erasing notes, events, wallpaper or layout. Dock preferences remain independently scoped.
 
 ### Persistence and security
@@ -62,7 +64,7 @@ No new runtime dependency, network upload, privileged renderer API, unrestricted
 
 ### Local — executed
 
-- `npm run check`: **202 tests / 26 files**, TypeScript, ESLint, renderer/main/preload builds and package validation passed.
+- `npm run check`: **203 tests / 26 files**, TypeScript, ESLint, renderer/main/preload builds and package validation passed.
 - `npm audit --omit=dev`: **0 vulnerabilities**. Development-tool advisories are not hidden or force-upgraded.
 - Actual Chromium 153 with software/disabled-GPU test flags: existing preview suite plus new organic checks passed. Nine dock routes, eight keyboard menus, single workspace, editing/preview/Cancel, bright/dark materials, 20 actually visible static surfaces, independently scrolling Studio with fixed actions at 1280×840, 800×600, 700×650 and 520×500, forced colors, dock stationary hit targets / keyboard focus / proximity, reduced motion and fallback remained working.
 - New renderer pixel gate uses a deterministic checker in the **actual wallpaper image element** under the Studio sample, not an imported-user-file claim. Refraction 0 and 1 produce different PNG hashes; repeated fixed refraction is byte-identical:
@@ -73,7 +75,7 @@ No new runtime dependency, network upload, privileged renderer API, unrestricted
 
 ### Windows source / packaged application
 
-**Pending the current 2.4.0 source run.** Previous 2.3.0 native success is historical only and does not certify this version. The current gate includes actual profile-owned PNG/H.264/VP8 media, painted video-through-glass and blur smoothing, new deterministic SVG displacement over a paused decoded video, mounted-exit native occlusion, layout/resize/drag/navigation/security/restart and a new unsigned NSIS artifact plus execution of the packaged application. This section will be updated with the exact run/source and observations when it finishes.
+**Pending the corrected 2.4.0 source run.** The initial run [42355228903](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42355228903) passed renderer and Windows type/lint/unit/build checks; native WebM optical pixels changed and repeated captures were stable, but an immediate H.264 optical capture was unchanged, so packaging was correctly skipped. The gate now waits for two render opportunities and the actual changed native capture, rather than assuming a computed CSS property means a compositor commit. No native/packaged success is inferred from that failed run. Previous 2.3.0 native success is historical only and does not certify this version. The current gate includes actual profile-owned PNG/H.264/VP8 media, painted video-through-glass and blur smoothing, new deterministic SVG displacement over a paused decoded video, mounted-exit native occlusion, layout/resize/drag/navigation/security/restart and a new unsigned NSIS artifact plus execution of the packaged application. This section will be updated with the exact run/source and observations when it finishes.
 
 ### Deliberate limitations / manual checks
 

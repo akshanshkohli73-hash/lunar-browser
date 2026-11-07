@@ -195,3 +195,18 @@ export function adaptiveGlassTone(
     return glassTone(preference, category);
   return appearance.luminance < 0.19 ? "dark" : "light";
 }
+
+/** Retain the existing per-theme chrome blur control; material blur remains the
+ * shared base and widget overrides remain independent of theme-only chrome scale. */
+export function chromeGlassMaterial(
+  material: GlassSettings,
+  themeBlur = 12,
+): GlassSettings {
+  return {
+    ...material,
+    blur: Math.max(
+      0,
+      Math.min(24, Math.round((material.blur * themeBlur) / 12)),
+    ),
+  };
+}

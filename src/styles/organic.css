@@ -43,7 +43,7 @@
   outline-offset: 2px;
 }
 .browser-tab {
-  border-radius: 12px 12px 4px 4px;
+  border-radius: var(--lunar-tab-radius) var(--lunar-tab-radius) 4px 4px;
   transition:
     background-color var(--organic-duration),
     color var(--organic-duration);
@@ -252,7 +252,7 @@
 }
 .dashboard-widget button:active:not(:disabled),
 .browser-toolbar > button:active:not(:disabled) {
-  transform: scale(0.985);
+  transform: scale(var(--organic-press-scale, 0.985));
 }
 .glass-global-controls {
   display: grid;
@@ -290,7 +290,7 @@ html[data-dock-magnify="true"][data-glass-pointer="true"]
   .lunar-dock-button
   .lunar-dock-art {
   transform: translateY(calc(var(--dock-proximity, 0) * -4px))
-    scale(calc(1 + var(--dock-proximity, 0) * 0.16));
+    scale(calc(1 + var(--dock-proximity, 0) * var(--organic-dock-scale, 0.16)));
 }
 .lunar-dock .lunar-dock-button:focus-visible .lunar-dock-art {
   transform: translateY(-1px) scale(1.025);
@@ -475,4 +475,31 @@ html[data-reduced-motion="true"] .dashboard-wallpaper video {
 }
 .glass-fieldset legend {
   font-family: var(--organic-font-display);
+}
+
+/* Existing saved theme geometry remains functional within the new organic grammar. */
+.dashboard-widget > .glass-clock {
+  --glass-radius: calc(var(--lunar-radius, 12px) * 1.5)
+    var(--lunar-radius, 12px) calc(var(--lunar-radius, 12px) * 1.5)
+    var(--lunar-radius, 12px);
+}
+.dashboard-widget > .glass-search {
+  --glass-radius: var(--lunar-radius, 12px)
+    calc(var(--lunar-radius, 12px) * 1.5) var(--lunar-radius, 12px)
+    calc(var(--lunar-radius, 12px) * 1.5);
+}
+.dashboard-widget > .glass-notes {
+  --glass-radius: calc(var(--lunar-radius, 12px) * 0.8333333333)
+    calc(var(--lunar-radius, 12px) * 1.25)
+    calc(var(--lunar-radius, 12px) * 1.25)
+    calc(var(--lunar-radius, 12px) * 0.8333333333);
+}
+.dashboard-widget > .glass-calendar {
+  --glass-radius: calc(var(--lunar-radius, 12px) * 1.1666666667);
+}
+.dashboard-widget > .glass-weather {
+  --glass-radius: calc(var(--lunar-radius, 12px) * 1.5);
+}
+.lunar-modal > .glass-backing {
+  --glass-radius: var(--organic-radius-panel);
 }

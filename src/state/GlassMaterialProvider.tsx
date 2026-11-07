@@ -96,6 +96,7 @@ const defaultPreferences: MaterialPreferences = {
 };
 const Material = createContext({
   settings: DEFAULT_GLASS,
+  chromeBlur: 12,
   tone: "light" as "light" | "dark",
   appearance: {
     color: "#c5d9b8",
@@ -155,6 +156,7 @@ export function GlassMaterialProvider({
   text,
   category,
   reducedMotion,
+  chromeBlur = 12,
 }: {
   children: ReactNode;
   settings: GlassSettings;
@@ -162,6 +164,7 @@ export function GlassMaterialProvider({
   text: "theme" | "light" | "dark";
   category: string;
   reducedMotion: boolean;
+  chromeBlur?: number;
 }) {
   const preferences = useMaterialCapabilities();
   const foreground = useWorkspaceActivity();
@@ -209,6 +212,14 @@ export function GlassMaterialProvider({
   useEffect(() => {
     const root = document.documentElement;
     root.dataset.effectsQuality = settings.performance;
+    root.style.setProperty(
+      "--organic-press-scale",
+      String(LUNAR_MOTION.pressScale),
+    );
+    root.style.setProperty(
+      "--organic-dock-scale",
+      String(LUNAR_MOTION.dockScale),
+    );
     root.dataset.materialTone = tone;
     root.style.setProperty("--organic-ink", MATERIAL_COLORS[tone].ink);
     root.style.setProperty("--organic-muted", MATERIAL_COLORS[tone].muted);
@@ -250,6 +261,7 @@ export function GlassMaterialProvider({
   const value = useMemo(
     () => ({
       settings,
+      chromeBlur,
       tone,
       appearance,
       reduced,
@@ -262,6 +274,7 @@ export function GlassMaterialProvider({
     }),
     [
       settings,
+      chromeBlur,
       tone,
       appearance,
       reduced,

@@ -286,6 +286,7 @@ export function BrowserProvider({ children }: { children: React.ReactNode }) {
           text={presentationDashboard.text}
           category={theme.category}
           reducedMotion={reducedMotion}
+          chromeBlur={theme.appearance.blur}
         >
           {children}
         </GlassMaterialProvider>

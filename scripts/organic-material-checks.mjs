@@ -214,6 +214,56 @@ export async function checkUnsupportedOptics(browser, url, evidence) {
     await expect(
       page.getByRole("textbox", { name: "Dashboard note" }),
     ).toHaveValue("The CSS fallback remains editable.");
+    await page
+      .getByRole("navigation", { name: "Dock" })
+      .getByRole("button", { name: "Appearance", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Your own touch", exact: true })
+      .click();
+    const chrome = page.locator(".browser-toolbar > .glass-backing");
+    const blur = page.getByRole("slider", { name: "Glass blur", exact: true });
+    await blur.focus();
+    await blur.press("Home");
+    await expect(chrome).toHaveCSS(
+      "backdrop-filter",
+      "blur(0px) saturate(1.22)",
+    );
+    await blur.press("End");
+    await expect(chrome).toHaveCSS(
+      "backdrop-filter",
+      "blur(18px) saturate(1.22)",
+    );
+    await page.locator(".browser-tabs").evaluate((node) => {
+      const probe = document.createElement("div");
+      probe.className = "browser-tab legacy-shape-probe";
+      node.append(probe);
+    });
+    await page
+      .getByRole("combobox", { name: "Tab shape", exact: true })
+      .selectOption("pill");
+    await expect(page.locator(".legacy-shape-probe")).toHaveCSS(
+      "border-top-left-radius",
+      "20px",
+    );
+    await page
+      .getByRole("combobox", { name: "Tab shape", exact: true })
+      .selectOption("minimal");
+    await expect(page.locator(".legacy-shape-probe")).toHaveCSS(
+      "border-top-left-radius",
+      "3px",
+    );
+    await page.locator(".legacy-shape-probe").evaluate((node) => node.remove());
+    const radius = page.getByRole("slider", {
+      name: "Corner radius",
+      exact: true,
+    });
+    await radius.focus();
+    await radius.press("Home");
+    await expect(page.locator(".theme-controls.glass-panel")).toHaveCSS(
+      "border-top-left-radius",
+      "0px",
+    );
   } finally {
     await page.close();
   }
