@@ -118,3 +118,19 @@ Installer SHA-256, computed by the Windows job:
 Authenticode: **NotSigned**. ZIP digest (not the EXE hash): `ac1f8d5c4b8bb139c7461dc5cb285934cc4de96b4124a542c6d391dd6e68fe6e`. This sandbox cannot retrieve the artifact's redirected storage host; no local installer rehash or direct attachment is claimed.
 
 **Visual review completed:** current bright/dark renderer drafts and dashboard spacing/hierarchy were inspected, with image decoding awaited before capture. These are real rendered drafts, not persisted/native screenshots. Automated Windows GUI tests did execute against both development and packaged applications. A human did not manually operate an installed NSIS upgrade/uninstall, native OS color/file picker, physical touch/DPI/multi-monitor hardware, or low-power GPU/battery benchmarks. Those limits remain; no universal FPS, arbitrary-codec or accessibility certification is claimed. Existing Electron security, local-media handling, unsigned/no-publish policy and prior user functionality remain intact.
+
+## Public prerelease — 2026-11-07
+
+This section supersedes the earlier chronological “no public release” status. At the user's explicit request, **2.2.0 is now a public, unsigned GitHub prerelease**, not a draft or a stable/latest-certified release.
+
+- [Public release / notes](https://github.com/akshanshkohli73-hash/lunar-browser/releases/tag/v2.2.0)
+- [Windows x64 installer](https://github.com/akshanshkohli73-hash/lunar-browser/releases/download/v2.2.0/Lunar-Browser-2.2.0-win-x64.exe)
+- [SHA256SUMS.txt](https://github.com/akshanshkohli73-hash/lunar-browser/releases/download/v2.2.0/SHA256SUMS.txt)
+
+Tag `v2.2.0` points to the exact previously verified source `9e1106449a7b20e30ee1671850364c8a4be90e02`. The **113,729,245-byte EXE** was promoted unchanged from artifact **13244556225** in run **41663301595**, not rebuilt or substituted. Its SHA-256 remains `2cf3a30c37a1542f54ab1d174b8674033a85b900bd7b8735d0f29e056c1afe20`.
+
+[Publication verification run 42345982363](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42345982363) passed all three jobs: the existing Linux and Windows verification/build/real packaged-app checks, plus explicit fixed-version draft staging. The staging job checked original-run/source/artifact identity, hashed the original installer, uploaded only to the matching draft, then downloaded the draft asset and rehashed it on the GitHub runner. Publication was a separate explicit CLI operation after all checks passed. GitHub's release-asset SHA-256 agrees with the original installer hash.
+
+Anonymous GitHub API access confirmed `draft: false`, `prerelease: true`, the exact tag target and both assets. The anonymous direct installer URL returned the expected download redirect. The sandbox still cannot follow the binary storage redirect; no local installer download/rehash is claimed. Public assets now avoid expiring Actions-artifact links and do not require an Actions-artifact login.
+
+The single-use staging job was removed after success; ordinary verification remains read-only and electron-builder keeps `--publish never`. No ongoing automatic publisher, npm publication, app-store listing, auto-updater, signing certificate, warning bypass or new redistribution license was added. Unsigned status, profile-backup/migration advice and all manual/hardware limitations in the release notes remain applicable.
