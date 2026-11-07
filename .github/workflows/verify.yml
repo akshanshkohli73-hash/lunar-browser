@@ -1,0 +1,174 @@
+name: Verify Lunar Browser
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  renderer-and-regressions:
+    name: Renderer, types and regression tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm audit --omit=dev
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:ui
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: chromium-renderer-evidence
+          path: .artifacts/ui/
+          if-no-files-found: ignore
+  windows-native-and-installer:
+    name: Windows native browser and NSIS
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Install pinned Electron runtime
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          npm run install:electron 2>&1 | Tee-Object -Variable runtimeOutput
+          $code = $LASTEXITCODE
+          if ($code -ne 0) {
+            $detail = (($runtimeOutput | Select-Object -Last 60) -join "`n").Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+            Write-Output "::error title=Electron runtime installation failed::$detail"
+          }
+          exit $code
+      - run: npm run check
+      - name: Real Electron integration (no fake bridge or iframe)
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          npm run test:native 2>&1 | Tee-Object -Variable nativeOutput
+          $code = $LASTEXITCODE
+          if ($code -ne 0) {
+            $detail = (($nativeOutput | Select-Object -Last 60) -join "`n").Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+            Write-Output "::error title=Native Electron integration failed::$detail"
+          }
+          exit $code
+      - name: Package unsigned Windows x64 installer
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          npm run dist:win 2>&1 | Tee-Object -Variable packageOutput
+          $code = $LASTEXITCODE
+          if ($code -ne 0) {
+            $detail = (($packageOutput | Select-Object -Last 100) -join "`n").Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+            Write-Output "::error title=Windows installer packaging failed::$detail"
+          }
+          exit $code
+      - name: Verify packaged Windows application and video wallpaper
+        shell: pwsh
+        run: |
+          $env:LUNAR_PACKAGED_EXECUTABLE = (Resolve-Path "release/win-unpacked/Lunar Browser.exe").Path
+          $PSNativeCommandUseErrorActionPreference = $false
+          npm run test:native 2>&1 | Tee-Object -Variable packagedOutput
+          $code = $LASTEXITCODE
+          if ($code -ne 0) {
+            $detail = (($packagedOutput | Select-Object -Last 80) -join "`n").Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+            Write-Output "::error title=Packaged Windows integration failed::$detail"
+          }
+          exit $code
+      - name: Hash produced installers
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem release/*.exe -ErrorAction Stop)
+          if ($installers.Count -eq 0) { throw "No installer was produced" }
+          $hashes = @($installers | Get-FileHash -Algorithm SHA256)
+          $hashes | Format-List | Out-File release/SHA256.txt
+          foreach ($entry in $hashes) {
+            $name = Split-Path $entry.Path -Leaf
+            Write-Output "::notice title=Windows installer SHA256::$name $($entry.Hash)"
+            $signature = Get-AuthenticodeSignature $entry.Path
+            Write-Output "::notice title=Windows installer Authenticode::$name $($signature.Status)"
+          }
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: lunar-windows-x64-unsigned
+          path: |
+            release/*.exe
+            release/SHA256.txt
+          if-no-files-found: error
+
+  stage-verified-2-2-release:
+    name: Stage verified 2.2.0 assets in existing draft (explicit opt-in)
+    # Ordinary pushes, PRs, tags and manual verification never stage or publish a release.
+    # This fixed-version job ONLY attaches verified bytes to an already-created draft.
+    # Public publication is a separate, explicit `gh release edit --draft=false` operation.
+    if: >-
+      github.event_name == 'push' &&
+      github.repository == 'akshanshkohli73-hash/lunar-browser' &&
+      github.ref == 'refs/heads/arena/8b00471f-lunar-browser' &&
+      contains(github.event.head_commit.message, '[stage-release-v2.2.0]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Check provenance and stage unchanged verified installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag=v2.2.0
+          source=9e1106449a7b20e30ee1671850364c8a4be90e02
+          source_run=41663301595
+          expected=2cf3a30c37a1542f54ab1d174b8674033a85b900bd7b8735d0f29e056c1afe20
+          installer=Lunar-Browser-2.2.0-win-x64.exe
+
+          run_json=$(gh api "repos/$GH_REPO/actions/runs/$source_run")
+          test "$(jq -r '.status' <<< "$run_json")" = completed
+          test "$(jq -r '.conclusion' <<< "$run_json")" = success
+          test "$(jq -r '.head_sha' <<< "$run_json")" = "$source"
+
+          artifact=$(gh api "repos/$GH_REPO/actions/artifacts/13244556225")
+          test "$(jq -r '.expired' <<< "$artifact")" = false
+          test "$(jq -r '.name' <<< "$artifact")" = lunar-windows-x64-unsigned
+          test "$(jq -r '.digest' <<< "$artifact")" = sha256:ac1f8d5c4b8bb139c7461dc5cb285934cc4de96b4124a542c6d391dd6e68fe6e
+
+          release=$(gh release view "$tag" --json isDraft,isPrerelease,targetCommitish,assets)
+          test "$(jq -r '.isDraft' <<< "$release")" = true
+          test "$(jq -r '.isPrerelease' <<< "$release")" = true
+          test "$(jq -r '.targetCommitish' <<< "$release")" = "$source"
+          test "$(jq '.assets | length' <<< "$release")" = 0
+
+          mkdir -p .release-stage .release-verify
+          gh run download "$source_run" --name lunar-windows-x64-unsigned --dir .release-stage
+          test -f ".release-stage/$installer"
+          printf '%s  %s\n' "$expected" ".release-stage/$installer" | sha256sum --check --strict
+          printf '%s  %s\n' "$expected" "$installer" > .release-stage/SHA256SUMS.txt
+          gh release upload "$tag" ".release-stage/$installer" .release-stage/SHA256SUMS.txt
+
+          # Re-download the draft asset and rehash it on the runner before public promotion.
+          gh release download "$tag" --pattern "$installer" --dir .release-verify
+          printf '%s  %s\n' "$expected" ".release-verify/$installer" | sha256sum --check --strict
+          gh release view "$tag" --json isDraft,assets --jq '{isDraft,assets:[.assets[]|{name,size,state}]}'
+          {
+            echo '## Verified release assets staged — release is still a draft'
+            echo "Source: $source · verified run: $source_run"
+            echo "Installer: $installer"
+            echo "SHA-256: $expected"
+            echo 'An explicit owner publication operation is still required. No auto-publisher or signing was added.'
+          } >> "$GITHUB_STEP_SUMMARY"
