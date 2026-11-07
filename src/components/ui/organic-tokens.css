@@ -1,0 +1,22 @@
+:root {
+  --organic-sage: #3c5945;
+  --organic-pastel: #c5d9b8;
+  --organic-ivory: #f4f5e9;
+  --organic-forest: #18392a;
+  --organic-highlight: #fffef8;
+  --organic-shadow: #2c483b;
+  --organic-font-display:
+    Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+  --organic-font-body: "Segoe UI", system-ui, -apple-system, sans-serif;
+  --organic-radius-widget: 18px 13px 18px 13px;
+  --organic-radius-panel: 20px;
+  --organic-radius-control: 11px;
+  --organic-radius-capsule: 999px;
+  --organic-space-1: 4px;
+  --organic-space-2: 8px;
+  --organic-space-3: 12px;
+  --organic-space-4: 18px;
+  --organic-space-5: 24px;
+  --organic-duration: 180ms;
+  --organic-fade-duration: 200ms;
+}

@@ -22,7 +22,15 @@ function ClockWidget({ widget, active }: WidgetProps) {
   return (
     <div className="widget-clock">
       <span className="eyebrow">A little space for you</span>
-      <time>
+      <span className="clock-orbit" aria-hidden="true">
+        <i
+          style={{
+            transform: `rotate(${(now.getHours() % 12) * 30 + now.getMinutes() / 2}deg)`,
+          }}
+        />
+        <b style={{ transform: `rotate(${now.getMinutes() * 6}deg)` }} />
+      </span>
+      <time dateTime={now.toISOString()}>
         {now.toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
@@ -94,8 +102,16 @@ function BookmarksWidget({ widget, navigate }: WidgetProps) {
             onClick={() => navigate(bookmark.url)}
             title={bookmark.url}
           >
-            <Icon name="book" size={15} />
-            <span>{bookmark.title}</span>
+            <span className="widget-site-mark" aria-hidden="true">
+              {new URL(bookmark.url).hostname
+                .replace(/^www\./u, "")
+                .slice(0, 1)
+                .toUpperCase()}
+            </span>
+            <span className="widget-link-meta">
+              <strong>{bookmark.title}</strong>
+              <small>{new URL(bookmark.url).hostname}</small>
+            </span>
           </button>
         ))}
       </div>
@@ -192,7 +208,17 @@ function CalendarWidget({ widget }: WidgetProps) {
             year: "numeric",
           })}
         </h2>
-        <div>
+        <div className="calendar-navigation">
+          <button
+            aria-label="Go to today"
+            onClick={() => {
+              const today = new Date();
+              setMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+              setSelected(localDate(today));
+            }}
+          >
+            Today
+          </button>
           <button
             aria-label="Previous month"
             onClick={() =>
@@ -228,6 +254,7 @@ function CalendarWidget({ widget }: WidgetProps) {
               key={date}
               aria-label={date}
               aria-pressed={selected === date}
+              aria-current={date === localDate(new Date()) ? "date" : undefined}
               className={
                 dashboard.events.some((item) => item.date === date)
                   ? "has-event"
@@ -241,6 +268,9 @@ function CalendarWidget({ widget }: WidgetProps) {
         })}
       </div>
       <small>{selected} · Local events only</small>
+      {!events.length && (
+        <small className="calendar-empty">A little room for plans.</small>
+      )}
       <ul className="widget-events">
         {events.map((event) => (
           <li key={event.id}>
@@ -313,7 +343,24 @@ function WeatherWidget({ widget }: WidgetProps) {
   return (
     <>
       <h2>
-        <Icon name="sun" size={17} />
+        <Icon
+          name={
+            !reading
+              ? "cloud"
+              : reading.code === 0
+                ? "sun"
+                : reading.code >= 95
+                  ? "storm"
+                  : (reading.code >= 71 && reading.code <= 77) ||
+                      reading.code === 85 ||
+                      reading.code === 86
+                    ? "snow"
+                    : reading.code >= 51
+                      ? "rain"
+                      : "cloud"
+          }
+          size={17}
+        />
         {config.location || "Weather"}
       </h2>
       {reading ? (
@@ -329,9 +376,13 @@ function WeatherWidget({ widget }: WidgetProps) {
                 ? "Partly cloudy"
                 : reading.code < 50
                   ? "Fog / reduced visibility"
-                  : reading.code < 80
-                    ? "Precipitation"
-                    : "Showers / storms"}
+                  : (reading.code >= 71 && reading.code <= 77) ||
+                      reading.code === 85 ||
+                      reading.code === 86
+                    ? "Snow"
+                    : reading.code >= 95
+                      ? "Thunderstorms"
+                      : "Rain / showers"}
           </p>
           <small>Provider observation: {reading.observedAt}</small>
         </>
@@ -438,7 +489,10 @@ function RecentWidget({ widget, active, navigate }: WidgetProps) {
                 title={item.url}
               >
                 <Icon name="globe" size={14} />
-                <span>{item.title || new URL(item.url).hostname}</span>
+                <span className="widget-link-meta">
+                  <strong>{item.title || new URL(item.url).hostname}</strong>
+                  <small>{new URL(item.url).hostname}</small>
+                </span>
               </button>
             ))}
           </div>

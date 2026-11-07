@@ -488,13 +488,17 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
         `${format}: video colors must actually pass through the widget material`,
       );
       const savedGlass = (await api("getDashboard")).glass;
-      await api("updateDashboard", { glass: { ...savedGlass, blur: 0 } });
+      await api("updateDashboard", {
+        glass: { ...savedGlass, blur: 0, performance: "balanced" },
+      });
       await expect(material).toHaveCSS(
         "backdrop-filter",
         "blur(0px) saturate(1.12)",
       );
       const unfiltered = await sampleGlass();
-      await api("updateDashboard", { glass: { ...savedGlass, blur: 24 } });
+      await api("updateDashboard", {
+        glass: { ...savedGlass, blur: 24, performance: "balanced" },
+      });
       await expect(material).toHaveCSS(
         "backdrop-filter",
         "blur(24px) saturate(1.12)",
@@ -508,6 +512,45 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       assert.ok(
         filtered.edgeEnergy < unfiltered.edgeEnergy,
         `Filtering must smooth the underlying video, not just report CSS: ${JSON.stringify({ unfiltered, filtered })}`,
+      );
+      await api("updateDashboard", {
+        glass: {
+          ...savedGlass,
+          performance: "optical",
+          blur: 0,
+          refraction: 0,
+          reflection: 0,
+        },
+      });
+      await expect(material).toHaveAttribute(
+        "data-glass-backend",
+        "css-backdrop",
+      );
+      const opticalOff = await sampleGlass();
+      await api("updateDashboard", {
+        glass: {
+          ...savedGlass,
+          performance: "optical",
+          blur: 0,
+          refraction: 1,
+          reflection: 0,
+        },
+      });
+      await expect(material).toHaveAttribute(
+        "data-glass-backend",
+        "svg-backdrop",
+      );
+      const opticalOn = await sampleGlass(),
+        opticalStable = await sampleGlass();
+      assert.notEqual(
+        opticalOff.hash,
+        opticalOn.hash,
+        `${format}: SVG refraction must displace actual painted native video pixels`,
+      );
+      assert.equal(
+        opticalOn.hash,
+        opticalStable.hash,
+        `${format}: seeded optical displacement must be stable, with no noise / video-copy animation loop`,
       );
       await api("updateDashboard", { glass: savedGlass });
       await expect(material).toHaveCSS("--glass-blur", `${savedGlass.blur}px`);
@@ -566,6 +609,11 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
         unfiltered,
         filtered,
         gpuCompositing: gpu.gpu_compositing,
+      };
+      observation.optics = {
+        off: opticalOff,
+        on: opticalOn,
+        stable: opticalOn.hash === opticalStable.hash,
       };
       videoMeasurements.push(observation);
       fs.writeFileSync(
@@ -829,9 +877,21 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       ui.getByRole("dialog", { name: "Lunar Shield", exact: true }),
     ).toBeVisible();
     await waitNative(0);
+    // Initiate close and inspect the very next renderer turn: the portal is
+    // inert/exiting but still mounted. Native contents must not return early.
     await ui
       .getByRole("button", { name: "Close Lunar Shield", exact: true })
-      .click();
+      .evaluate((node) => node.click());
+    const exitingShield = await ui
+      .locator('.modal-backdrop[aria-hidden="true"]')
+      .evaluate((node) => ({ inert: node.inert, mounted: node.isConnected }));
+    assert.deepEqual(exitingShield, { inert: true, mounted: true });
+    assert.equal(
+      (await native()).length,
+      0,
+      "Native view remains detached during the animated portal exit",
+    );
+    await ui.locator(".modal-backdrop").waitFor({ state: "detached" });
     await waitNative(1);
     await checkGeometry();
 
@@ -1487,7 +1547,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
     await launch();
     const restored = await api("bootstrap");
     assert.equal(restored.settings.themeId, "pastel-forest");
-    assert.equal(restored.dashboard.version, 2);
+    assert.equal(restored.dashboard.version, 3);
     assert.equal(restored.dashboard.glass.opacity, 0.66);
     assert.equal(restored.dashboard.glass.blur, 8);
     assert.equal(
@@ -1538,7 +1598,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       JSON.stringify(videoMeasurements, null, 2) + "\n",
     );
     console.log(
-      `PASS: ${packaged ? "Packaged" : "Development"} native Electron on ${process.platform}: isolated Chromium tabs, navigation/loading/stop, background focus and native Ctrl+L, geometry/resize, overlay detachment, real Shield request interception on/off, profile-owned patterned image/video decoding/scope, painted glass response and blur smoothing, multi-widget video frame observations, independent modal scrolling at native minimum bounds, fixed-wallpaper/dashboard safe space, dashboard preview/cancel/layout and restart, scoped cookie/storage clearing and permission reset, content zoom geometry, real extension content script/unload, download bytes, sender rejection, malformed IPC, restart/persistence and explicit repeated-close webContents cleanup.`,
+      `PASS: ${packaged ? "Packaged" : "Development"} native Electron on ${process.platform}: isolated Chromium tabs, navigation/loading/stop, background focus and native Ctrl+L, geometry/resize, overlay detachment, real Shield request interception on/off, profile-owned patterned image/video decoding/scope, painted glass response / blur smoothing / deterministic SVG optical displacement, mounted-exit native occlusion, multi-widget video frame observations, independent modal scrolling at native minimum bounds, fixed-wallpaper/dashboard safe space, dashboard preview/cancel/layout and restart, scoped cookie/storage clearing and permission reset, content zoom geometry, real extension content script/unload, download bytes, sender rejection, malformed IPC, restart/persistence and explicit repeated-close webContents cleanup.`,
     );
     console.log(
       "Installed NSIS launch/upgrade/uninstall, multi-monitor Windows DPI, additional video codecs and OS device consent still need manual verification. Known H.264 MP4 / VP8 WebM decoding, painted frames, seeking, persistence and controls executed above. No signing service is required.",

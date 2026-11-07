@@ -7,7 +7,9 @@ import { useMinuteClock } from "./useMinuteClock";
 import { Icon } from "./ui/Icon";
 import { Modal } from "./ui/Modal";
 import { GlassSurface } from "./ui/GlassSurface";
-import { glassTone } from "../../shared/glass";
+import { useGlassMaterial } from "../state/GlassMaterialProvider";
+import { AnimatePresence, motion } from "framer-motion";
+import { lunarSpring } from "../../shared/motion";
 import { useWorkspaceActivity } from "../state/WorkspaceActivity";
 import { WALLPAPERS } from "./dashboard/Wallpaper";
 
@@ -29,6 +31,7 @@ export default function LunarDesktop({
     report,
     presentationDashboard,
   } = useBrowser();
+  const { reduced, settings: materialSettings } = useGlassMaterial();
   const [desktop, setDesktop] = useState(false),
     [menu, setMenu] = useState<MenuName | null>(null),
     [launcher, setLauncher] = useState(false),
@@ -129,17 +132,21 @@ export default function LunarDesktop({
           </div>
         </section>
       )}
-      <nav className="cdp-dock lunar-dock" aria-label="Dock">
+      <nav
+        className="cdp-dock lunar-dock"
+        aria-label="Dock"
+        data-glass-dock="true"
+        data-glass-owner="true"
+      >
         <GlassSurface
           aria-hidden="true"
-          className="lunar-dock-material"
+          className="glass-backing lunar-dock-material"
           level="light"
           material={{
             ...presentationDashboard.glass,
             // Retain the independent 50–100% dock preference; map to the material range.
             opacity: 0.6 + (presentationDashboard.dock.opacity - 0.5) * 0.8,
           }}
-          tone={glassTone("theme", theme.category)}
           active={materialActive && !menu && !launcher}
         />
         {CONTROL_PANELS.map((item) => (
@@ -156,39 +163,54 @@ export default function LunarDesktop({
             <span className="lunar-dock-art">
               <Icon name={item.icon} size={24} />
             </span>
-            {!desktop && page === item.page && <i className="cdp-run" />}
+            {!desktop && page === item.page && (
+              <motion.i
+                className="cdp-run"
+                layoutId={reduced ? undefined : "lunar-dock-indicator"}
+                transition={lunarSpring(
+                  materialSettings.animationSpeed,
+                  reduced,
+                )}
+              />
+            )}
           </button>
         ))}
       </nav>
-      {launcher && (
-        <Modal title="Lunar controls" onClose={() => setLauncher(false)}>
-          <input
-            aria-label="Find a Lunar control"
-            placeholder="Where would you like to go?"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && visible[0]) choose(visible[0]);
-            }}
-          />
-          <div className="lunar-launcher">
-            {visible.map((item) => (
-              <button
-                key={item.id}
-                disabled={!ready}
-                onClick={() => choose(item)}
-              >
-                <Icon name={item.icon} />
-                <span>
-                  <strong>{item.label}</strong>
-                  <small>{item.description}</small>
-                </span>
-              </button>
-            ))}
-          </div>
-          {!visible.length && <p>No matching controls.</p>}
-        </Modal>
-      )}
+      <AnimatePresence>
+        {launcher && (
+          <Modal
+            key="launcher"
+            title="Lunar controls"
+            onClose={() => setLauncher(false)}
+          >
+            <input
+              aria-label="Find a Lunar control"
+              placeholder="Where would you like to go?"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && visible[0]) choose(visible[0]);
+              }}
+            />
+            <div className="lunar-launcher">
+              {visible.map((item) => (
+                <button
+                  key={item.id}
+                  disabled={!ready}
+                  onClick={() => choose(item)}
+                >
+                  <Icon name={item.icon} />
+                  <span>
+                    <strong>{item.label}</strong>
+                    <small>{item.description}</small>
+                  </span>
+                </button>
+              ))}
+            </div>
+            {!visible.length && <p>No matching controls.</p>}
+          </Modal>
+        )}
+      </AnimatePresence>
     </CoquetteFrame>
   );
 }

@@ -1,3 +1,4 @@
+import { GlassFieldset } from "./ui/GlassControls";
 import { useEffect, useState } from "react";
 import { useBrowser } from "../state/BrowserContext";
 import type { BrowserSettings, AIStatus } from "../../electron/types";
@@ -123,7 +124,7 @@ export default function SettingsView() {
             {message}
           </p>
         )}
-        <fieldset disabled={busy || !api || !ready}>
+        <GlassFieldset key={section} disabled={busy || !api || !ready}>
           {section === "general" && (
             <>
               <h2>Everyday browsing</h2>
@@ -538,7 +539,7 @@ export default function SettingsView() {
               </p>
             </>
           )}
-        </fieldset>
+        </GlassFieldset>
         {section === "appearance" && <ThemeStudioView />}
         {section === "extensions" && <ExtensionsView />}
         {section === "shortcuts" && (

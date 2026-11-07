@@ -1,3 +1,5 @@
+import { WorkspaceActivity } from "./WorkspaceActivity";
+import { GlassMaterialProvider } from "./GlassMaterialProvider";
 import React, {
   createContext,
   useCallback,
@@ -91,7 +93,9 @@ export function BrowserProvider({ children }: { children: React.ReactNode }) {
     [],
   );
   const presentationDashboard = dashboardPreview?.dashboard ?? dashboard;
-  const reducedMotion = preview?.reducedMotion ?? settings.reducedMotion;
+  const reducedMotion =
+    (preview?.reducedMotion ?? settings.reducedMotion) ||
+    presentationDashboard.glass.reducedMotion;
   const [tabs, setTabs] = useState<TabsSnapshot>({
     tabs: [],
     activeTabId: null,
@@ -274,7 +278,19 @@ export function BrowserProvider({ children }: { children: React.ReactNode }) {
     ],
   );
   return (
-    <BrowserContext.Provider value={value}>{children}</BrowserContext.Provider>
+    <BrowserContext.Provider value={value}>
+      <WorkspaceActivity active>
+        <GlassMaterialProvider
+          settings={presentationDashboard.glass}
+          wallpaper={presentationDashboard.wallpaper}
+          text={presentationDashboard.text}
+          category={theme.category}
+          reducedMotion={reducedMotion}
+        >
+          {children}
+        </GlassMaterialProvider>
+      </WorkspaceActivity>
+    </BrowserContext.Provider>
   );
 }
 export function useBrowser() {

@@ -1,4 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { motion, useIsPresent } from "framer-motion";
+import { GlassBacking } from "./ui/GlassControls";
+import { useGlassMaterial } from "../state/GlassMaterialProvider";
+import { lunarSpring } from "../../shared/motion";
 import { useBrowser } from "../state/BrowserContext";
 import { isWebUrl } from "../../shared/navigation";
 import { Icon } from "./ui/Icon";
@@ -12,6 +16,12 @@ export default function AISidebar({
   url: string;
 }) {
   const { api, settings } = useBrowser();
+  const { reduced, settings: material } = useGlassMaterial();
+  const present = useIsPresent(),
+    panel = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    if (panel.current) panel.current.inert = !present;
+  }, [present]);
   const [messages, setMessages] = useState<
       { id: number; role: "user" | "assistant"; content: string }[]
     >([]),
@@ -62,7 +72,18 @@ export default function AISidebar({
     /* Not a webpage. */
   }
   return (
-    <aside className="ai-sidebar" aria-label="Optional AI assistant">
+    <motion.aside
+      className="ai-sidebar"
+      aria-label="Optional AI assistant"
+      data-glass-owner="true"
+      aria-hidden={!present || undefined}
+      ref={panel}
+      initial={reduced ? false : { opacity: 0, x: 8 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 8 }}
+      transition={lunarSpring(material.animationSpeed, reduced, true)}
+    >
+      <GlassBacking level="deep" />
       <header>
         <Icon name="sparkles" />
         <strong>Lunar companion</strong>
@@ -157,6 +178,6 @@ export default function AISidebar({
           Send
         </button>
       </form>
-    </aside>
+    </motion.aside>
   );
 }

@@ -167,6 +167,8 @@ beforeEach(() => {
   mounts = 0;
   vi.stubGlobal("matchMedia", () => ({
     matches: true,
+    addListener() {},
+    removeListener() {},
     addEventListener() {},
     removeEventListener() {},
   }));

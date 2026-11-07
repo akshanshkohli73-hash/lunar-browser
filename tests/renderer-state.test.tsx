@@ -832,3 +832,112 @@ describe("live Liquid Glass controls backed by validated profile storage", () =>
     expect(reset.widgets.every((widget) => !widget.glass)).toBe(true);
   });
 });
+
+describe("Organic Studio preview, persistence and sparse overrides", () => {
+  it("applies every new global preference, cancels previews and preserves data on a later note-only save", async () => {
+    vi.stubGlobal("CSS", { supports: () => true });
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query.includes("pointer: fine"),
+      addEventListener() {},
+      removeEventListener() {},
+      addListener() {},
+      removeListener() {},
+    }));
+    const before = storage.getDashboard();
+    const user = userEvent.setup();
+    render(
+      <BrowserProvider>
+        <App />
+      </BrowserProvider>,
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "Customize dashboard" }),
+    );
+    let controls = within(
+      await screen.findByRole("dialog", { name: "Customize dashboard" }),
+    );
+    for (const [label, value] of [
+      ["Glass saturation", "1.3"],
+      ["Refraction intensity", ".7"],
+      ["Glass elevation", "1.25"],
+      ["Animation speed", ".75"],
+    ])
+      fireEvent.change(controls.getByLabelText(label), { target: { value } });
+    await user.click(controls.getByRole("checkbox", { name: "Hover motion" }));
+    await user.click(
+      controls.getByRole("checkbox", {
+        name: "Adaptive wallpaper tint",
+      }),
+    );
+    await user.click(controls.getByRole("checkbox", { name: /Dock magnification/u }));
+    expect(storage.getDashboard()).toEqual(before);
+    expect(
+      document.documentElement.style.getPropertyValue("--organic-duration"),
+    ).toBe("240ms");
+    await user.click(
+      controls.getByRole("button", { name: "Cancel dashboard changes" }),
+    );
+    expect(
+      document.documentElement.style.getPropertyValue("--organic-duration"),
+    ).toBe("180ms");
+    expect(storage.getDashboard()).toEqual(before);
+    await user.click(
+      screen.getByRole("button", { name: "Customize dashboard" }),
+    );
+    controls = within(
+      await screen.findByRole("dialog", { name: "Customize dashboard" }),
+    );
+    for (const [label, value] of [
+      ["Glass saturation", "1.3"],
+      ["Refraction intensity", ".7"],
+      ["Glass elevation", "1.25"],
+      ["Animation speed", ".75"],
+    ])
+      fireEvent.change(controls.getByLabelText(label), { target: { value } });
+    await user.click(controls.getByRole("checkbox", { name: "Hover motion" }));
+    await user.click(
+      controls.getByRole("checkbox", {
+        name: "Adaptive wallpaper tint",
+      }),
+    );
+    await user.click(
+      controls.getByRole("checkbox", {
+        name: "Reduced material motion",
+      }),
+    );
+    await user.click(controls.getByRole("button", { name: "Notes" }));
+    await user.click(
+      controls.getByRole("checkbox", { name: "Use global glass for Notes" }),
+    );
+    fireEvent.change(controls.getByLabelText("Notes Glass elevation"), {
+      target: { value: ".5" },
+    });
+    await user.click(controls.getByRole("button", { name: "Apply dashboard" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Customize dashboard" }),
+      ).toBeNull(),
+    );
+    const saved = new StorageService(profile).getDashboard();
+    expect(saved.glass).toMatchObject({
+      saturation: 1.3,
+      refraction: 0.7,
+      elevation: 1.25,
+      animationSpeed: 0.75,
+      adaptive: false,
+      hoverMotion: false,
+      reducedMotion: true,
+      performance: "optical",
+    });
+    expect(
+      saved.widgets.find((widget) => widget.kind === "notes")?.glass,
+    ).toEqual({ elevation: 0.5 });
+    storage.updateDashboard({
+      note: "An unrelated save keeps every material choice",
+    });
+    expect(new StorageService(profile).getDashboard()).toEqual({
+      ...saved,
+      note: "An unrelated save keeps every material choice",
+    });
+  });
+});

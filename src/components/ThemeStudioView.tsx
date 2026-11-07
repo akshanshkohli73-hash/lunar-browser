@@ -1,3 +1,4 @@
+import { GlassSectionMotion, GlassPanel } from "./ui/GlassControls";
 import { useEffect, useRef, useState, useId, lazy, Suspense } from "react";
 import { BUILTIN_THEMES } from "../styles/themes";
 import { themeSchema, type ThemeTokens } from "../../shared/schemas";
@@ -107,246 +108,251 @@ export default function ThemeStudioView() {
           {message}
         </p>
       )}
-      {tab === "dashboard" ? (
-        <Suspense fallback={<p role="status">Opening dashboard controls…</p>}>
-          <DashboardStudio />
-        </Suspense>
-      ) : tab === "presets" ? (
-        <div className="theme-presets">
-          {Object.values(BUILTIN_THEMES).map((preset) => (
-            <button
-              className={`theme-preset ${settings.themeId === preset.id && !settings.customTheme ? "is-selected" : ""}`}
-              key={preset.id}
-              disabled={!api || !ready || busy}
-              aria-pressed={
-                settings.themeId === preset.id && !settings.customTheme
-              }
-              onClick={() => void save(preset, true)}
-            >
-              <div
-                className="theme-preview"
-                style={{
-                  background: preset.colors.bg,
-                  borderColor: preset.colors.border,
-                }}
+      <GlassSectionMotion key={tab}>
+        {tab === "dashboard" ? (
+          <Suspense fallback={<p role="status">Opening dashboard controls…</p>}>
+            <DashboardStudio />
+          </Suspense>
+        ) : tab === "presets" ? (
+          <div className="theme-presets">
+            {Object.values(BUILTIN_THEMES).map((preset) => (
+              <button
+                className={`theme-preset ${settings.themeId === preset.id && !settings.customTheme ? "is-selected" : ""}`}
+                key={preset.id}
+                disabled={!api || !ready || busy}
+                aria-pressed={
+                  settings.themeId === preset.id && !settings.customTheme
+                }
+                onClick={() => void save(preset, true)}
               >
-                <div style={{ background: preset.colors.bgSecondary }}>
-                  <i style={{ background: preset.colors.secondary }} />
-                  <span style={{ background: preset.colors.surface }} />
-                </div>
-                <Icon
-                  name="moon"
-                  style={{ color: preset.colors.primary }}
-                  size={26}
-                />
                 <div
-                  className="theme-preview-dock"
-                  style={{ background: preset.colors.surface }}
+                  className="theme-preview"
+                  style={{
+                    background: preset.colors.bg,
+                    borderColor: preset.colors.border,
+                  }}
                 >
-                  <i style={{ background: preset.colors.primary }} />
-                  <i style={{ background: preset.colors.secondary }} />
-                  <i style={{ background: preset.colors.accent }} />
+                  <div style={{ background: preset.colors.bgSecondary }}>
+                    <i style={{ background: preset.colors.secondary }} />
+                    <span style={{ background: preset.colors.surface }} />
+                  </div>
+                  <Icon
+                    name="moon"
+                    style={{ color: preset.colors.primary }}
+                    size={26}
+                  />
+                  <div
+                    className="theme-preview-dock"
+                    style={{ background: preset.colors.surface }}
+                  >
+                    <i style={{ background: preset.colors.primary }} />
+                    <i style={{ background: preset.colors.secondary }} />
+                    <i style={{ background: preset.colors.accent }} />
+                  </div>
                 </div>
-              </div>
-              <strong>{preset.name}</strong>
-              <small>{preset.description}</small>
-            </button>
-          ))}
-        </div>
-      ) : (
-        <div className="theme-controls">
-          <label className="setting-toggle">
-            Live preview across the desktop
-            <input
-              type="checkbox"
-              checked={livePreview}
-              onChange={(event) => setLivePreview(event.target.checked)}
-            />
-          </label>
-          <h2>Colors</h2>
-          <div className="theme-color-controls">
-            {colorKeys.map((key) => (
-              <label key={key}>
-                <span>
-                  {
-                    {
-                      primary: "Accent",
-                      secondary: "Desktop blush",
-                      bg: "Background",
-                      surface: "Surface",
-                      text: "Text",
-                      textMuted: "Secondary text",
-                    }[key]
-                  }
-                </span>
-                <input
-                  aria-label={`${key} color`}
-                  type="color"
-                  value={
-                    draft.colors[key].startsWith("#")
-                      ? draft.colors[key]
-                      : "#777777"
-                  }
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      colors: { ...current.colors, [key]: event.target.value },
-                    }))
-                  }
-                />
-                <code>{draft.colors[key]}</code>
-              </label>
+                <strong>{preset.name}</strong>
+                <small>{preset.description}</small>
+              </button>
             ))}
           </div>
-          <h2>Finishing touches</h2>
-          <label className="setting-toggle">
-            Reduced motion
-            <input
-              type="checkbox"
-              checked={draftMotion}
-              disabled={!api || !ready || busy}
-              onChange={(event) => setDraftMotion(event.target.checked)}
-            />
-          </label>
-          <label className="setting-row">
-            Corner radius{" "}
-            <input
-              type="range"
-              aria-label="Corner radius"
-              min={0}
-              max={24}
-              value={draft.appearance.cornerRadius}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  appearance: {
-                    ...current.appearance,
-                    cornerRadius: Number(event.target.value),
-                  },
-                }))
-              }
-            />
-            <output>{draft.appearance.cornerRadius}px</output>
-          </label>
-          <label className="setting-row">
-            Glass blur{" "}
-            <input
-              type="range"
-              aria-label="Glass blur"
-              min={0}
-              max={32}
-              value={draft.appearance.blur}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  appearance: {
-                    ...current.appearance,
-                    blur: Number(event.target.value),
-                  },
-                }))
-              }
-            />
-            <output>{draft.appearance.blur}px</output>
-          </label>
-          <label className="setting-row">
-            Browser text scale{" "}
-            <input
-              type="range"
-              aria-label="Text scale"
-              min={0.8}
-              max={1.2}
-              step={0.05}
-              value={draft.typography.uiScale}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  typography: {
-                    ...current.typography,
-                    uiScale: Number(event.target.value),
-                  },
-                }))
-              }
-            />
-            <output>{Math.round(draft.typography.uiScale * 100)}%</output>
-          </label>
-          <label className="setting-row">
-            Toolbar spacing
-            <select
-              value={draft.layout.density}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  layout: {
-                    ...current.layout,
-                    density: event.target
-                      .value as ThemeTokens["layout"]["density"],
-                  },
-                }))
-              }
-            >
-              <option value="compact">Compact</option>
-              <option value="comfortable">Comfortable</option>
-              <option value="spacious">Spacious</option>
-            </select>
-          </label>
-          <label className="setting-row">
-            Tab shape
-            <select
-              value={draft.layout.tabStyle}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  layout: {
-                    ...current.layout,
-                    tabStyle: event.target
-                      .value as ThemeTokens["layout"]["tabStyle"],
-                  },
-                }))
-              }
-            >
-              <option value="minimal">Minimal</option>
-              <option value="rounded">Rounded</option>
-              <option value="pill">Pill</option>
-            </select>
-          </label>
-          <div className="button-row">
-            <button
-              className="primary-button"
-              disabled={busy || !api || !ready}
-              onClick={() =>
-                void save({
-                  ...draft,
-                  id: "custom-coquette",
-                  name: "My Lunar",
-                  description: "Your custom desktop palette.",
-                })
-              }
-            >
-              {busy ? "Saving…" : "Apply customization"}
-            </button>
-            <button
-              disabled={busy}
-              onClick={() => {
-                setDraft(current);
-                setDraftMotion(settings.reducedMotion);
-                previewTheme(owner, null);
-                setLivePreview(false);
-              }}
-            >
-              Cancel appearance preview
-            </button>
-            <button
-              disabled={busy}
-              onClick={() => {
-                setDraft(current);
-                setDraftMotion(settings.reducedMotion);
-              }}
-            >
-              Reset draft
-            </button>
-          </div>
-        </div>
-      )}
+        ) : (
+          <GlassPanel className="theme-controls">
+            <label className="setting-toggle">
+              Live preview across the desktop
+              <input
+                type="checkbox"
+                checked={livePreview}
+                onChange={(event) => setLivePreview(event.target.checked)}
+              />
+            </label>
+            <h2>Colors</h2>
+            <div className="theme-color-controls">
+              {colorKeys.map((key) => (
+                <label key={key}>
+                  <span>
+                    {
+                      {
+                        primary: "Accent",
+                        secondary: "Desktop blush",
+                        bg: "Background",
+                        surface: "Surface",
+                        text: "Text",
+                        textMuted: "Secondary text",
+                      }[key]
+                    }
+                  </span>
+                  <input
+                    aria-label={`${key} color`}
+                    type="color"
+                    value={
+                      draft.colors[key].startsWith("#")
+                        ? draft.colors[key]
+                        : "#777777"
+                    }
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        colors: {
+                          ...current.colors,
+                          [key]: event.target.value,
+                        },
+                      }))
+                    }
+                  />
+                  <code>{draft.colors[key]}</code>
+                </label>
+              ))}
+            </div>
+            <h2>Finishing touches</h2>
+            <label className="setting-toggle">
+              Reduced motion
+              <input
+                type="checkbox"
+                checked={draftMotion}
+                disabled={!api || !ready || busy}
+                onChange={(event) => setDraftMotion(event.target.checked)}
+              />
+            </label>
+            <label className="setting-row">
+              Corner radius{" "}
+              <input
+                type="range"
+                aria-label="Corner radius"
+                min={0}
+                max={24}
+                value={draft.appearance.cornerRadius}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    appearance: {
+                      ...current.appearance,
+                      cornerRadius: Number(event.target.value),
+                    },
+                  }))
+                }
+              />
+              <output>{draft.appearance.cornerRadius}px</output>
+            </label>
+            <label className="setting-row">
+              Glass blur{" "}
+              <input
+                type="range"
+                aria-label="Glass blur"
+                min={0}
+                max={32}
+                value={draft.appearance.blur}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    appearance: {
+                      ...current.appearance,
+                      blur: Number(event.target.value),
+                    },
+                  }))
+                }
+              />
+              <output>{draft.appearance.blur}px</output>
+            </label>
+            <label className="setting-row">
+              Browser text scale{" "}
+              <input
+                type="range"
+                aria-label="Text scale"
+                min={0.8}
+                max={1.2}
+                step={0.05}
+                value={draft.typography.uiScale}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    typography: {
+                      ...current.typography,
+                      uiScale: Number(event.target.value),
+                    },
+                  }))
+                }
+              />
+              <output>{Math.round(draft.typography.uiScale * 100)}%</output>
+            </label>
+            <label className="setting-row">
+              Toolbar spacing
+              <select
+                value={draft.layout.density}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    layout: {
+                      ...current.layout,
+                      density: event.target
+                        .value as ThemeTokens["layout"]["density"],
+                    },
+                  }))
+                }
+              >
+                <option value="compact">Compact</option>
+                <option value="comfortable">Comfortable</option>
+                <option value="spacious">Spacious</option>
+              </select>
+            </label>
+            <label className="setting-row">
+              Tab shape
+              <select
+                value={draft.layout.tabStyle}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    layout: {
+                      ...current.layout,
+                      tabStyle: event.target
+                        .value as ThemeTokens["layout"]["tabStyle"],
+                    },
+                  }))
+                }
+              >
+                <option value="minimal">Minimal</option>
+                <option value="rounded">Rounded</option>
+                <option value="pill">Pill</option>
+              </select>
+            </label>
+            <div className="button-row">
+              <button
+                className="primary-button"
+                disabled={busy || !api || !ready}
+                onClick={() =>
+                  void save({
+                    ...draft,
+                    id: "custom-coquette",
+                    name: "My Lunar",
+                    description: "Your custom desktop palette.",
+                  })
+                }
+              >
+                {busy ? "Saving…" : "Apply customization"}
+              </button>
+              <button
+                disabled={busy}
+                onClick={() => {
+                  setDraft(current);
+                  setDraftMotion(settings.reducedMotion);
+                  previewTheme(owner, null);
+                  setLivePreview(false);
+                }}
+              >
+                Cancel appearance preview
+              </button>
+              <button
+                disabled={busy}
+                onClick={() => {
+                  setDraft(current);
+                  setDraftMotion(settings.reducedMotion);
+                }}
+              >
+                Reset draft
+              </button>
+            </div>
+          </GlassPanel>
+        )}
+      </GlassSectionMotion>
       <footer className="theme-import-export">
         <button onClick={() => file.current?.click()}>Import palette</button>
         <input

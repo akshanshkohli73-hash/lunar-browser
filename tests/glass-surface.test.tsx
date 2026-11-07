@@ -22,8 +22,8 @@ import {
   useWorkspaceActivity,
 } from "../src/state/WorkspaceActivity";
 beforeEach(() => {
-  vi.stubGlobal("matchMedia", () => ({
-    matches: true,
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: query.includes("prefers-reduced-motion"),
     addListener() {},
     removeListener() {},
     addEventListener() {},

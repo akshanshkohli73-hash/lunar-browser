@@ -9,6 +9,11 @@ import {
   screen,
 } from "@testing-library/react";
 import { Wallpaper } from "../src/components/dashboard/Wallpaper";
+import {
+  GlassMaterialProvider,
+  useGlassMaterial,
+} from "../src/state/GlassMaterialProvider";
+import { DEFAULT_GLASS } from "../shared/glass";
 import { DEFAULT_DASHBOARD } from "../shared/dashboard";
 const value = {
   ...DEFAULT_DASHBOARD.wallpaper,
@@ -184,4 +189,119 @@ it("surfaces a decoder error and reloads the same local source on an explicit Pl
   fireEvent.click(screen.getByRole("button", { name: "Play wallpaper" }));
   expect(load).toHaveBeenCalledOnce();
   expect(video.muted).toBe(true);
+});
+
+describe("bounded wallpaper environment / transition resources", () => {
+  it("samples a loaded video source only once, with no frame callbacks or video copies", () => {
+    const getImageData = vi.fn(() => ({
+      data: new Uint8ClampedArray([32, 64, 32, 255]),
+    }));
+    const drawImage = vi.fn();
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
+      () =>
+        ({ drawImage, getImageData }) as unknown as CanvasRenderingContext2D,
+    );
+    const wallpaper = {
+      ...value,
+      mediaId: "12345678-1234-1234-1234-123456789111.webm",
+    };
+    function Probe() {
+      const { appearance } = useGlassMaterial();
+      return (
+        <output data-testid="appearance">
+          {appearance.source}:{appearance.color}
+        </output>
+      );
+    }
+    const view = render(
+      <GlassMaterialProvider
+        settings={DEFAULT_GLASS}
+        wallpaper={wallpaper}
+        text="theme"
+        category="pastel"
+        reducedMotion={false}
+      >
+        <Wallpaper value={wallpaper} active />
+        <Probe />
+      </GlassMaterialProvider>,
+    );
+    const video = view.container.querySelector("video")!;
+    for (let n = 0; n < 10; n++) fireEvent.loadedData(video);
+    expect(drawImage).toHaveBeenCalledTimes(1);
+    expect(getImageData).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("appearance").textContent).toBe("pixels:#204020");
+    expect(view.container.querySelectorAll("video")).toHaveLength(1);
+  });
+  it("catches a tainted private-media canvas and keeps the legible theme fallback instead of relaxing CORS", () => {
+    const getImageData = vi.fn(() => {
+      throw new DOMException("Private origin", "SecurityError");
+    });
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
+      () =>
+        ({
+          drawImage() {},
+          getImageData,
+        }) as unknown as CanvasRenderingContext2D,
+    );
+    const wallpaper = {
+      ...value,
+      kind: "image" as const,
+      mediaId: "12345678-1234-1234-1234-123456789112.png",
+    };
+    function Probe() {
+      return (
+        <output data-testid="appearance">
+          {useGlassMaterial().appearance.source}
+        </output>
+      );
+    }
+    const view = render(
+      <GlassMaterialProvider
+        settings={DEFAULT_GLASS}
+        wallpaper={wallpaper}
+        text="theme"
+        category="pastel"
+        reducedMotion={false}
+      >
+        <Wallpaper value={wallpaper} active />
+        <Probe />
+      </GlassMaterialProvider>,
+    );
+    fireEvent.load(view.container.querySelector("img")!);
+    fireEvent.load(view.container.querySelector("img")!);
+    expect(getImageData).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("appearance").textContent).toBe("theme");
+  });
+  it("crossfades images for a bounded interval, but never retains a departing video or a reduced-motion layer", () => {
+    vi.useFakeTimers();
+    try {
+      const wallpaper = { ...DEFAULT_DASHBOARD.wallpaper, effects: true };
+      const view = render(<Wallpaper value={wallpaper} active />);
+      view.rerender(
+        <Wallpaper value={{ ...wallpaper, builtin: "rose" }} active />,
+      );
+      expect(
+        view.container.querySelectorAll(".dashboard-wallpaper img"),
+      ).toHaveLength(2);
+      act(() => vi.advanceTimersByTime(220));
+      expect(
+        view.container.querySelectorAll(".dashboard-wallpaper img"),
+      ).toHaveLength(1);
+      view.rerender(<Wallpaper value={{ ...value, effects: true }} active />);
+      expect(view.container.querySelectorAll("video")).toHaveLength(1);
+      expect(view.container.querySelector(".wallpaper-outgoing")).toBeNull();
+      view.rerender(
+        <Wallpaper
+          value={{ ...wallpaper, builtin: "midnight" }}
+          active
+          reduceMotion
+        />,
+      );
+      expect(view.container.querySelectorAll("video")).toHaveLength(0);
+      expect(view.container.querySelector(".wallpaper-outgoing")).toBeNull();
+      expect(pause).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

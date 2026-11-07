@@ -1,5 +1,9 @@
+import { motion, useIsPresent } from "framer-motion";
+import { lunarSpring } from "../../../shared/motion";
+import { useGlassMaterial } from "../../state/GlassMaterialProvider";
+import { GlassBacking, GlassButton } from "./GlassControls";
 import { createPortal } from "react-dom";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import { Icon } from "./Icon";
 export function Modal({
   title,
@@ -10,6 +14,17 @@ export function Modal({
   children: ReactNode;
   onClose: () => void;
 }) {
+  const { settings, reduced, registerOverlay } = useGlassMaterial();
+  const present = useIsPresent(),
+    isPresent = useRef(present);
+  isPresent.current = present;
+  // Lifecycle, not just the caller's open flag: a native WebContentsView must
+  // stay covered until the portal's actual animated unmount.
+  useLayoutEffect(registerOverlay, [registerOverlay]);
+  const backdrop = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (backdrop.current) backdrop.current.inert = !present;
+  }, [present]);
   const ref = useRef<HTMLDivElement>(null),
     close = useRef(onClose);
   close.current = onClose;
@@ -29,6 +44,7 @@ export function Modal({
       );
     focusable()[0]?.focus();
     const keydown = (event: KeyboardEvent) => {
+      if (!isPresent.current) return;
       if (event.key === "Escape") {
         event.preventDefault();
         close.current();
@@ -49,32 +65,49 @@ export function Modal({
     window.addEventListener("keydown", keydown);
     return () => {
       window.removeEventListener("keydown", keydown);
-      previous?.focus();
+      if (
+        previous?.isConnected &&
+        (document.activeElement === document.body ||
+          node?.contains(document.activeElement))
+      )
+        previous.focus();
     };
   }, []);
   return createPortal(
-    <div
+    <motion.div
+      initial={reduced ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: reduced ? 0 : 0.14 / settings.animationSpeed }}
+      aria-hidden={!present || undefined}
+      ref={backdrop}
       className="modal-backdrop"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div
+      <motion.div
+        initial={reduced ? false : { y: 8, scale: 0.99 }}
+        animate={{ y: 0, scale: 1 }}
+        exit={{ y: 5, scale: 0.995 }}
+        transition={lunarSpring(settings.animationSpeed, reduced, true)}
+        data-glass-owner="true"
         role="dialog"
         aria-modal="true"
         aria-label={title}
         className="lunar-modal"
         ref={ref}
       >
+        <GlassBacking level="deep" scope="overlay" />
         <header>
           <h2>{title}</h2>
-          <button onClick={onClose} aria-label={`Close ${title}`}>
+          <GlassButton onClick={onClose} aria-label={`Close ${title}`}>
             <Icon name="x" />
-          </button>
+          </GlassButton>
         </header>
         <div className="lunar-modal-body">{children}</div>
-      </div>
-    </div>,
+      </motion.div>
+    </motion.div>,
     document.body,
   );
 }

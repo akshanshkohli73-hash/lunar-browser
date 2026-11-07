@@ -1,4 +1,5 @@
 import { memo, useRef, useState, type CSSProperties } from "react";
+import { lunarSpring } from "../../../shared/motion";
 import { motion, useIsPresent } from "framer-motion";
 import {
   WIDGET_DEFINITIONS,
@@ -68,7 +69,7 @@ export const WidgetCell = memo(function WidgetCell({
       initial={reduced ? false : { y: 5 }}
       animate={{ opacity: dragging ? 0.62 : 1, y: 0 }}
       exit={reduced ? undefined : { opacity: 0, scale: 0.98 }}
-      transition={{ duration: reduced ? 0 : 0.16 }}
+      transition={lunarSpring(material.animationSpeed, reduced)}
       className={`dashboard-widget widget-${widget.kind}${selected ? " is-selected" : ""}${dragging ? " is-dragging" : ""}${target ? " is-drop-target" : ""}${resizing ? " is-resizing" : ""}`}
       aria-label={`${definition.title} widget`}
       aria-hidden={!present}

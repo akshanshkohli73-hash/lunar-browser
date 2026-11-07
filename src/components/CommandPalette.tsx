@@ -1,3 +1,4 @@
+import { AnimatePresence } from "framer-motion";
 import { useState } from "react";
 import { Modal } from "./ui/Modal";
 import { CONTROL_PANELS } from "../state/control-center";
@@ -20,7 +21,6 @@ export default function CommandPalette({
   onCloseTab,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
-  if (!isOpen) return null;
   const commands = [
     { name: "New tab", action: onNewTab, disabled: !nativeAvailable },
     {
@@ -38,39 +38,47 @@ export default function CommandPalette({
     command.name.toLowerCase().includes(query.toLowerCase()),
   );
   return (
-    <Modal title="Browser commands" onClose={onClose}>
-      <input
-        className="command-search"
-        aria-label="Find a command"
-        placeholder="What would you like to do?"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && filtered[0] && !filtered[0].disabled) {
-            filtered[0].action();
-            setQuery("");
-            onClose();
-          }
-        }}
-      />
-      <div className="command-list">
-        {filtered.map((command) => (
-          <button
-            key={command.name}
-            disabled={command.disabled}
-            onClick={() => {
-              command.action();
-              setQuery("");
-              onClose();
+    <AnimatePresence>
+      {isOpen && (
+        <Modal title="Browser commands" onClose={onClose}>
+          <input
+            className="command-search"
+            aria-label="Find a command"
+            placeholder="What would you like to do?"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (
+                event.key === "Enter" &&
+                filtered[0] &&
+                !filtered[0].disabled
+              ) {
+                filtered[0].action();
+                setQuery("");
+                onClose();
+              }
             }}
-          >
-            {command.name}
-          </button>
-        ))}
-        {!filtered.length && (
-          <p className="empty-state">No matching commands.</p>
-        )}
-      </div>
-    </Modal>
+          />
+          <div className="command-list">
+            {filtered.map((command) => (
+              <button
+                key={command.name}
+                disabled={command.disabled}
+                onClick={() => {
+                  command.action();
+                  setQuery("");
+                  onClose();
+                }}
+              >
+                {command.name}
+              </button>
+            ))}
+            {!filtered.length && (
+              <p className="empty-state">No matching commands.</p>
+            )}
+          </div>
+        </Modal>
+      )}
+    </AnimatePresence>
   );
 }

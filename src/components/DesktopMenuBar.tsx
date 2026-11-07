@@ -1,3 +1,6 @@
+import { AnimatePresence } from "framer-motion";
+import { GlassMenu } from "./ui/GlassMenu";
+import { GlassToolbar } from "./ui/GlassControls";
 import { useEffect, useRef, useState } from "react";
 import type { BrowserCommand } from "../../shared/api";
 import { isWebUrl } from "../../shared/navigation";
@@ -337,8 +340,10 @@ export function DesktopMenuBar({
     <header
       ref={header}
       className="desktop-menu lunar-menubar"
+      data-glass-owner="true"
       aria-label="Lunar desktop menu"
     >
+      <GlassToolbar />
       <span className="lunar-mark">
         <Icon name="moon" size={16} />
       </span>
@@ -420,83 +425,86 @@ export function DesktopMenuBar({
           <Icon name={icon} size={13} />
         </button>
       ))}
-      {open && (
-        <div
-          ref={menu}
-          role="menu"
-          aria-label={`${open} menu`}
-          className="lunar-dropdown"
-          style={{ left: 28 + MENU_NAMES.indexOf(open) * 57 }}
-          onKeyDown={(event) => {
-            const buttons = [
-                ...(menu.current?.querySelectorAll<HTMLButtonElement>(
-                  "button:not(:disabled)",
-                ) ?? []),
-              ],
-              index = buttons.indexOf(
-                document.activeElement as HTMLButtonElement,
-              );
-            if (event.key === "Escape") {
-              event.preventDefault();
-              onOpen(null);
-              topButtons()[MENU_NAMES.indexOf(open)]?.focus();
-            }
-            if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
-              event.preventDefault();
-              const next =
-                event.key === "Home"
-                  ? 0
-                  : event.key === "End"
-                    ? buttons.length - 1
-                    : (index +
-                        (event.key === "ArrowDown" ? 1 : -1) +
-                        buttons.length) %
-                      buttons.length;
-              buttons[next]?.focus();
-            }
-            if (["ArrowLeft", "ArrowRight"].includes(event.key)) {
-              event.preventDefault();
-              onOpen(
-                MENU_NAMES[
-                  (MENU_NAMES.indexOf(open) +
-                    (event.key === "ArrowRight" ? 1 : -1) +
-                    MENU_NAMES.length) %
-                    MENU_NAMES.length
+      <AnimatePresence>
+        {open && (
+          <GlassMenu
+            key={open}
+            ref={menu}
+            role="menu"
+            aria-label={`${open} menu`}
+            className="lunar-dropdown"
+            style={{ left: 28 + MENU_NAMES.indexOf(open) * 57 }}
+            onKeyDown={(event) => {
+              const buttons = [
+                  ...(menu.current?.querySelectorAll<HTMLButtonElement>(
+                    "button:not(:disabled)",
+                  ) ?? []),
                 ],
-              );
-            }
-          }}
-        >
-          {lists[open].map((item) => (
-            <button
-              role="menuitem"
-              aria-label={item.label}
-              aria-current={item.checked ? "page" : undefined}
-              key={item.id}
-              title={item.reason}
-              disabled={item.disabled}
-              onClick={() => run(item.action)}
-            >
-              <span className="menu-check">
-                {item.checked && <Icon name="check" size={13} />}
-              </span>
-              <span>{item.label}</span>
-              {item.shortcut && <kbd aria-hidden="true">{item.shortcut}</kbd>}
-            </button>
-          ))}
-          {!api && (
-            <small>
-              Desktop operations require Electron. Panel previews remain
-              available.
-            </small>
-          )}
-          {open === "History" && !settings.recordHistory && (
-            <small>
-              Recording is off; older saved visits can still be managed.
-            </small>
-          )}
-        </div>
-      )}
+                index = buttons.indexOf(
+                  document.activeElement as HTMLButtonElement,
+                );
+              if (event.key === "Escape") {
+                event.preventDefault();
+                onOpen(null);
+                topButtons()[MENU_NAMES.indexOf(open)]?.focus();
+              }
+              if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+                event.preventDefault();
+                const next =
+                  event.key === "Home"
+                    ? 0
+                    : event.key === "End"
+                      ? buttons.length - 1
+                      : (index +
+                          (event.key === "ArrowDown" ? 1 : -1) +
+                          buttons.length) %
+                        buttons.length;
+                buttons[next]?.focus();
+              }
+              if (["ArrowLeft", "ArrowRight"].includes(event.key)) {
+                event.preventDefault();
+                onOpen(
+                  MENU_NAMES[
+                    (MENU_NAMES.indexOf(open) +
+                      (event.key === "ArrowRight" ? 1 : -1) +
+                      MENU_NAMES.length) %
+                      MENU_NAMES.length
+                  ],
+                );
+              }
+            }}
+          >
+            {lists[open].map((item) => (
+              <button
+                role="menuitem"
+                aria-label={item.label}
+                aria-current={item.checked ? "page" : undefined}
+                key={item.id}
+                title={item.reason}
+                disabled={item.disabled}
+                onClick={() => run(item.action)}
+              >
+                <span className="menu-check">
+                  {item.checked && <Icon name="check" size={13} />}
+                </span>
+                <span>{item.label}</span>
+                {item.shortcut && <kbd aria-hidden="true">{item.shortcut}</kbd>}
+              </button>
+            ))}
+            {!api && (
+              <small>
+                Desktop operations require Electron. Panel previews remain
+                available.
+              </small>
+            )}
+            {open === "History" && !settings.recordHistory && (
+              <small>
+                Recording is off; older saved visits can still be managed.
+              </small>
+            )}
+          </GlassMenu>
+        )}
+      </AnimatePresence>
     </header>
   );
 }

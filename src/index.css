@@ -3,20 +3,20 @@
 @tailwind utilities;
 
 :root {
-  --lunar-bg: #050508;
-  --lunar-bg-secondary: #0d0f17;
-  --lunar-surface: #131622;
-  --lunar-surface-hover: #1c2032;
-  --lunar-border: rgba(255, 255, 255, 0.12);
-  --lunar-text: #f1f5f9;
-  --lunar-text-muted: #94a3b8;
-  --lunar-primary: #00f0ff;
-  --lunar-secondary: #8a2be2;
-  --lunar-accent: #a3e635;
-  --lunar-glow: rgba(0, 240, 255, 0.25);
-  --lunar-blur: 16px;
-  --lunar-radius: 8px;
-  --lunar-font-family: Inter, system-ui, sans-serif;
+  --lunar-bg: #f5f4e8;
+  --lunar-bg-secondary: #e9efdf;
+  --lunar-surface: #faf9ed;
+  --lunar-surface-hover: #e3ecd8;
+  --lunar-border: #6d886b26;
+  --lunar-text: #203b2a;
+  --lunar-text-muted: #456344;
+  --lunar-primary: #3d6244;
+  --lunar-secondary: #b4c99c;
+  --lunar-accent: #9b7f57;
+  --lunar-glow: #5b81501a;
+  --lunar-blur: 14px;
+  --lunar-radius: 12px;
+  --lunar-font-family: "Segoe UI", system-ui, sans-serif;
 }
 
 @layer base {
@@ -1441,18 +1441,7 @@ kbd {
   inset: 0;
   background: #18271f;
 }
-.dashboard-wallpaper.has-drift img,
-.dashboard-wallpaper.has-drift video {
-  animation: wallpaper-drift 35s ease-in-out infinite alternate;
-}
-@keyframes wallpaper-drift {
-  from {
-    transform: scale(1.01);
-  }
-  to {
-    transform: scale(1.055) translate(0, -0.5%);
-  }
-}
+
 .dashboard-body {
   position: relative;
   padding: 20px 30px calc(32px + env(safe-area-inset-bottom, 0px));
@@ -2722,22 +2711,6 @@ html .lunar-shell .lunar-dock {
 /* The hit boxes and indicator remain still; only the icon responds. No bouncing. */
 html[data-dock-magnify="true"] .lunar-shell .lunar-dock-button:hover {
   transform: none;
-}
-html[data-dock-magnify="true"]
-  .lunar-dock-button:hover:not(:disabled)
-  .lunar-dock-art {
-  transform: translateY(-3px) scale(1.07);
-}
-@media (hover: hover) and (pointer: fine) {
-  html[data-dock-magnify="true"]
-    .lunar-dock-button:has(+ .lunar-dock-button:hover)
-    .lunar-dock-art,
-  html[data-dock-magnify="true"]
-    .lunar-dock-button:hover
-    + .lunar-dock-button
-    .lunar-dock-art {
-    transform: translateY(-1px) scale(1.025);
-  }
 }
 .lunar-dock .lunar-dock-button:active:not(:disabled) .lunar-dock-art {
   transform: translateY(1px) scale(0.97);

@@ -10,14 +10,22 @@ export const glassMaterialSchema = z
     border: z.number().min(0).max(1),
     reflection: z.number().min(0).max(1),
     shadow: z.number().min(0).max(1),
+    saturation: z.number().min(0.5).max(1.5),
+    refraction: z.number().min(0).max(1),
+    elevation: z.number().min(0).max(1.5),
   })
   .strict();
 export const glassSchema = glassMaterialSchema
   .extend({
-    performance: z.enum(["balanced", "simple"]),
+    performance: z.enum(["balanced", "simple", "optical"]),
+    hoverMotion: z.boolean(),
+    animationSpeed: z.number().min(0.5).max(1.75),
+    adaptive: z.boolean(),
+    reducedMotion: z.boolean(),
   })
   .strict();
 export const widgetGlassSchema = glassMaterialSchema.partial().strict();
+export type GlassMaterial = z.infer<typeof glassMaterialSchema>;
 export type GlassSettings = z.infer<typeof glassSchema>;
 export type WidgetGlass = z.infer<typeof widgetGlassSchema>;
 export type GlassTone = "light" | "dark";
@@ -29,7 +37,14 @@ export const DEFAULT_GLASS: GlassSettings = {
   border: 0.4,
   reflection: 0.3,
   shadow: 0.32,
-  performance: "balanced",
+  performance: "optical",
+  saturation: 1,
+  refraction: 0.2,
+  elevation: 1,
+  hoverMotion: true,
+  animationSpeed: 1,
+  adaptive: true,
+  reducedMotion: false,
 };
 export function glassTone(
   text: "theme" | "light" | "dark",
@@ -60,6 +75,10 @@ export function resolveGlass(
     mode,
     blur: mode === "glass" ? material.blur : 0,
     reflection: mode === "glass" ? material.reflection : 0,
+    refraction:
+      mode === "glass" && global.performance === "optical"
+        ? material.refraction
+        : 0,
   } as const;
 }
 
@@ -109,8 +128,70 @@ export function glassDepth(
     alpha: depth.alphaFloor[tone] + (1 - depth.alphaFloor[tone]) * amount,
     wash: depth.wash[tone],
     blur: Math.min(24, Math.round(material.blur * depth.blurScale)),
-    saturation: depth.saturation,
-    elevation: depth.elevation,
+    saturation: depth.saturation * material.saturation,
+    elevation: depth.elevation * material.elevation,
     spread: depth.spread,
   };
+}
+
+/** Bounded palette; adaptive tint occupies at most the existing 6% tint contribution. */
+export const MATERIAL_COLORS = {
+  light: {
+    paper: "#f1f7ea",
+    ink: "#102a20",
+    muted: "#152d21",
+    edge: "#ffffff",
+    depth: "#173c2d",
+  },
+  dark: {
+    paper: "#162e27",
+    ink: "#f4f8ef",
+    muted: "#eaf1e4",
+    edge: "#d8edda",
+    depth: "#020b07",
+  },
+} as const;
+export type WallpaperAppearance = {
+  color: string;
+  luminance: number;
+  source: "pixels" | "preset" | "theme";
+};
+export function rgbAppearance(
+  pixels: ArrayLike<number>,
+): WallpaperAppearance | null {
+  if (pixels.length < 4 || pixels.length % 4 !== 0) return null;
+  let count = 0,
+    r = 0,
+    g = 0,
+    b = 0;
+  for (let i = 0; i < pixels.length; i += 4) {
+    const alpha = pixels[i + 3] / 255;
+    r += pixels[i] * alpha;
+    g += pixels[i + 1] * alpha;
+    b += pixels[i + 2] * alpha;
+    count += alpha;
+  }
+  if (!count) return null;
+  const rgb = [r, g, b].map((n) => Math.round(n / count));
+  const luminance = rgb
+    .map((v) => {
+      const n = v / 255;
+      return n <= 0.04045 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4;
+    })
+    .reduce((n, v, i) => n + v * [0.2126, 0.7152, 0.0722][i], 0);
+  return {
+    color: "#" + rgb.map((v) => v.toString(16).padStart(2, "0")).join(""),
+    luminance,
+    source: "pixels",
+  };
+}
+export function adaptiveGlassTone(
+  preference: "theme" | "light" | "dark",
+  category: string,
+  appearance: WallpaperAppearance,
+  adaptive: boolean,
+): GlassTone {
+  if (preference !== "theme" || !adaptive || appearance.source === "theme")
+    return glassTone(preference, category);
+  return appearance.luminance < 0.19 ? "dark" : "light";
 }

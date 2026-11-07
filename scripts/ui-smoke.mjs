@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import {
+  checkOrganicMaterial,
+  checkUnsupportedOptics,
+} from "./organic-material-checks.mjs";
+import {
   checkCustomizationLayout,
   checkDashboardScroll,
 } from "./material-layout-checks.mjs";
@@ -293,6 +297,7 @@ try {
     await expect(glass).toHaveCSS("background-image", "none");
     await page.emulateMedia({ forcedColors: "none" });
   }
+  await checkOrganicMaterial(page, editor, ".artifacts/ui/organic");
   for (let n = 0; n < 11; n++) {
     await editor
       .getByRole("combobox", { name: "Widget to add" })
@@ -371,11 +376,32 @@ try {
         .locator(".lunar-dock-art")
         .evaluate((node) => getComputedStyle(node).transform),
     )
-    .toBe("matrix(1.07, 0, 0, 1.07, 0, -3)");
+    .toBe("matrix(1.16, 0, 0, 1.16, 0, -4)");
   assert.deepEqual(
     await home.boundingBox(),
     hitBox,
     "Magnification must not move the dock hit target",
+  );
+  const widgetsDock = dock.getByRole("button", {
+    name: "Widgets",
+    exact: true,
+  });
+  const proximity = () =>
+    widgetsDock.evaluate((node) =>
+      Number(node.style.getPropertyValue("--dock-proximity")),
+    );
+  await page.mouse.move(hitBox.x + 5, hitBox.y + hitBox.height / 2);
+  await expect.poll(proximity).toBeGreaterThan(0);
+  const away = await proximity();
+  await page.mouse.move(
+    hitBox.x + hitBox.width - 5,
+    hitBox.y + hitBox.height / 2,
+  );
+  await expect.poll(proximity).toBeGreaterThan(away + 0.1);
+  assert.deepEqual(
+    await home.boundingBox(),
+    hitBox,
+    "The same hovered hit box stays stationary throughout the proximity gesture",
   );
   await home.focus();
   await home.press("Tab");
@@ -539,8 +565,13 @@ try {
     [],
     "No renderer exceptions, duplicate keys or console errors",
   );
+  await checkUnsupportedOptics(
+    browser,
+    server.resolvedUrls.local[0],
+    ".artifacts/ui/organic",
+  );
   console.log(
-    "PASS: Chromium renderer preview — single workspace, real layout/hit targets, all nine Lunar shortcuts and launcher routes, eight keyboard menus, dock restore, Theme Studio, wallpaper/widget/dock preview/cancel, real glass controls / modes, bright/dark draft previews, forced-color fallback, twenty actually visible static materials, three shared depths, fixed-wallpaper scrolling, independently scrolling customization with fixed actions at four sizes, dock pointer/keyboard/motion settings and responsive stacking; no console errors.",
+    "PASS: Organic SVG painted-pixel / deterministic repeated capture, unsupported-SVG/no-WebGL CSS fallback, real added Studio tokens, shared pointer proximity with same hovered hit box and stable neighboring responses; Chromium renderer preview — single workspace, real layout/hit targets, all nine Lunar shortcuts and launcher routes, eight keyboard menus, dock restore, Theme Studio, wallpaper/widget/dock preview/cancel, real glass controls / modes, bright/dark draft previews, forced-color fallback, twenty actually visible static materials, three shared depths, fixed-wallpaper scrolling, independently scrolling customization with fixed actions at four sizes, dock pointer/keyboard/motion settings and responsive stacking; no console errors.",
   );
   console.log(
     "This test is not a native Electron or Windows runtime test. Screenshots: .artifacts/ui/",

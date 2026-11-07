@@ -147,7 +147,7 @@ export function overlaps(
 }
 export const dashboardSchema = z
   .object({
-    version: z.literal(2),
+    version: z.literal(3),
     wallpaper: wallpaperSchema,
     widgets: z.array(widgetSchema).max(20),
     alignment: z.enum(["center", "wide"]),
@@ -401,7 +401,7 @@ const initial = [
   { ...createWidget("calendar", "calendar"), x: 8, y: 3 },
 ];
 export const DEFAULT_DASHBOARD: DashboardSettings = dashboardSchema.parse({
-  version: 2,
+  version: 3,
   wallpaper: {
     kind: "builtin",
     builtin: "meadow",
@@ -424,21 +424,32 @@ export const DEFAULT_DASHBOARD: DashboardSettings = dashboardSchema.parse({
   events: [],
 });
 
-/** Version-one to version-two migration; preserve all existing content/layout/media IDs.
- * No schema defaults on patch fields: saving a note must not reset glass tokens. */
+/** Explicit v1/v2 -> v3 migration. Never insert defaults into a partial save patch.
+ * Existing tokens, sparse overrides, note/events/layout/media and quality survive unchanged. */
 export function migrateDashboard(input: unknown): unknown {
   if (!input || typeof input !== "object" || Array.isArray(input)) return input;
   const old = input as Record<string, unknown>;
-  if (old.version !== 1) return input;
+  if (old.version !== 1 && old.version !== 2) return input;
   const opacity =
     typeof old.widgetOpacity === "number" &&
     old.widgetOpacity >= 0.6 &&
     old.widgetOpacity <= 1
       ? old.widgetOpacity
       : DEFAULT_GLASS.opacity;
-  return {
-    ...old,
-    version: 2,
-    glass: old.glass === undefined ? { ...DEFAULT_GLASS, opacity } : old.glass,
+  const additions = {
+    saturation: DEFAULT_GLASS.saturation,
+    refraction: DEFAULT_GLASS.refraction,
+    elevation: DEFAULT_GLASS.elevation,
+    hoverMotion: DEFAULT_GLASS.hoverMotion,
+    animationSpeed: DEFAULT_GLASS.animationSpeed,
+    adaptive: DEFAULT_GLASS.adaptive,
+    reducedMotion: DEFAULT_GLASS.reducedMotion,
   };
+  const glass =
+    old.version === 1 && old.glass === undefined
+      ? { ...DEFAULT_GLASS, opacity, performance: "balanced" }
+      : old.glass && typeof old.glass === "object" && !Array.isArray(old.glass)
+        ? { ...additions, ...old.glass }
+        : old.glass;
+  return { ...old, version: 3, glass };
 }

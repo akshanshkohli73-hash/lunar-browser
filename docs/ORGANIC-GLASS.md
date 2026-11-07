@@ -1,0 +1,80 @@
+# Project Lunar — Organic Liquid Glass
+
+**Candidate:** Lunar Browser **2.4.0** · dashboard document **v3** · 2026-11-07.
+
+This is a staged evolution of the existing Coquette application, not a new dashboard or browser engine. The original frame/art, nine Lunar dock controls, eight menus, one permanently mounted browser workspace, native `WebContentsView`, widget registry, packing/resizing, saved layouts, wallpaper files, notes/events and theme paths remain.
+
+## Implementation
+
+| Stage                   | Implemented work                                                                                                                                                                                                                                                                                                                                                      |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 · Audit               | Inspected renderer, native bounds/occlusion, wallpaper lifecycle/private protocol, material schema, preview ownership, widgets and existing tests. Ran the unchanged 184-test baseline. Proved SVG backdrop displacement in actual Chromium before selecting it.                                                                                                      |
+| 2 · Tokens / components | Three shared material depths and conservative light/dark palettes in `shared/glass.ts`; organic palette/type/spacing/radius CSS tokens; `GlassMaterialProvider`; reusable surface, semantic backing, button, slider, toolbar, panel, fieldset and section-motion components.                                                                                          |
+| 3 · Optical layer       | CSS blur/saturation and readability wash, fixed seeded SVG backdrop displacement at Optical quality, restrained interpolated pointer lighting. A single filter-definition bank and delegated settling pointer/proximity scheduler. No WebGL, duplicated video texture or frame-copy loop.                                                                             |
+| 4 · Widgets             | Distinct serif clock with a real minute-updated dial; search capsule; local-metadata bookmark previews; ruled, explicitly saving notes; calendar navigation / Today / selected dates / real local events; truthful weather conditions and neutral unconfigured state; restyled recent links, shortcuts and focus timer. Existing functional implementations retained. |
+| 5 · Chrome              | Shared backings in the integrated menu bar, tab strip, toolbar, address field, bookmark bar, dock, dropdowns, modals, assistant and settings. Dark material ink follows its backing, not a conflicting light-theme selector. No extra titlebar, iframe, webpage screenshot or changed viewport reservation.                                                           |
+| 6 · Motion              | Central Framer spring presets, gentle widget entry/layout/drop, hover/press, settings-tab entry, panel/menu entry/exit, finite wallpaper transitions, proximity dock and shared active indicator. Keyboard focus remains explicit; hit boxes stay stationary. Mounted exiting portals retain native occlusion and become inert until actual unmount.                  |
+| 7 · Studio              | All controls below reach real rendering/interaction, support draft preview, explicit Apply/Cancel/reset and validated persistence. Existing colors, themes, layouts, wallpaper and sparse overrides survive migration / unrelated saves.                                                                                                                              |
+| 8 · Regression          | Local 202-test suite, real Chromium layout/hit-target/pixel/fallback checks, production dependency audit and package validation passed. Windows source/packaged verification is tracked separately below; it is not inferred from the web preview.                                                                                                                    |
+
+### Material, environment and performance
+
+- **Light / Standard / Deep** continue to share depth multipliers, alpha floors, a bounded six-percent tint contribution, maximum 24px backdrop blur and conservative readable ink. Saturation and elevation scale real filter/shadow values. Reflection and edge strengths affect actual painted layers.
+- **Optical** adds deterministic `feTurbulence` → `feDisplacementMap` of Chromium's backdrop `SourceGraphic`. **Balanced** uses CSS glass without SVG displacement. **Simple** retains tint/opacity/edge/shadow while removing live blur, optical effects, reflections and pointer lighting. Global off and OS reduced-transparency/forced-colors use solid fallbacks.
+- This is **controlled optical displacement**, not physically ray-traced lenses, arbitrary DOM ray tracing or native webpage refraction. The one application wallpaper video remains the source behind glass. Browsers perform their own compositing/filter work; a shared SVG definition does not imply a universally shared GPU texture or zero cost. CSS capability detection is syntactic; pixel gates verify the targeted Chromium/Electron implementation. Unsupported SVG uses CSS, and unsupported blur has a readable fallback.
+- One delegated pointer stream writes CSS custom properties. One RAF runs **only while settling**; it does not dispatch React state each frame. Dock response uses continuous distance from each button center, including neighbors while the same button remains hovered. Pointer leaves fade out; touch/coarse pointer, reduced motion, disabled magnification and inactive-window paths do not run pointer motion. No idle floating, animated noise or backdrop-filter interpolation is added.
+- Built-in wallpapers have deterministic appearance metadata. A loaded local image/video may be sampled **once at 8×8**; a bounded 16-source cache retains palette metadata, not frames. A tainted/private-origin canvas is caught and uses the legible theme/manual fallback. The media protocol's CORS, isolation, range validation and web-security policy were **not relaxed**. Video brightness is not continuously polled.
+- The old optional wallpaper `effects` flag now controls **finite soft transitions**, not perpetual drift. Images can retain one departing image for about 200ms / animation speed. Video is never cloned for crossfade: it uses a finite entry fade, retaining a single decoder per existing wallpaper view. Existing dashboard/editor preview views still have their own normal lifecycle. Reduced motion removes transition layers; playback remains muted by default, explicit for audio, paused when unavailable/inactive, and offers honest decoder errors/retry.
+- New profiles default to Optical with a restrained 20% displacement setting. **Existing v2 Simple/Balanced choices remain unchanged**. Select Optical explicitly to opt an upgraded profile into the new displacement layer. Choose Balanced/Simple for lower-power devices.
+
+## Real Studio controls
+
+Open **Customize dashboard**, or **Appearance → Background & dock**.
+
+| Setting                                | Actual effect                                                                                                                                                                           |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Glass opacity                          | Changes material alpha / wash within legibility floors; not an opaque parent-card hack.                                                                                                 |
+| Blur intensity                         | Real depth-scaled backdrop blur, 0–24px.                                                                                                                                                |
+| Glass saturation                       | Scales the backdrop saturation filter, 50–150% of the chosen depth's baseline.                                                                                                          |
+| Glass tint                             | Bounded validated color contribution; no CSS strings/URLs.                                                                                                                              |
+| Refraction intensity                   | Ten bounded, fixed SVG displacement levels; only enabled at Optical quality with supported normal-motion/transparency rendering. Unsupported values remain saved, not pretended active. |
+| Reflection intensity                   | Static specular layers and the restrained pointer highlight.                                                                                                                            |
+| Border intensity                       | Edge/inset highlight contribution.                                                                                                                                                      |
+| Shadow strength                        | Real shadow opacity.                                                                                                                                                                    |
+| Glass elevation                        | Real shadow elevation and bounded hover lift.                                                                                                                                           |
+| Hover motion                           | Toggles gentle widget/control spatial feedback; pointer lighting and dock magnification have their appropriate independent gates.                                                       |
+| Dock magnification                     | Continuous pointer-proximity magnification with stationary buttons; not a hovered-icon selector.                                                                                        |
+| Animation speed                        | Shared CSS durations, Framer spring timing and finite wallpaper transition duration.                                                                                                    |
+| Glass rendering mode / effects quality | Optical, Balanced, Simple as described above.                                                                                                                                           |
+| Reduced material motion                | Persisted opt-down combined with existing application/OS reduced motion. Removes optics/pointer motion and automatic video playback; explicit Play remains possible.                    |
+
+An additional **Adaptive wallpaper tint** option controls deterministic wallpaper-derived tint/tone. Explicit dashboard Light/Dark text choices remain authoritative. OS accessibility preferences take precedence; unavailable controls are disabled with an explanation.
+
+Per-widget controls create **sparse** material overrides; they cannot override global quality, motion, adaptive policy or a global off switch. The glass reset clears material overrides/defaults only, without erasing notes, events, wallpaper or layout. Dock preferences remain independently scoped.
+
+### Persistence and security
+
+`migrateDashboard` explicitly upgrades v1/v2 to v3, supplying only the new fields while retaining old material values, quality, media IDs, notes/events, dock values and widget records/overrides. Current documents are not rewritten by the migrator. Partial IPC/save schemas have **no material defaults**: a note-only save cannot reset a material or inject global fields into a widget override. Malformed legacy material data is not silently accepted.
+
+No new runtime dependency, network upload, privileged renderer API, unrestricted file path or shader resource fetch is introduced. Sandboxing, context isolation, sender/argument validation, default-deny website permissions, network-filter disclosures, provider-secret handling, profile retention and `--publish never` packaging remain in place. This version does not grant signing trust, enable automatic updates or authorize another public release. Back up a profile before upgrading; older application versions do not understand the v3 material schema.
+
+## Verification record
+
+### Local — executed
+
+- `npm run check`: **202 tests / 26 files**, TypeScript, ESLint, renderer/main/preload builds and package validation passed.
+- `npm audit --omit=dev`: **0 vulnerabilities**. Development-tool advisories are not hidden or force-upgraded.
+- Actual Chromium 153 with software/disabled-GPU test flags: existing preview suite plus new organic checks passed. Nine dock routes, eight keyboard menus, single workspace, editing/preview/Cancel, bright/dark materials, 20 actually visible static surfaces, independently scrolling Studio with fixed actions at 1280×840, 800×600, 700×650 and 520×500, forced colors, dock stationary hit targets / keyboard focus / proximity, reduced motion and fallback remained working.
+- New renderer pixel gate uses a deterministic checker in the **actual wallpaper image element** under the Studio sample, not an imported-user-file claim. Refraction 0 and 1 produce different PNG hashes; repeated fixed refraction is byte-identical:
+  - Off: `fd749b0ea37cf62ccfd9630a34ed34aa6d3c67d825f476068c1b6204b174f925`.
+  - On: `3cd8812bee1e2baefe0a8bb59242f199258a0efae443afce930c68afd5fc2235`.
+  - Evidence: `.artifacts/ui/organic-optics{.json,-off.png,-on.png}`, `organic-studio-dark.png`, `organic-unsupported-fallback.png`, bright/dark and responsive captures.
+- Unit/integration additions exercise v1/v2 migration, retained Simple/Balanced choices, unrelated saves/restart, all new Studio settings, sparse overrides, real backend URLs, touch/leave cleanup, a settling RAF, unsupported SVG/no-WebGL, mounted/inert exit lifetime, one-shot video sampling, canvas-taint fallback and bounded image/video transition cleanup.
+
+### Windows source / packaged application
+
+**Pending the current 2.4.0 source run.** Previous 2.3.0 native success is historical only and does not certify this version. The current gate includes actual profile-owned PNG/H.264/VP8 media, painted video-through-glass and blur smoothing, new deterministic SVG displacement over a paused decoded video, mounted-exit native occlusion, layout/resize/drag/navigation/security/restart and a new unsigned NSIS artifact plus execution of the packaged application. This section will be updated with the exact run/source and observations when it finishes.
+
+### Deliberate limitations / manual checks
+
+No universal FPS, GPU/battery improvement, physical ray tracing, accessibility certification, native-view refraction, 4K video or hardware acceleration certification is claimed. Small synthetic clips and software/CI rendering do not establish real-device performance. Human installed-NSIS upgrade/uninstall, OS picker interaction, personal codecs, touch devices, cross-scroll drag/drop, Windows DPI/multi-monitor and low-power/large-display hardware remain manual checks. The new installer must not be described as publicly released unless separately authorized.

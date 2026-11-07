@@ -1,4 +1,15 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
+import { rgbAppearance, type WallpaperAppearance } from "../../../shared/glass";
+import {
+  useGlassMaterial,
+  wallpaperIdentity,
+} from "../../state/GlassMaterialProvider";
 import { useReducedMotionPreference } from "../useReducedMotionPreference";
 import type { Wallpaper as WallpaperSettings } from "../../../shared/dashboard";
 const svg = (body: string) =>
@@ -23,6 +34,29 @@ export const WALLPAPERS = {
     ),
   },
 };
+const appearances = new Map<string, WallpaperAppearance | null>();
+function sampleOnce(
+  source: string,
+  node: HTMLImageElement | HTMLVideoElement,
+): WallpaperAppearance | null {
+  if (appearances.has(source)) return appearances.get(source) ?? null;
+  let appearance: WallpaperAppearance | null = null;
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 8;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (context) {
+      context.drawImage(node, 0, 0, 8, 8);
+      appearance = rgbAppearance(context.getImageData(0, 0, 8, 8).data);
+    }
+  } catch {
+    /* Private media can taint a canvas. Never relax CORS / web security for a tint. */
+  }
+  if (appearances.size >= 16)
+    appearances.delete(appearances.keys().next().value!);
+  appearances.set(source, appearance);
+  return appearance;
+}
 export function Wallpaper({
   value,
   active,
@@ -35,7 +69,8 @@ export function Wallpaper({
   reduceMotion?: boolean;
 }) {
   const preferred = useReducedMotionPreference();
-  const motionPaused = reduceMotion || !!preferred;
+  const material = useGlassMaterial();
+  const motionPaused = reduceMotion || material.reduced || !!preferred;
   const video = useRef<HTMLVideoElement>(null);
   const [foreground, setForeground] = useState(() => !document.hidden);
   const [error, setError] = useState(""),
@@ -132,10 +167,47 @@ export function Wallpaper({
     value.kind === "builtin"
       ? WALLPAPERS[value.builtin].url
       : `lunar-media://wallpaper/${value.mediaId}`;
+  const previous = useRef({ source, kind: value.kind, style });
+  const [outgoing, setOutgoing] = useState<{
+    source: string;
+    style: CSSProperties;
+  } | null>(null);
+  const fadeMs = 200 / material.settings.animationSpeed;
+  useLayoutEffect(() => {
+    const before = previous.current;
+    previous.current = { source, kind: value.kind, style };
+    if (before.source === source || motionPaused || !value.effects) {
+      setOutgoing(null);
+      return;
+    }
+    // Images crossfade for a bounded interval. Video is never cloned for a transition.
+    if (before.kind !== "video" && value.kind !== "video")
+      setOutgoing({ source: before.source, style: before.style });
+    else setOutgoing(null);
+    const timer = window.setTimeout(() => setOutgoing(null), fadeMs);
+    return () => window.clearTimeout(timer);
+  }, [
+    source,
+    motionPaused,
+    value.effects,
+    value.kind,
+    value.fit,
+    value.position,
+    value.blur,
+    fadeMs,
+  ]);
+  const loaded = (node: HTMLImageElement | HTMLVideoElement) => {
+    if (value.kind === "builtin") return; // Authoritative, deterministic preset metadata.
+    const appearance = sampleOnce(source, node);
+    if (appearance)
+      material.reportAppearance(wallpaperIdentity(value), appearance);
+  };
   return (
     <>
       <div
-        className={`dashboard-wallpaper ${value.effects && playing && !motionPaused ? "has-drift" : ""}`}
+        className={`dashboard-wallpaper ${value.effects && !motionPaused ? "has-soft-transitions" : ""}`}
+        data-wallpaper-source={value.kind}
+        style={{ "--wallpaper-fade-ms": `${fadeMs}ms` } as CSSProperties}
         aria-hidden="true"
       >
         {value.kind === "video" ? (
@@ -148,19 +220,30 @@ export function Wallpaper({
             muted={muted}
             playsInline
             preload={active ? "metadata" : "none"}
+            onLoadedData={(event) => loaded(event.currentTarget)}
             onError={(event) => fail(event.currentTarget)}
             onEnded={() => setPaused(true)}
           />
         ) : (
           <img
+            key={source}
             src={source}
             alt=""
             style={style}
+            onLoad={(event) => loaded(event.currentTarget)}
             onError={() =>
               setError(
                 "The local image could not be read. Choose it again or reset the wallpaper.",
               )
             }
+          />
+        )}
+        {outgoing && (
+          <img
+            className="wallpaper-outgoing"
+            src={outgoing.source}
+            style={outgoing.style}
+            alt=""
           />
         )}
         <div

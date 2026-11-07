@@ -5,6 +5,9 @@ import {
   useState,
   type FormEvent,
 } from "react";
+import { AnimatePresence } from "framer-motion";
+import { useGlassMaterial } from "../state/GlassMaterialProvider";
+import { GlassBacking, GlassToolbar } from "./ui/GlassControls";
 import { useBrowser } from "../state/BrowserContext";
 import { isInternalUrl, isWebUrl } from "../../shared/navigation";
 import { useNativeViewport } from "./useNativeViewport";
@@ -46,6 +49,7 @@ export default function App({
     previewPage,
     openPage,
   } = useBrowser();
+  const { overlayCount } = useGlassMaterial();
   const tabs = state.tabs,
     activeId = state.activeTabId,
     active = tabs.find((tab) => tab.id === activeId);
@@ -87,6 +91,7 @@ export default function App({
   const showNative =
     isVisible &&
     !isOccluded &&
+    overlayCount === 0 &&
     !commands &&
     !clearHistory &&
     !shieldOpen &&
@@ -207,7 +212,8 @@ export default function App({
       }
     >
       <main className="browser-app" aria-label="Lunar browser workspace">
-        <div className="browser-tabstrip">
+        <div className="browser-tabstrip" data-glass-owner="true">
+          <GlassToolbar />
           <div
             className="browser-tabs"
             role="tablist"
@@ -280,7 +286,12 @@ export default function App({
             <Icon name="plus" />
           </button>
         </div>
-        <nav className="browser-toolbar" aria-label="Browser navigation">
+        <nav
+          className="browser-toolbar"
+          data-glass-owner="true"
+          aria-label="Browser navigation"
+        >
+          <GlassToolbar />
           <button
             className="icon-button"
             aria-label="Back"
@@ -314,7 +325,12 @@ export default function App({
           >
             <Icon name={active?.isLoading ? "stop" : "reload"} />
           </button>
-          <form className="address-bar" onSubmit={submit}>
+          <form
+            className="address-bar"
+            data-glass-owner="true"
+            onSubmit={submit}
+          >
+            <GlassBacking level="light" />
             <Icon
               name={active?.url.startsWith("https:") ? "lock" : "globe"}
               size={14}
@@ -403,7 +419,12 @@ export default function App({
           </button>
         </nav>
         {settings.showBookmarksBar && bookmarks.length > 0 && (
-          <div className="bookmark-bar" aria-label="Bookmarks bar">
+          <div
+            className="bookmark-bar"
+            aria-label="Bookmarks bar"
+            data-glass-owner="true"
+          >
+            <GlassToolbar />
             {bookmarks.map((bookmark) => (
               <button
                 key={bookmark.id}
@@ -516,60 +537,74 @@ export default function App({
               )
             )}
           </div>
-          {aiOpen && (
-            <AISidebar
-              onClose={() => setAiOpen(false)}
-              activeTabId={activeId ?? undefined}
-              url={active?.url ?? ""}
+          <AnimatePresence>
+            {aiOpen && (
+              <AISidebar
+                key="ai-assistant"
+                onClose={() => setAiOpen(false)}
+                activeTabId={activeId ?? undefined}
+                url={active?.url ?? ""}
+              />
+            )}
+          </AnimatePresence>
+        </div>
+        <AnimatePresence>
+          {shieldOpen && (
+            <Modal
+              key="shield"
+              title="Lunar Shield"
+              onClose={() => setShieldOpen(false)}
+            >
+              <ShieldPanel url={active?.url ?? ""} />
+            </Modal>
+          )}
+          {tabMenu && (
+            <Modal
+              key="tab-actions"
+              title="Tab actions"
+              onClose={() => setTabMenu(null)}
+            >
+              <div className="tab-actions">
+                {[
+                  {
+                    label: "Duplicate tab",
+                    action: () => api?.duplicateTab(tabMenu),
+                  },
+                  {
+                    label: "Pin / unpin tab",
+                    action: () => api?.togglePinTab(tabMenu),
+                  },
+                  {
+                    label: "Mute / unmute tab",
+                    action: () => api?.toggleMuteTab(tabMenu),
+                  },
+                  { label: "Close tab", action: () => api?.closeTab(tabMenu) },
+                ].map((action) => (
+                  <button
+                    key={action.label}
+                    onClick={() =>
+                      void action
+                        .action()
+                        ?.then(() => setTabMenu(null))
+                        .catch(report)
+                    }
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            </Modal>
+          )}
+          {editingBookmark && active && (
+            <BookmarkEditor
+              key="bookmark-editor"
+              bookmark={currentBookmark}
+              title={active.title}
+              url={active.url}
+              onClose={() => setEditingBookmark(false)}
             />
           )}
-        </div>
-        {shieldOpen && (
-          <Modal title="Lunar Shield" onClose={() => setShieldOpen(false)}>
-            <ShieldPanel url={active?.url ?? ""} />
-          </Modal>
-        )}
-        {tabMenu && (
-          <Modal title="Tab actions" onClose={() => setTabMenu(null)}>
-            <div className="tab-actions">
-              {[
-                {
-                  label: "Duplicate tab",
-                  action: () => api?.duplicateTab(tabMenu),
-                },
-                {
-                  label: "Pin / unpin tab",
-                  action: () => api?.togglePinTab(tabMenu),
-                },
-                {
-                  label: "Mute / unmute tab",
-                  action: () => api?.toggleMuteTab(tabMenu),
-                },
-                { label: "Close tab", action: () => api?.closeTab(tabMenu) },
-              ].map((action) => (
-                <button
-                  key={action.label}
-                  onClick={() =>
-                    void action
-                      .action()
-                      ?.then(() => setTabMenu(null))
-                      .catch(report)
-                  }
-                >
-                  {action.label}
-                </button>
-              ))}
-            </div>
-          </Modal>
-        )}
-        {editingBookmark && active && (
-          <BookmarkEditor
-            bookmark={currentBookmark}
-            title={active.title}
-            url={active.url}
-            onClose={() => setEditingBookmark(false)}
-          />
-        )}
+        </AnimatePresence>
         <CommandPalette
           isOpen={commands}
           onClose={() => setCommands(false)}
@@ -586,33 +621,36 @@ export default function App({
             activeId && void api?.closeTab(activeId).catch(report)
           }
         />
-        {clearHistory && (
-          <Modal
-            title="Clear browsing history"
-            onClose={() => setClearHistory(false)}
-          >
-            <p>
-              This removes recorded visits and their recovery copies, not
-              bookmarks, downloads, site data or dashboard notes.
-            </p>
-            <button
-              className="primary-button"
-              onClick={async () => {
-                try {
-                  await api?.clearHistory();
-                  announceHistoryCleared();
-                  setHistoryMessage("Browsing history cleared.");
-                  setClearHistory(false);
-                } catch (error) {
-                  report(error);
-                }
-              }}
+        <AnimatePresence>
+          {clearHistory && (
+            <Modal
+              key="clear-history"
+              title="Clear browsing history"
+              onClose={() => setClearHistory(false)}
             >
-              Clear all history
-            </button>
-            <button onClick={() => setClearHistory(false)}>Cancel</button>
-          </Modal>
-        )}
+              <p>
+                This removes recorded visits and their recovery copies, not
+                bookmarks, downloads, site data or dashboard notes.
+              </p>
+              <button
+                className="primary-button"
+                onClick={async () => {
+                  try {
+                    await api?.clearHistory();
+                    announceHistoryCleared();
+                    setHistoryMessage("Browsing history cleared.");
+                    setClearHistory(false);
+                  } catch (error) {
+                    report(error);
+                  }
+                }}
+              >
+                Clear all history
+              </button>
+              <button onClick={() => setClearHistory(false)}>Cancel</button>
+            </Modal>
+          )}
+        </AnimatePresence>
         <OnboardingModal
           isOpen={onboarding}
           onComplete={async (searchEngine) => {

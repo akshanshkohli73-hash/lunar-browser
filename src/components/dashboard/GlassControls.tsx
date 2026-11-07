@@ -1,61 +1,77 @@
 import {
   glassMaterialSchema,
+  type GlassMaterial,
   type GlassSettings,
   type WidgetGlass,
 } from "../../../shared/glass";
+import { useGlassMaterial } from "../../state/GlassMaterialProvider";
+import { GlassSlider } from "../ui/GlassControls";
 const sliders = [
   ["opacity", "Glass opacity", 0.6, 1, 0.01],
   ["blur", "Blur intensity", 0, 24, 1],
-  ["border", "Border intensity", 0, 1, 0.05],
+  ["saturation", "Glass saturation", 0.5, 1.5, 0.05],
+  ["refraction", "Refraction intensity", 0, 1, 0.1],
   ["reflection", "Reflection intensity", 0, 1, 0.05],
+  ["border", "Border intensity", 0, 1, 0.05],
   ["shadow", "Shadow strength", 0, 1, 0.05],
+  ["elevation", "Glass elevation", 0, 1.5, 0.05],
 ] as const;
-/** Used for global materials and the selected widget's sparse override. */
+/** Material keys only: global motion/quality must never leak into a strict sparse override. */
+export function materialFromGlobal(global: GlassSettings): GlassMaterial {
+  return glassMaterialSchema.parse(
+    Object.fromEntries(
+      Object.keys(glassMaterialSchema.shape).map((key) => [
+        key,
+        global[key as keyof GlassMaterial],
+      ]),
+    ),
+  );
+}
 export function GlassMaterialControls({
   value,
   onChange,
   disabled = false,
   simple = false,
+  optical = false,
   prefix = "",
 }: {
-  value: Omit<GlassSettings, "performance">;
+  value: GlassMaterial;
   onChange: (value: WidgetGlass) => void;
   disabled?: boolean;
   simple?: boolean;
+  optical?: boolean;
   prefix?: string;
 }) {
-  const supportsBlur =
-    typeof CSS === "undefined" ||
-    typeof CSS.supports !== "function" ||
-    CSS.supports("backdrop-filter", "blur(1px)") ||
-    CSS.supports("-webkit-backdrop-filter", "blur(1px)");
+  const { preferences, reduced } = useGlassMaterial();
+  const solid = preferences.transparency || preferences.forcedColors;
+  const noOptics = !optical || !preferences.svg || reduced || solid;
   return (
     <div className="glass-control-grid">
       {sliders.map(([key, label, min, max, step]) => (
-        <label key={key}>
-          <span>{label}</span>
-          <input
-            type="range"
-            aria-label={`${prefix}${label}`}
-            min={min}
-            max={max}
-            step={step}
-            value={value[key]}
-            disabled={
-              disabled ||
-              (simple && (key === "blur" || key === "reflection")) ||
-              (!supportsBlur && key === "blur")
-            }
-            onChange={(event) =>
-              onChange({ [key]: Number(event.target.value) })
-            }
-          />
-          <output>
-            {key === "blur"
+        <GlassSlider
+          key={key}
+          label={`${prefix}${label}`}
+          value={value[key]}
+          min={min}
+          max={max}
+          step={step}
+          disabled={
+            disabled ||
+            ((simple || solid) &&
+              ["blur", "reflection", "refraction", "saturation"].includes(
+                key,
+              )) ||
+            (solid && key === "opacity") ||
+            (!preferences.blur && key === "blur") ||
+            (noOptics && key === "refraction")
+          }
+          onChange={(amount) => onChange({ [key]: amount })}
+          output={
+            key === "blur"
               ? `${value[key]}px`
-              : `${Math.round(value[key] * 100)}%`}
-          </output>
-        </label>
+              : `${Math.round(value[key] * 100)}%`
+          }
+        />
       ))}
       <label>
         <span>Glass tint</span>
@@ -70,16 +86,27 @@ export function GlassMaterialControls({
           <code>{value.tint.toUpperCase()}</code>
         </span>
       </label>
-      {!supportsBlur && (
+      {!preferences.blur && (
         <p className="muted-text">
-          Backdrop blur is unavailable in this renderer. The readable solid
-          fallback is active.
+          Backdrop blur is unavailable. The readable CSS fallback is active.
+        </p>
+      )}
+      {noOptics && (
+        <p className="muted-text">
+          Refraction needs Optical quality, SVG backdrop support and normal
+          motion/transparency preferences. Your saved intensity is kept.
         </p>
       )}
       {simple && (
         <p className="muted-text">
-          Simple mode keeps tint, opacity, borders and soft shadows; blur and
-          reflections are off.
+          Simple mode keeps tint, opacity, edges and soft shadows; blur, pointer
+          lighting and optical effects are off.
+        </p>
+      )}
+      {solid && (
+        <p className="muted-text">
+          Your system requests solid / high-contrast materials. Translucency
+          settings are retained for when that preference is off.
         </p>
       )}
     </div>
@@ -96,7 +123,7 @@ export function WidgetGlassControls({
   title: string;
   onChange: (value: WidgetGlass | undefined) => void;
 }) {
-  const material = { ...global, ...value };
+  const material = { ...materialFromGlobal(global), ...value };
   return (
     <section
       className="widget-glass-settings"
@@ -109,13 +136,7 @@ export function WidgetGlassControls({
           type="checkbox"
           aria-label={`Use global glass for ${title}`}
           checked={!value}
-          onChange={(event) =>
-            onChange(
-              event.target.checked
-                ? undefined
-                : glassMaterialSchema.parse(globalWithoutPerformance(global)),
-            )
-          }
+          onChange={(event) => onChange(event.target.checked ? undefined : {})}
         />
       </label>
       {value && (
@@ -125,7 +146,7 @@ export function WidgetGlassControls({
             <input
               type="checkbox"
               aria-label={`Enable glass for ${title}`}
-              checked={value.enabled ?? true}
+              checked={material.enabled}
               disabled={!global.enabled}
               onChange={(event) =>
                 onChange({ ...value, enabled: event.target.checked })
@@ -137,6 +158,7 @@ export function WidgetGlassControls({
             prefix={`${title} `}
             disabled={!global.enabled || !material.enabled}
             simple={global.performance === "simple"}
+            optical={global.performance === "optical"}
             onChange={(patch) => onChange({ ...value, ...patch })}
           />
           <button onClick={() => onChange(undefined)}>
@@ -152,10 +174,4 @@ export function WidgetGlassControls({
       )}
     </section>
   );
-}
-function globalWithoutPerformance({
-  performance: _performance,
-  ...material
-}: GlassSettings) {
-  return material;
 }

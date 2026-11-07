@@ -1,4 +1,5 @@
-import { DEFAULT_GLASS, GLASS_LEVELS, glassTone } from "../../../shared/glass";
+import { DEFAULT_GLASS, GLASS_LEVELS } from "../../../shared/glass";
+import { GlassSlider } from "../ui/GlassControls";
 import { GlassSurface } from "../ui/GlassSurface";
 import { GlassMaterialControls, WidgetGlassControls } from "./GlassControls";
 import { useWorkspaceActivity } from "../../state/WorkspaceActivity";
@@ -374,7 +375,6 @@ export default function DashboardStudio({
     updateDashboard,
     previewDashboard,
     reducedMotion,
-    theme,
   } = useBrowser();
   const active = useWorkspaceActivity();
   const owner = useId();
@@ -476,7 +476,6 @@ export default function DashboardStudio({
             level={
               current ? WIDGET_DEFINITIONS[current.kind].material : "standard"
             }
-            tone={glassTone(draft.text, theme.category)}
             active={active}
             className="glass-preview-sample"
           >
@@ -669,7 +668,7 @@ export default function DashboardStudio({
                 }
               >
                 <option value="theme">
-                  Automatic for built-ins; theme for local media
+                  Automatic · sampled wallpaper or theme fallback
                 </option>
                 <option value="light">Light text</option>
                 <option value="dark">Dark text</option>
@@ -692,7 +691,7 @@ export default function DashboardStudio({
             </label>
           </div>
           <label className="setting-toggle">
-            Subtle background drift (respects reduced motion)
+            Soft wallpaper transitions (respects reduced motion)
             <input
               type="checkbox"
               checked={draft.wallpaper.effects}
@@ -766,12 +765,13 @@ export default function DashboardStudio({
                   ...draft,
                   glass: {
                     ...draft.glass,
-                    performance:
-                      event.target.value === "simple" ? "simple" : "balanced",
+                    performance: event.target
+                      .value as DashboardSettings["glass"]["performance"],
                   },
                 })
               }
             >
+              <option value="optical">Optical · controlled SVG lens</option>
               <option value="balanced">Balanced · softly blurred glass</option>
               <option value="simple">Simple · low power / no blur</option>
             </select>
@@ -780,10 +780,72 @@ export default function DashboardStudio({
             value={draft.glass}
             disabled={!draft.glass.enabled}
             simple={draft.glass.performance === "simple"}
+            optical={draft.glass.performance === "optical"}
             onChange={(patch) =>
               change({ ...draft, glass: { ...draft.glass, ...patch } })
             }
           />
+          <div className="glass-global-controls">
+            <label className="setting-toggle">
+              Adaptive wallpaper tint
+              <input
+                type="checkbox"
+                aria-label="Adaptive wallpaper tint"
+                checked={draft.glass.adaptive}
+                onChange={(event) =>
+                  change({
+                    ...draft,
+                    glass: { ...draft.glass, adaptive: event.target.checked },
+                  })
+                }
+              />
+            </label>
+            <label className="setting-toggle">
+              Hover motion
+              <input
+                type="checkbox"
+                aria-label="Hover motion"
+                checked={draft.glass.hoverMotion}
+                onChange={(event) =>
+                  change({
+                    ...draft,
+                    glass: {
+                      ...draft.glass,
+                      hoverMotion: event.target.checked,
+                    },
+                  })
+                }
+              />
+            </label>
+            <GlassSlider
+              label="Animation speed"
+              value={draft.glass.animationSpeed}
+              min={0.5}
+              max={1.75}
+              step={0.05}
+              output={`${draft.glass.animationSpeed.toFixed(2)}×`}
+              onChange={(animationSpeed) =>
+                change({ ...draft, glass: { ...draft.glass, animationSpeed } })
+              }
+            />
+            <label className="setting-toggle">
+              Reduced motion
+              <input
+                type="checkbox"
+                aria-label="Reduced material motion"
+                checked={draft.glass.reducedMotion}
+                onChange={(event) =>
+                  change({
+                    ...draft,
+                    glass: {
+                      ...draft.glass,
+                      reducedMotion: event.target.checked,
+                    },
+                  })
+                }
+              />
+            </label>
+          </div>
           <p className="muted-text">
             Light Glass is used for glanceable widgets, Standard Glass for
             general widgets, and Deep Glass for notes and calendars. Blur is the
@@ -791,7 +853,10 @@ export default function DashboardStudio({
             readability wash protects text contrast. Effects reduce when the
             workspace is inactive; reduced-motion and reduced-transparency
             system preferences are respected. Video blur still has GPU cost:
-            choose Simple on lower-powered devices.
+            choose Simple on lower-powered devices. Optical adds a fixed, seeded
+            SVG displacement of the existing backdrop, not physical ray tracing
+            or native webpage refraction. No WebGL or video texture copies are
+            needed.
           </p>
           <button
             onClick={() =>

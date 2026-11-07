@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_GLASS,
+  MATERIAL_COLORS,
   glassSchema,
   widgetGlassSchema,
   resolveGlass,
@@ -89,8 +90,8 @@ describe("validated, persistent glass materials", () => {
       const store = new StorageService(dir),
         loaded = store.getDashboard();
       expect(loaded).toMatchObject({
-        version: 2,
-        glass: { ...DEFAULT_GLASS, opacity: 0.83 },
+        version: 3,
+        glass: { ...DEFAULT_GLASS, opacity: 0.83, performance: "balanced" },
         note: raw.note,
         events: raw.events,
         wallpaper: raw.wallpaper,
@@ -165,30 +166,14 @@ describe("validated, persistent glass materials", () => {
     expect(depths[1].alpha).toBeLessThan(depths[2].alpha);
   });
   it("maintains conservative text contrast at both wallpaper extremes and extreme tint choices", () => {
-    const css = fs.readFileSync(
-      path.join(process.cwd(), "src/components/ui/glass.css"),
-      "utf8",
-    );
-    const light = css.slice(
-      css.indexOf(".glass-surface {"),
-      css.indexOf('.glass-surface[data-glass-tone="dark"]'),
-    );
-    const dark = css.slice(
-      css.indexOf('.glass-surface[data-glass-tone="dark"]'),
-      css.indexOf("@supports"),
-    );
+    const light = "light",
+      dark = "dark";
     const hex = (value: string) =>
       [0, 2, 4].map((i) =>
         parseInt(value.replace("#", "").slice(i, i + 2), 16),
       );
-    const token = (block: string, key: string) => {
-      const match = new RegExp(
-        `--glass-${key}: (#[a-f\\d]{6}|[\\d.]+%);`,
-        "iu",
-      ).exec(block);
-      if (!match) throw new Error(`Missing ${key} token`);
-      return match[1];
-    };
+    const token = (tone: "light" | "dark", key: "paper" | "ink" | "muted") =>
+      MATERIAL_COLORS[tone][key];
     const mix = (a: number[], b: number[], alpha: number) =>
       a.map((v, i) => v * alpha + b[i] * (1 - alpha));
     const luminance = (rgb: number[]) =>
@@ -198,7 +183,7 @@ describe("validated, persistent glass materials", () => {
           return n <= 0.04045 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4;
         })
         .reduce((sum, n, i) => sum + n * [0.2126, 0.7152, 0.0722][i], 0);
-    for (const block of [light, dark])
+    for (const block of [light, dark] as const)
       for (const tint of ["#000000", "#ffffff", "#ff00ff", "#00ff00"])
         for (const wallpaper of ["#000000", "#ffffff"]) {
           for (const level of Object.keys(GLASS_LEVELS) as GlassLevel[])
@@ -219,7 +204,7 @@ describe("validated, persistent glass materials", () => {
               // Maximum dark-tone specular overlays together are less than 3% white.
               const guarded =
                 block === dark ? mix([255, 255, 255], base, 0.03) : base;
-              for (const name of ["ink", "muted"]) {
+              for (const name of ["ink", "muted"] as const) {
                 const a = luminance(guarded),
                   b = luminance(hex(token(block, name)));
                 expect(

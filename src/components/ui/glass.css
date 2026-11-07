@@ -1,14 +1,17 @@
+@import "./organic-tokens.css";
+
 /* One live backdrop pass per surface. Shared depth tokens live in shared/glass.ts.
-   No nested blur, pointer lights, will-change layers or per-frame material work. */
+   One optional SVG backdrop pass and one shared, settling pointer scheduler; no video render loop. */
 .glass-surface {
   --glass-paper: #f1f7ea;
   --glass-ink: #102a20;
   --glass-muted: #152d21;
   --glass-shine: #ffffff90;
   --glass-diagonal: #ffffff1f;
+  --glass-pointer-light: #ffffff38;
   --glass-edge: #ffffff;
   --glass-depth: #173c2d;
-  --glass-radius: 15px;
+  --glass-radius: var(--organic-radius-widget);
   position: relative;
   isolation: isolate;
   min-width: 0;
@@ -19,7 +22,11 @@
   background-color: var(--glass-paper);
   background-color: color-mix(
     in srgb,
-    color-mix(in srgb, var(--glass-paper) 94%, var(--glass-tint))
+    color-mix(
+        in srgb,
+        var(--glass-paper) 94%,
+        color-mix(in srgb, var(--glass-tint) 60%, var(--glass-adaptive-tint))
+      )
       calc((0.5 + var(--glass-opacity) * 0.5) * 100%),
     transparent
   );
@@ -48,7 +55,10 @@
         var(--glass-depth) calc(var(--glass-shadow) * 36%),
         transparent
       );
-  transition: border-color 160ms ease;
+  transition:
+    border-color var(--organic-duration) ease,
+    background-color var(--organic-duration) ease;
+  --glass-refraction-filter: ;
 }
 .glass-surface[data-glass-tone="dark"] {
   --glass-paper: #162e27;
@@ -57,8 +67,9 @@
   --glass-edge: #d8edda;
   --glass-depth: #020b07;
   /* Combined highlights remain below 3% white, even at maximum reflection. */
-  --glass-shine: #ffffff05;
-  --glass-diagonal: #ffffff02;
+  --glass-shine: #ffffff02;
+  --glass-diagonal: #ffffff01;
+  --glass-pointer-light: #ffffff04;
 }
 @supports (
   (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))
@@ -66,7 +77,11 @@
   .glass-surface[data-glass-mode="glass"] {
     background-color: color-mix(
       in srgb,
-      color-mix(in srgb, var(--glass-paper) 94%, var(--glass-tint))
+      color-mix(
+          in srgb,
+          var(--glass-paper) 94%,
+          color-mix(in srgb, var(--glass-tint) 60%, var(--glass-adaptive-tint))
+        )
         calc(var(--glass-alpha) * 100%),
       transparent
     );
@@ -81,9 +96,9 @@
         68%
     );
     -webkit-backdrop-filter: blur(var(--glass-effective-blur))
-      saturate(var(--glass-saturation));
+      saturate(var(--glass-saturation)) var(--glass-refraction-filter);
     backdrop-filter: blur(var(--glass-effective-blur))
-      saturate(var(--glass-saturation));
+      saturate(var(--glass-saturation)) var(--glass-refraction-filter);
   }
 }
 .glass-surface::before,
@@ -98,6 +113,16 @@
 .glass-surface::before {
   opacity: var(--glass-reflection);
   background:
+    radial-gradient(
+      ellipse 180px 140px at var(--glass-pointer-x, 50%)
+        var(--glass-pointer-y, 35%),
+      color-mix(
+        in srgb,
+        var(--glass-pointer-light) calc(var(--glass-pointer-presence, 0) * 100%),
+        transparent
+      ),
+      transparent 80%
+    ),
     radial-gradient(ellipse at 4% -38%, var(--glass-shine), transparent 64%),
     linear-gradient(
       122deg,
@@ -187,4 +212,73 @@ html[data-reduced-motion="true"] .glass-surface button {
     color: CanvasText;
     border: 1px solid CanvasText;
   }
+}
+
+.glass-optical-defs {
+  position: fixed;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.glass-backing {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+.glass-button {
+  border-radius: var(--organic-radius-control);
+  border: 1px solid color-mix(in srgb, var(--lunar-primary) 16%, transparent);
+  background:
+    linear-gradient(155deg, #ffffff28, transparent),
+    color-mix(in srgb, var(--lunar-surface) 48%, transparent);
+  color: inherit;
+  transition:
+    transform var(--organic-duration),
+    background-color var(--organic-duration),
+    border-color var(--organic-duration);
+}
+.glass-button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--lunar-primary) 30%, transparent);
+}
+.glass-button:active:not(:disabled) {
+  transform: scale(0.985);
+}
+.glass-button:focus-visible,
+.glass-slider input:focus-visible {
+  outline: 2px solid var(--lunar-primary);
+  outline-offset: 3px;
+}
+.glass-slider input {
+  accent-color: var(--lunar-primary);
+  min-height: 24px;
+  cursor: pointer;
+}
+.glass-panel {
+  --glass-radius: var(--organic-radius-panel);
+}
+html[data-glass-hover-motion="true"]
+  .dashboard-widget:not(.is-dragging):not(.is-resizing):hover
+  > .glass-surface {
+  transform: translateY(var(--organic-hover-y, -2px));
+}
+html[data-glass-hover-motion="true"] .dashboard-widget > .glass-surface {
+  transition:
+    transform var(--organic-duration),
+    border-color var(--organic-duration),
+    background-color var(--organic-duration);
+}
+.dashboard-widget.is-dragging > .glass-surface {
+  transform: translateY(-3px) scale(1.01);
+}
+@media (prefers-reduced-motion: reduce),
+  (prefers-reduced-transparency: reduce),
+  (forced-colors: active) {
+  .glass-surface::before {
+    --glass-pointer-presence: 0 !important;
+  }
+}
+html[data-reduced-motion="true"] .glass-surface::before {
+  --glass-pointer-presence: 0 !important;
 }

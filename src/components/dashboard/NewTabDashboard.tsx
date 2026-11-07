@@ -18,7 +18,7 @@ const DashboardStudio = lazy(() => import("./DashboardStudio"));
 import { useReducedMotionPreference } from "../useReducedMotionPreference";
 import { Wallpaper } from "./Wallpaper";
 import { WidgetCell } from "./WidgetCell";
-import { glassTone } from "../../../shared/glass";
+import { useGlassMaterial } from "../../state/GlassMaterialProvider";
 import { useWorkspaceActivity } from "../../state/WorkspaceActivity";
 export default function NewTabDashboard({
   active,
@@ -37,8 +37,8 @@ export default function NewTabDashboard({
     shield,
     settings,
     report,
-    theme,
   } = useBrowser();
+  const { tone } = useGlassMaterial();
   const [preview, setPreview] = useState<DashboardSettings | null>(null),
     [customizing, setCustomizing] = useState(false),
     [arranging, setArranging] = useState(false),
@@ -202,7 +202,7 @@ export default function NewTabDashboard({
                   key={widget.id}
                   widget={widget}
                   material={current.glass}
-                  tone={glassTone(current.text, theme.category)}
+                  tone={tone}
                   active={effectsActive}
                   reduced={reducedMotion || !!reduced || !effectsActive}
                   editing={arranging}
@@ -248,13 +248,21 @@ export default function NewTabDashboard({
           </button>
         </footer>
       </div>
-      {customizing && (
-        <Modal title="Customize dashboard" onClose={close}>
-          <Suspense fallback={<p role="status">Opening dashboard controls…</p>}>
-            <DashboardStudio onDone={close} />
-          </Suspense>
-        </Modal>
-      )}
+      <AnimatePresence>
+        {customizing && (
+          <Modal
+            key="dashboard-customizer"
+            title="Customize dashboard"
+            onClose={close}
+          >
+            <Suspense
+              fallback={<p role="status">Opening dashboard controls…</p>}
+            >
+              <DashboardStudio onDone={close} />
+            </Suspense>
+          </Modal>
+        )}
+      </AnimatePresence>
     </section>
   );
 }
