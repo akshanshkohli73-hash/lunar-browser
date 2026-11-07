@@ -367,6 +367,22 @@ try {
   );
   // Actual pointer and keyboard feedback, with motion enabled and then reduced.
   await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page
+    .getByRole("button", { name: "Customize dashboard", exact: true })
+    .click();
+  const animatedEditor = page.getByRole("dialog", {
+    name: "Customize dashboard",
+    exact: true,
+  });
+  await checkCustomizationLayout(
+    page,
+    animatedEditor,
+    ".artifacts/ui/customize-motion",
+  );
+  await animatedEditor
+    .getByRole("button", { name: "Cancel dashboard changes", exact: true })
+    .click();
+  await expect(page.locator(".modal-backdrop")).toHaveCount(0);
   const home = dock.getByRole("button", { name: "Home", exact: true });
   const hitBox = await home.boundingBox();
   await home.hover();
@@ -489,6 +505,30 @@ try {
       .getByRole("menu", { name: `${menu} menu`, exact: true })
       .press("Escape");
   }
+  // Switch keys with real motion, let the outgoing menu unmount, then use
+  // the shared current-menu ref for keyboard roving in its replacement.
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page
+    .getByRole("menubar")
+    .getByRole("menuitem", { name: "Help", exact: true })
+    .click();
+  await page
+    .getByRole("menu", { name: "Help menu", exact: true })
+    .press("ArrowRight");
+  await expect(page.locator('.lunar-dropdown[aria-hidden="true"]')).toHaveCount(
+    0,
+  );
+  const replacementMenu = page.getByRole("menu", {
+    name: "Lunar menu",
+    exact: true,
+  });
+  await replacementMenu.press("End");
+  await expect(
+    replacementMenu.getByRole("menuitem", { name: "Settings…", exact: true }),
+  ).toBeFocused();
+  await replacementMenu.press("Escape");
+  await expect(page.locator(".lunar-dropdown")).toHaveCount(0);
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page
     .getByRole("menubar")
     .getByRole("menuitem", { name: "Lunar", exact: true })
@@ -571,7 +611,7 @@ try {
     ".artifacts/ui/organic",
   );
   console.log(
-    "PASS: Organic SVG painted-pixel / deterministic repeated capture, unsupported-SVG/no-WebGL CSS fallback, real added Studio tokens, shared pointer proximity with same hovered hit box and stable neighboring responses; Chromium renderer preview — single workspace, real layout/hit targets, all nine Lunar shortcuts and launcher routes, eight keyboard menus, dock restore, Theme Studio, wallpaper/widget/dock preview/cancel, real glass controls / modes, bright/dark draft previews, forced-color fallback, twenty actually visible static materials, three shared depths, fixed-wallpaper scrolling, independently scrolling customization with fixed actions at four sizes, dock pointer/keyboard/motion settings and responsive stacking; no console errors.",
+    "PASS: Organic SVG painted-pixel / deterministic repeated capture, unsupported-SVG/no-WebGL CSS fallback, real added Studio tokens, shared pointer proximity with same hovered hit box and stable neighboring responses; Chromium renderer preview — single workspace, real layout/hit targets, all nine Lunar shortcuts and launcher routes, eight keyboard menus, dock restore, Theme Studio, wallpaper/widget/dock preview/cancel, real glass controls / modes, bright/dark draft previews, forced-color fallback, twenty actually visible static materials, three shared depths, fixed-wallpaper scrolling, independently scrolling customization with fixed actions at four sizes and real animated entry, animated-menu keyboard replacement, dock pointer/keyboard/motion settings and responsive stacking; no console errors.",
   );
   console.log(
     "This test is not a native Electron or Windows runtime test. Screenshots: .artifacts/ui/",

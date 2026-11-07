@@ -139,6 +139,31 @@ export function createGlassInteractions(root: Document, speed: number) {
   const hidden = () => {
     if (root.hidden) reset();
   };
+  // Release detached portal/widget nodes even when the pointer has stopped.
+  // One child-list observer; CSS-variable writes do not trigger it.
+  const detach = new MutationObserver(() => {
+    if (surface && !surface.isConnected) {
+      clearSurface(surface);
+      surface = null;
+      light = 0;
+    }
+    if (retiring && !retiring.isConnected) {
+      clearSurface(retiring);
+      retiring = null;
+      retiringLight = 0;
+    }
+    for (const node of dockValues.keys())
+      if (!node.isConnected) {
+        node.style.removeProperty("--dock-proximity");
+        dockValues.delete(node);
+      }
+    if (!surface && !retiring && !dockValues.size && frame) {
+      cancelAnimationFrame(frame);
+      frame = 0;
+      previousTime = 0;
+    }
+  });
+  detach.observe(root.body, { childList: true, subtree: true });
   root.addEventListener("pointermove", move, { passive: true });
   root.addEventListener("pointerout", out, { passive: true });
   root.addEventListener("visibilitychange", hidden);
@@ -146,6 +171,7 @@ export function createGlassInteractions(root: Document, speed: number) {
   window.addEventListener("resize", reset, { passive: true });
   return () => {
     alive = false;
+    detach.disconnect();
     if (frame) cancelAnimationFrame(frame);
     clearSurface(surface);
     clearSurface(retiring);

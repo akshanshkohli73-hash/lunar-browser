@@ -9,6 +9,10 @@ export async function checkCustomizationLayout(page, editor, evidence) {
   const actions = editor.getByRole("group", { name: "Dashboard actions" });
   await expect(options).toBeVisible();
   await expect(actions).toBeVisible();
+  // Modal entry is intentionally animated now. Measure fixed actions only
+  // after the actual dialog geometry settles; retain the strict scroll checks.
+  const dialog = await editor.elementHandle();
+  await dialog.waitForElementState("stable");
   const original = await actions.boundingBox();
   assert.ok(original);
   for (const progress of [0, 0.5, 1]) {

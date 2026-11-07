@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import React, { useState } from "react";
+import React, { createRef, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   act,
@@ -18,6 +18,7 @@ import {
   useGlassMaterial,
 } from "../src/state/GlassMaterialProvider";
 import { GlassSurface } from "../src/components/ui/GlassSurface";
+import { GlassMenu } from "../src/components/ui/GlassMenu";
 import { Modal } from "../src/components/ui/Modal";
 import {
   GlassMaterialControls,
@@ -298,4 +299,45 @@ describe("actual surface backend, strict overrides and overlay lifecycle", () =>
     );
     expect(screen.getByTestId("count").textContent).toBe("0");
   });
+});
+
+it("does not retain a detached panel or keep scheduling work after a stationary-pointer unmount", async () => {
+  const pane = document.createElement("div");
+  pane.dataset.glassLight = "true";
+  document.body.append(pane);
+  vi.spyOn(pane, "getBoundingClientRect").mockReturnValue(bounds(0));
+  const dispose = createGlassInteractions(document, 1);
+  fireEvent(
+    pane,
+    new MouseEvent("pointermove", { bubbles: true, clientX: 20, clientY: 20 }),
+  );
+  runFrames();
+  expect(pane.style.getPropertyValue("--glass-pointer-presence")).not.toBe("");
+  pane.remove();
+  await Promise.resolve();
+  expect(pane.style.getPropertyValue("--glass-pointer-presence")).toBe("");
+  expect(frames.size).toBe(0);
+  dispose();
+});
+
+it("does not let an exiting menu clear the ref / keyboard target of a newly opened menu", async () => {
+  vi.unstubAllGlobals();
+  const ref = createRef<HTMLDivElement>();
+  const scene = (id: string) => (
+    <Provider>
+      <AnimatePresence>
+        <GlassMenu key={id} ref={ref} data-testid={id}>
+          <button>{id}</button>
+        </GlassMenu>
+      </AnimatePresence>
+    </Provider>
+  );
+  const view = render(scene("first"));
+  view.rerender(scene("second"));
+  expect(ref.current).toBe(screen.getByTestId("second"));
+  await waitFor(() => expect(screen.queryByTestId("first")).toBeNull(), {
+    timeout: 2000,
+  });
+  expect(ref.current).toBe(screen.getByTestId("second"));
+  expect(ref.current?.inert).toBe(false);
 });

@@ -19,9 +19,12 @@ export const GlassMenu = forwardRef<
     <motion.div
       {...props}
       ref={(element) => {
+        const previous = node.current;
         node.current = element;
         if (typeof ref === "function") ref(element);
-        else if (ref) ref.current = element;
+        // An outgoing keyed menu must not clear a ref already owned by its replacement.
+        else if (ref && (element !== null || ref.current === previous))
+          ref.current = element;
       }}
       data-glass-owner="true"
       aria-hidden={!present || undefined}
