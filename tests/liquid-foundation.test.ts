@@ -18,7 +18,10 @@ import {
 } from "../shared/dashboard";
 import { widgetGlassSchema } from "../shared/glass";
 import { FrameClock } from "../src/liquid/FrameClock";
-import { WallpaperStore } from "../electron/services/wallpaper-store";
+import {
+  WallpaperStore,
+  wallpaperTextureOrigin,
+} from "../electron/services/wallpaper-store";
 
 describe("Liquid foundation", () => {
   it("validates real engine controls without per-widget global overrides or patch defaults", () => {
@@ -165,20 +168,27 @@ it("serves origin-clean private textures only for the exact configured UI origin
       selected,
       Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), Buffer.alloc(32)]),
     );
-    const store = new WallpaperStore(profile, "null");
+    const origin = wallpaperTextureOrigin(
+      "file:///application/dist/renderer/index.html",
+    );
+    expect(origin).toBe("file://");
+    expect(wallpaperTextureOrigin("http://localhost:5173/index.html")).toBe(
+      "http://localhost:5173",
+    );
+    const store = new WallpaperStore(profile, origin);
     const asset = await store.importSelectedFile(selected);
     const url = `lunar-media://wallpaper/${asset.id}`;
     const allowed = store.response(
-      new Request(url, { method: "HEAD", headers: { Origin: "null" } }),
+      new Request(url, { method: "HEAD", headers: { Origin: "file://" } }),
     );
     expect(allowed.status).toBe(200);
-    expect(allowed.headers.get("access-control-allow-origin")).toBe("null");
+    expect(allowed.headers.get("access-control-allow-origin")).toBe("file://");
     expect(allowed.headers.get("vary")).toBe("Origin");
     expect(allowed.headers.has("access-control-allow-credentials")).toBe(false);
     for (const origin of [
       "https://example.com",
       "http://localhost:5173",
-      "file://",
+      "null",
     ])
       expect(
         store.response(new Request(url, { headers: { Origin: origin } }))

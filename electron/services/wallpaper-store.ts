@@ -4,6 +4,12 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
 import { mediaIdSchema, WALLPAPER_LIMITS_MB } from "../../shared/dashboard";
+/** Chromium's file security-origin serialization differs from URL.origin ("null").
+ * The handler is still installed exclusively on the owned UI session. */
+export function wallpaperTextureOrigin(entryUrl: string): string {
+  const entry = new URL(entryUrl);
+  return entry.protocol === "file:" ? "file://" : entry.origin;
+}
 export interface WallpaperAsset {
   id: string;
   kind: "image" | "video";

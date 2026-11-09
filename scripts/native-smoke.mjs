@@ -81,6 +81,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
   );
   const videoMeasurements = [];
   let electron, ui;
+  const privateMediaRequests = new Map();
   const launch = async () => {
     electron = await _electron.launch({
       executablePath: executable,
@@ -120,6 +121,32 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
     // Explicit material test environment; separate forced-color/system fallback coverage
     // remains in renderer smoke. Production never overrides accessibility preferences.
     const materialSession = await ui.context().newCDPSession(ui);
+    await materialSession.send("Network.enable");
+    materialSession.on("Network.requestWillBeSent", (event) => {
+      if (event.request.url.startsWith("lunar-media:"))
+        privateMediaRequests.set(event.requestId, {
+          origin:
+            event.request.headers.Origin ??
+            event.request.headers.origin ??
+            "not-in-primary-event",
+        });
+    });
+    materialSession.on("Network.requestWillBeSentExtraInfo", (event) => {
+      const request = privateMediaRequests.get(event.requestId);
+      if (request)
+        request.origin =
+          event.headers.Origin ?? event.headers.origin ?? "absent";
+    });
+    materialSession.on("Network.responseReceived", (event) => {
+      const request = privateMediaRequests.get(event.requestId);
+      if (request) {
+        request.status = event.response.status;
+        request.allowedOrigin =
+          event.response.headers["Access-Control-Allow-Origin"] ??
+          event.response.headers["access-control-allow-origin"] ??
+          "absent";
+      }
+    });
     await materialSession.send("Emulation.setEmulatedMedia", {
       media: "screen",
       features: [
@@ -266,13 +293,21 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       wallpaper: { ...dashboard.wallpaper, kind: "image", mediaId: media.id },
       note: "Native persistent dashboard note",
     });
-    const decodeWallpaper = () =>
-      ui
-        .locator(".new-tab-dashboard .dashboard-wallpaper img")
-        .evaluate(async (image) => {
-          await image.decode();
-          return image.naturalWidth;
-        });
+    const decodeWallpaper = async () => {
+      try {
+        return await ui
+          .locator(".new-tab-dashboard .dashboard-wallpaper img")
+          .evaluate(async (image) => {
+            await image.decode();
+            return image.naturalWidth;
+          });
+      } catch (error) {
+        throw new Error(
+          `Private wallpaper decode failed: ${JSON.stringify({ shell: await ui.evaluate(() => ({ origin: window.origin, urlOrigin: location.origin })), requests: [...privateMediaRequests.values()].slice(-4) })}`,
+          { cause: error },
+        );
+      }
+    };
     assert.equal(
       await decodeWallpaper(),
       imageWidth,

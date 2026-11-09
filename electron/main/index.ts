@@ -12,6 +12,7 @@ import {
 import path from "node:path";
 import {
   WallpaperStore,
+  wallpaperTextureOrigin,
   registerWallpaperProtocol,
 } from "../services/wallpaper-store";
 import {
@@ -398,7 +399,10 @@ async function createWindow() {
   const vault = new AIVault(profile());
   const migrationWarnings = migrateLegacyCredentials(profile(), vault);
   const storage = new StorageService(profile());
-  const wallpapers = new WallpaperStore(profile(), new URL(entryUrl).origin);
+  const wallpapers = new WallpaperStore(
+    profile(),
+    wallpaperTextureOrigin(entryUrl),
+  );
   await registerWallpaperProtocol(uiSession.protocol, wallpapers);
   storage.warnings.push(...migrationWarnings);
   let sessionTimer: ReturnType<typeof setTimeout> | undefined,
