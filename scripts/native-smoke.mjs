@@ -1,3 +1,7 @@
+import {
+  checkNativeLiquidVideo,
+  liquidMetrics,
+} from "./liquid-engine-checks.mjs";
 import assert from "node:assert/strict";
 import {
   checkCustomizationLayout,
@@ -83,6 +87,11 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       args: [
         ...(packaged ? ["--lunar-native-test"] : [repo]),
         "--host-resolver-rules=MAP ads.lunar-shield.test 127.0.0.1",
+        // Deterministic software WebGL2 for CI only; never production launch flags.
+        "--use-gl=angle",
+        "--use-angle=swiftshader",
+        "--enable-unsafe-swiftshader",
+        "--ignore-gpu-blocklist",
       ],
       env: { ...process.env, LUNAR_TEST_PROFILE: profile },
       timeout: 30000,
@@ -326,6 +335,11 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
         .evaluate((image) => image.naturalHeight),
       imageHeight,
     );
+    await expect(
+      ui.locator('[data-widget-id="notes"] > .glass-surface'),
+    ).toHaveAttribute("data-liquid-backend", "webgl2", { timeout: 20000 });
+    const imageLiquid = await liquidMetrics(ui);
+    assert.equal(imageLiquid.source, "image");
     await ui.screenshot({ path: `${evidence}-50mb-image.png` });
     const imported = fs.readdirSync(path.join(profile, "wallpapers")).sort();
     fs.truncateSync(largeFile, imageLimit + 1);
@@ -362,6 +376,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       decodedHeight: imageHeight,
       rejectedBytes: imageLimit + 1,
       syntheticAncillaryPadding: true,
+      liquid: imageLiquid,
     };
     fs.writeFileSync(
       `${evidence}-wallpaper-limit.json`,
@@ -588,8 +603,12 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
             ),
         );
       const savedGlass = (await api("getDashboard")).glass;
+      const cssGlass = {
+        ...savedGlass,
+        liquid: { ...savedGlass.liquid, quality: "performance" },
+      };
       await api("updateDashboard", {
-        glass: { ...savedGlass, blur: 0, performance: "balanced" },
+        glass: { ...cssGlass, blur: 0, performance: "balanced" },
       });
       await expect(material).toHaveCSS(
         "backdrop-filter",
@@ -598,7 +617,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       await settleBackdrop();
       const unfiltered = await sampleGlass();
       await api("updateDashboard", {
-        glass: { ...savedGlass, blur: 24, performance: "balanced" },
+        glass: { ...cssGlass, blur: 24, performance: "balanced" },
       });
       await expect(material).toHaveCSS(
         "backdrop-filter",
@@ -617,7 +636,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       );
       await api("updateDashboard", {
         glass: {
-          ...savedGlass,
+          ...cssGlass,
           performance: "optical",
           blur: 0,
           refraction: 0,
@@ -632,7 +651,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       const opticalOff = await sampleGlass();
       await api("updateDashboard", {
         glass: {
-          ...savedGlass,
+          ...cssGlass,
           performance: "optical",
           blur: 0,
           refraction: 1,
@@ -664,6 +683,15 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       );
       await api("updateDashboard", { glass: savedGlass });
       await expect(material).toHaveCSS("--glass-blur", `${savedGlass.blur}px`);
+      const liquidObservation = await checkNativeLiquidVideo(
+        ui,
+        api,
+        video,
+        material,
+        sampleGlass,
+        format,
+        evidence,
+      );
       const measurement = await video.evaluate(async (v) => {
         v.muted = true;
         await v.play();
@@ -719,6 +747,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
         unfiltered,
         filtered,
         gpuCompositing: gpu.gpu_compositing,
+        liquid: liquidObservation,
       };
       observation.optics = {
         off: opticalOff,
@@ -849,6 +878,36 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       .getByRole("combobox", { name: "Dock size", exact: true })
       .selectOption("compact");
     const beforeGlass = (await api("getDashboard")).glass;
+    await editor
+      .getByRole("combobox", { name: "Render quality", exact: true })
+      .selectOption("high");
+    for (const label of [
+      "Glass curvature",
+      "Specular intensity",
+      "Surface elasticity",
+    ]) {
+      const input = editor.getByRole("slider", { name: label, exact: true });
+      await input.focus();
+      await input.press("End");
+    }
+    const edgeLensing = editor.getByRole("slider", {
+      name: "Edge lensing",
+      exact: true,
+    });
+    await edgeLensing.focus();
+    await edgeLensing.press("Home");
+    const responsiveness = editor.getByRole("slider", {
+      name: "Motion responsiveness",
+      exact: true,
+    });
+    await responsiveness.focus();
+    await responsiveness.press("Home");
+    assert.deepEqual(
+      (await api("getDashboard")).glass,
+      beforeGlass,
+      "Engine controls preview without a profile write",
+    );
+
     const opacity = editor.getByRole("slider", {
       name: "Glass opacity",
       exact: true,
@@ -903,6 +962,21 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       .click();
     await expect(editor).toBeHidden();
     assert.equal((await api("getDashboard")).dock.size, "compact");
+    const savedEngine = (await api("getDashboard")).glass.liquid;
+    assert.deepEqual(savedEngine, {
+      quality: "high",
+      curvature: 1,
+      specular: 1,
+      elasticity: 1,
+      edgeLensing: 0,
+      responsiveness: 0.25,
+    });
+    // Run the actual widget resize / native DND gate with shader material active.
+    const layoutGlass = (await api("getDashboard")).glass;
+    await api("updateDashboard", {
+      glass: { ...layoutGlass, performance: "optical" },
+    });
+
     await ui
       .getByRole("button", { name: "Arrange widgets", exact: true })
       .click();
@@ -961,6 +1035,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
         return cell.x !== resized.x || cell.y !== resized.y;
       })
       .toBe(true);
+    await api("updateDashboard", { glass: layoutGlass });
     await assert.rejects(
       () =>
         api("getWeather", {
@@ -1657,8 +1732,13 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
     await launch();
     const restored = await api("bootstrap");
     assert.equal(restored.settings.themeId, "pastel-forest");
-    assert.equal(restored.dashboard.version, 3);
+    assert.equal(restored.dashboard.version, 4);
     assert.equal(restored.dashboard.glass.opacity, 0.66);
+    assert.deepEqual(
+      restored.dashboard.glass.liquid,
+      savedEngine,
+      "Applied engine settings must survive native restart",
+    );
     assert.equal(restored.dashboard.glass.blur, 8);
     assert.equal(
       restored.dashboard.widgets.find((widget) => widget.id === "notes").glass

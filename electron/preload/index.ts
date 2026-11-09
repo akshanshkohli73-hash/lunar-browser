@@ -22,6 +22,9 @@ function subscribe<T>(channel: string, callback: (value: T) => void) {
 // No arbitrary channel invocation or Electron/Node object crosses this bridge.
 const api: LunarAPI = {
   getAppInfo: () => invoke("browser:info"),
+  getWindowActivity: () => invoke("window:activity"),
+  onWindowActivity: (callback) =>
+    subscribe<boolean>("window:activity", callback),
   browserCommand: (command, target) =>
     invoke("browser:command", command, target),
   bootstrap: () => invoke("browser:bootstrap"),

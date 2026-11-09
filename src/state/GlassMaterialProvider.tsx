@@ -1,9 +1,11 @@
+import { LiquidEngine, type LiquidStatus } from "../liquid/LiquidEngine";
 import {
   createContext,
   useCallback,
   useContext,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -96,6 +98,12 @@ const defaultPreferences: MaterialPreferences = {
 };
 const Material = createContext({
   settings: DEFAULT_GLASS,
+  engine: null as LiquidEngine | null,
+  liquidStatus: {
+    supported: false,
+    active: false,
+    reason: "unmounted",
+  } as LiquidStatus,
   chromeBlur: 12,
   tone: "light" as "light" | "dark",
   appearance: {
@@ -166,6 +174,20 @@ export function GlassMaterialProvider({
   reducedMotion: boolean;
   chromeBlur?: number;
 }) {
+  const [engine] = useState(() => new LiquidEngine());
+  const [liquidStatus, setLiquidStatus] = useState<LiquidStatus>({
+    supported: false,
+    active: false,
+    reason: "initializing",
+  });
+  useLayoutEffect(() => {
+    engine.mount(document);
+    const unsubscribe = engine.subscribe(setLiquidStatus);
+    return () => {
+      unsubscribe();
+      engine.dispose();
+    };
+  }, [engine]);
   const preferences = useMaterialCapabilities();
   const foreground = useWorkspaceActivity();
   const prefix = `lunar-optic-${useId().replace(/[^a-z0-9_-]/giu, "")}`;
@@ -201,6 +223,28 @@ export function GlassMaterialProvider({
     return () => setOverlayCount((count) => Math.max(0, count - 1));
   }, []);
   const reduced = reducedMotion || settings.reducedMotion || preferences.motion;
+  useEffect(
+    () =>
+      engine.update({
+        settings,
+        reduced,
+        foreground,
+        transparency: preferences.transparency,
+        forcedColors: preferences.forcedColors,
+        finePointer: preferences.finePointer,
+        identity: key,
+      }),
+    [
+      engine,
+      settings,
+      reduced,
+      foreground,
+      preferences.transparency,
+      preferences.forcedColors,
+      preferences.finePointer,
+      key,
+    ],
+  );
   const lighting =
     foreground &&
     settings.enabled &&
@@ -254,13 +298,19 @@ export function GlassMaterialProvider({
   useEffect(
     () =>
       lighting
-        ? createGlassInteractions(document, settings.animationSpeed)
+        ? createGlassInteractions(document, settings.animationSpeed, {
+            clock: engine.clock,
+            move: engine.interaction.move,
+            reset: engine.interaction.reset,
+          })
         : undefined,
-    [lighting, settings.animationSpeed],
+    [lighting, settings.animationSpeed, engine],
   );
   const value = useMemo(
     () => ({
       settings,
+      engine,
+      liquidStatus,
       chromeBlur,
       tone,
       appearance,
@@ -274,6 +324,8 @@ export function GlassMaterialProvider({
     }),
     [
       settings,
+      engine,
+      liquidStatus,
       chromeBlur,
       tone,
       appearance,

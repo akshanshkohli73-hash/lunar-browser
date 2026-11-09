@@ -9,10 +9,12 @@ export function Modal({
   title,
   children,
   onClose,
+  morphId,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
+  morphId?: string;
 }) {
   const { settings, reduced, registerOverlay } = useGlassMaterial();
   const present = useIsPresent(),
@@ -92,6 +94,8 @@ export function Modal({
         exit={{ y: 5, scale: 0.995 }}
         transition={lunarSpring(settings.animationSpeed, reduced, true)}
         data-glass-owner="true"
+        data-liquid-morph={morphId ?? `modal-${title}`}
+        data-liquid-exiting={!present ? "true" : undefined}
         role="dialog"
         aria-modal="true"
         aria-label={title}

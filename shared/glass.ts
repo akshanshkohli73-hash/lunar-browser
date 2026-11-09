@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { liquidSchema, DEFAULT_LIQUID } from "./liquid";
 
 // Constrained material tokens, never arbitrary CSS/URLs from a saved profile.
 export const glassMaterialSchema = z
@@ -22,6 +23,7 @@ export const glassSchema = glassMaterialSchema
     animationSpeed: z.number().min(0.5).max(1.75),
     adaptive: z.boolean(),
     reducedMotion: z.boolean(),
+    liquid: liquidSchema,
   })
   .strict();
 export const widgetGlassSchema = glassMaterialSchema.partial().strict();
@@ -45,6 +47,7 @@ export const DEFAULT_GLASS: GlassSettings = {
   animationSpeed: 1,
   adaptive: true,
   reducedMotion: false,
+  liquid: DEFAULT_LIQUID,
 };
 export function glassTone(
   text: "theme" | "light" | "dark",

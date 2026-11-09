@@ -1,8 +1,19 @@
+import type { FrameClock } from "../../liquid/FrameClock";
 import { dockProximity, interpolate } from "../../../shared/motion";
 
 /** One delegated pointer stream and one settling RAF, shared by every surface and dock.
  * Writes CSS variables only; never changes React state, focus, bounds or pointer capture. */
-export function createGlassInteractions(root: Document, speed: number) {
+export function createGlassInteractions(
+  root: Document,
+  speed: number,
+  hooks?: {
+    clock: Pick<FrameClock, "requestFrame" | "cancelFrame">;
+    move: (event: PointerEvent) => void;
+    reset: () => void;
+  },
+) {
+  const request = hooks?.clock.requestFrame ?? requestAnimationFrame;
+  const cancel = hooks?.clock.cancelFrame ?? cancelAnimationFrame;
   let frame = 0,
     previousTime = 0,
     alive = true;
@@ -64,9 +75,10 @@ export function createGlassInteractions(root: Document, speed: number) {
     else previousTime = 0;
   };
   const schedule = () => {
-    if (!frame && alive) frame = requestAnimationFrame(tick);
+    if (!frame && alive) frame = request(tick);
   };
   const reset = () => {
+    hooks?.reset();
     clearSurface(retiring);
     retiring = surface;
     retiringLight = light;
@@ -75,6 +87,7 @@ export function createGlassInteractions(root: Document, speed: number) {
     schedule();
   };
   const move = (event: PointerEvent) => {
+    hooks?.move(event);
     if (event.pointerType && !["mouse", "pen"].includes(event.pointerType)) {
       reset();
       return;
@@ -158,7 +171,7 @@ export function createGlassInteractions(root: Document, speed: number) {
         dockValues.delete(node);
       }
     if (!surface && !retiring && !dockValues.size && frame) {
-      cancelAnimationFrame(frame);
+      cancel(frame);
       frame = 0;
       previousTime = 0;
     }
@@ -172,7 +185,7 @@ export function createGlassInteractions(root: Document, speed: number) {
   return () => {
     alive = false;
     detach.disconnect();
-    if (frame) cancelAnimationFrame(frame);
+    if (frame) cancel(frame);
     clearSurface(surface);
     clearSurface(retiring);
     for (const node of dockValues.keys())

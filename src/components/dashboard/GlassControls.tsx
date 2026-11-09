@@ -42,9 +42,16 @@ export function GlassMaterialControls({
   optical?: boolean;
   prefix?: string;
 }) {
-  const { preferences, reduced } = useGlassMaterial();
+  const { preferences, reduced, liquidStatus, settings } = useGlassMaterial();
   const solid = preferences.transparency || preferences.forcedColors;
-  const noOptics = !optical || !preferences.svg || reduced || solid;
+  const noOptics =
+    !optical ||
+    !(
+      preferences.svg ||
+      (liquidStatus.supported && settings.liquid.quality !== "performance")
+    ) ||
+    reduced ||
+    solid;
   return (
     <div className="glass-control-grid">
       {sliders.map(([key, label, min, max, step]) => (
@@ -62,7 +69,7 @@ export function GlassMaterialControls({
                 key,
               )) ||
             (solid && key === "opacity") ||
-            (!preferences.blur && key === "blur") ||
+            (!preferences.blur && !liquidStatus.active && key === "blur") ||
             (noOptics && key === "refraction")
           }
           onChange={(amount) => onChange({ [key]: amount })}

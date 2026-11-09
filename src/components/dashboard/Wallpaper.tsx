@@ -72,6 +72,20 @@ export function Wallpaper({
   const material = useGlassMaterial();
   const motionPaused = reduceMotion || material.reduced || !!preferred;
   const video = useRef<HTMLVideoElement>(null);
+  const image = useRef<HTMLImageElement>(null);
+  const [ownsVideo, setOwnsVideo] = useState(!preview);
+  useLayoutEffect(() => {
+    if (!preview || value.kind !== "video") {
+      setOwnsVideo(!preview);
+      return;
+    }
+    const update = () =>
+      setOwnsVideo(!document.querySelector(".new-tab-dashboard video"));
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [preview, value.kind, value.mediaId]);
   const [foreground, setForeground] = useState(() => !document.hidden);
   const [error, setError] = useState(""),
     [muted, setMuted] = useState(true),
@@ -127,7 +141,7 @@ export function Wallpaper({
     setError("");
     setMuted(true);
     setPaused(motionPaused);
-  }, [value.mediaId, motionPaused]);
+  }, [value.mediaId, motionPaused, ownsVideo]);
   useEffect(() => {
     const node = video.current;
     if (!node) return;
@@ -143,7 +157,7 @@ export function Wallpaper({
     return () => {
       live = false;
     };
-  }, [playing, value.mediaId, value.kind]);
+  }, [playing, value.mediaId, value.kind, ownsVideo]);
   // Only a source change/unmount owns cleanup. Do not pause a synchronous user-
   // initiated Play again during the previous playback effect's cleanup.
   useEffect(() => {
@@ -151,13 +165,13 @@ export function Wallpaper({
     return () => {
       node?.pause();
     };
-  }, [value.mediaId, value.kind]);
+  }, [value.mediaId, value.kind, ownsVideo]);
   useEffect(() => {
     if (!value.audioControls && video.current) {
       video.current.muted = true;
       setMuted(true);
     }
-  }, [value.audioControls]);
+  }, [value.audioControls, ownsVideo]);
   const style = {
     objectFit: value.fit,
     objectPosition: value.position,
@@ -167,6 +181,31 @@ export function Wallpaper({
     value.kind === "builtin"
       ? WALLPAPERS[value.builtin].url
       : `lunar-media://wallpaper/${value.mediaId}`;
+  useEffect(() => {
+    const node = value.kind === "video" ? video.current : image.current;
+    if (!node || !material.engine) return;
+    return material.engine.registerBackground(node, {
+      identity: source,
+      active: active && foreground,
+      priority: preview ? 1 : 10,
+      fit: value.fit,
+      position: value.position,
+      blur: value.blur,
+      shade: value.overlay,
+    });
+  }, [
+    material.engine,
+    source,
+    value.kind,
+    value.fit,
+    value.position,
+    value.blur,
+    value.overlay,
+    active,
+    foreground,
+    ownsVideo,
+    preview,
+  ]);
   const previous = useRef({ source, kind: value.kind, style });
   const [outgoing, setOutgoing] = useState<{
     source: string;
@@ -210,10 +249,22 @@ export function Wallpaper({
         style={{ "--wallpaper-fade-ms": `${fadeMs}ms` } as CSSProperties}
         aria-hidden="true"
       >
-        {value.kind === "video" ? (
+        {value.kind === "video" && preview && !ownsVideo ? (
+          <div
+            className="liquid-video-preview"
+            data-liquid-view="video"
+            aria-label="Shared live video wallpaper preview"
+          >
+            <p className="liquid-video-fallback">
+              Video preview shares the desktop player. Live optical preview
+              requires an available Liquid Engine.
+            </p>
+          </div>
+        ) : value.kind === "video" ? (
           <video
             key={source}
             ref={video}
+            crossOrigin="anonymous"
             src={source}
             style={style}
             loop={value.loop}
@@ -227,6 +278,8 @@ export function Wallpaper({
         ) : (
           <img
             key={source}
+            ref={image}
+            crossOrigin="anonymous"
             src={source}
             alt=""
             style={style}
@@ -256,7 +309,7 @@ export function Wallpaper({
           This wallpaper could not load or play. {error}
         </p>
       )}
-      {value.kind === "video" && (
+      {value.kind === "video" && (!preview || ownsVideo) && (
         <div className="wallpaper-playback">
           <button
             disabled={!active || !foreground}

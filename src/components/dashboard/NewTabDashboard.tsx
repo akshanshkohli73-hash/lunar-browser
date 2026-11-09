@@ -83,7 +83,7 @@ export default function NewTabDashboard({
     >
       <Wallpaper
         value={current.wallpaper}
-        active={active && !customizing}
+        active={active}
         reduceMotion={reducedMotion || !!reduced}
       />
       <div className="dashboard-body">
@@ -95,6 +95,7 @@ export default function NewTabDashboard({
           <div>
             <button
               disabled={!ready || arranging}
+              data-liquid-trigger="modal-Customize dashboard"
               onClick={() => setCustomizing(true)}
             >
               <Icon name="palette" size={15} />

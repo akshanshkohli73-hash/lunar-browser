@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useState, type ComponentType } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentType,
+} from "react";
 import { CoquetteFrame } from "./CoquetteDesktopPortfolio";
 import { DesktopMenuBar, type MenuName } from "./DesktopMenuBar";
 import { CONTROL_PANELS } from "../state/control-center";
@@ -31,11 +37,24 @@ export default function LunarDesktop({
     report,
     presentationDashboard,
   } = useBrowser();
-  const { reduced, settings: materialSettings } = useGlassMaterial();
+  const { reduced, settings: materialSettings, engine } = useGlassMaterial();
+  const desktopImage = useRef<HTMLImageElement>(null);
   const [desktop, setDesktop] = useState(false),
     [menu, setMenu] = useState<MenuName | null>(null),
     [launcher, setLauncher] = useState(false),
     [query, setQuery] = useState("");
+  useEffect(() => {
+    if (!desktop || !desktopImage.current || !engine) return;
+    return engine.registerBackground(desktopImage.current, {
+      identity: `desktop-${theme.category}`,
+      active: desktop,
+      priority: 50,
+      fit: "cover",
+      position: "center",
+      blur: 0,
+      shade: 0,
+    });
+  }, [desktop, engine, theme.category]);
   const now = useMinuteClock(true);
   const materialActive = useWorkspaceActivity();
   const activate = useCallback(() => {
@@ -101,6 +120,8 @@ export default function LunarDesktop({
         >
           <img
             className="lunar-desktop-art"
+            ref={desktopImage}
+            crossOrigin="anonymous"
             src={
               theme.category === "dark" || theme.category === "cyber"
                 ? WALLPAPERS.midnight.url
@@ -154,6 +175,7 @@ export default function LunarDesktop({
             key={item.id}
             className={`cdp-dock-btn lunar-dock-button${!desktop && page === item.page ? " is-active" : ""}`}
             aria-label={item.label}
+            data-liquid-trigger={`panel-${item.page}`}
             aria-pressed={!desktop && page === item.page}
             title={item.description}
             disabled={!ready}

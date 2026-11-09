@@ -86,7 +86,7 @@ export const WidgetCell = memo(function WidgetCell({
         material={material}
         override={widget.glass}
         tone={tone}
-        active={active && present && !dragging && !resizing}
+        active={active && present}
         level={definition.material}
         variant={
           (["clock", "search", "notes", "calendar", "weather"] as const).find(

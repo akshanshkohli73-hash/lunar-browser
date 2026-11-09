@@ -90,7 +90,7 @@ describe("validated, persistent glass materials", () => {
       const store = new StorageService(dir),
         loaded = store.getDashboard();
       expect(loaded).toMatchObject({
-        version: 3,
+        version: 4,
         glass: { ...DEFAULT_GLASS, opacity: 0.83, performance: "balanced" },
         note: raw.note,
         events: raw.events,

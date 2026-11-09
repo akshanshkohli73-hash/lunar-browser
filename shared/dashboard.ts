@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DEFAULT_LIQUID } from "./liquid";
 import {
   DEFAULT_GLASS,
   glassSchema,
@@ -150,7 +151,7 @@ export function overlaps(
 }
 export const dashboardSchema = z
   .object({
-    version: z.literal(3),
+    version: z.literal(4),
     wallpaper: wallpaperSchema,
     widgets: z.array(widgetSchema).max(20),
     alignment: z.enum(["center", "wide"]),
@@ -404,7 +405,7 @@ const initial = [
   { ...createWidget("calendar", "calendar"), x: 8, y: 3 },
 ];
 export const DEFAULT_DASHBOARD: DashboardSettings = dashboardSchema.parse({
-  version: 3,
+  version: 4,
   wallpaper: {
     kind: "builtin",
     builtin: "meadow",
@@ -427,12 +428,12 @@ export const DEFAULT_DASHBOARD: DashboardSettings = dashboardSchema.parse({
   events: [],
 });
 
-/** Explicit v1/v2 -> v3 migration. Never insert defaults into a partial save patch.
+/** Explicit v1/v2/v3 -> v4 migration. Never insert defaults into a partial save patch.
  * Existing tokens, sparse overrides, note/events/layout/media and quality survive unchanged. */
 export function migrateDashboard(input: unknown): unknown {
   if (!input || typeof input !== "object" || Array.isArray(input)) return input;
   const old = input as Record<string, unknown>;
-  if (old.version !== 1 && old.version !== 2) return input;
+  if (![1, 2, 3].includes(old.version as number)) return input;
   const opacity =
     typeof old.widgetOpacity === "number" &&
     old.widgetOpacity >= 0.6 &&
@@ -447,6 +448,16 @@ export function migrateDashboard(input: unknown): unknown {
     animationSpeed: DEFAULT_GLASS.animationSpeed,
     adaptive: DEFAULT_GLASS.adaptive,
     reducedMotion: DEFAULT_GLASS.reducedMotion,
+    liquid: {
+      ...DEFAULT_LIQUID,
+      quality:
+        old.glass &&
+        typeof old.glass === "object" &&
+        "performance" in old.glass &&
+        old.glass.performance === "optical"
+          ? "balanced"
+          : "performance",
+    },
   };
   const glass =
     old.version === 1 && old.glass === undefined
@@ -454,5 +465,5 @@ export function migrateDashboard(input: unknown): unknown {
       : old.glass && typeof old.glass === "object" && !Array.isArray(old.glass)
         ? { ...additions, ...old.glass }
         : old.glass;
-  return { ...old, version: 3, glass };
+  return { ...old, version: 4, glass };
 }

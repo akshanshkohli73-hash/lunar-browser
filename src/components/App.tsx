@@ -374,6 +374,7 @@ export default function App({
           <button
             className="icon-button"
             aria-label="Lunar Shield"
+            data-liquid-trigger="modal-Lunar Shield"
             title={
               shieldPaused
                 ? "Lunar Shield is paused for this site"

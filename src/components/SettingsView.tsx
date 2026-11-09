@@ -1,3 +1,4 @@
+import { GlassBacking as LiquidHeadingBacking } from "./ui/GlassControls";
 import { GlassFieldset } from "./ui/GlassControls";
 import { useEffect, useState } from "react";
 import { useBrowser } from "../state/BrowserContext";
@@ -102,7 +103,12 @@ export default function SettingsView() {
         ))}
       </nav>
       <section className="settings-content internal-page">
-        <header className="page-heading">
+        <header
+          className="page-heading liquid-page-heading"
+          data-glass-owner="true"
+          data-liquid-morph="panel-settings"
+        >
+          <LiquidHeadingBacking level="light" />
           <div>
             <span className="eyebrow">Lunar, your way</span>
             <h1>{sections.find((item) => item.id === section)?.title}</h1>

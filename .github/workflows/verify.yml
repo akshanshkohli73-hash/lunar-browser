@@ -23,6 +23,9 @@ jobs:
       - run: npm audit --omit=dev
       - run: npx playwright install --with-deps chromium
       - run: npm run test:ui
+        env:
+          # Test-only software adapter; the shipped application never forces GPU flags.
+          UI_TEST_CHROMIUM_ARGS: '["--use-gl=angle","--use-angle=swiftshader","--enable-unsafe-swiftshader"]'
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:

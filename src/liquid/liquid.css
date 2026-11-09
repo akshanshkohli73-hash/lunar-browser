@@ -1,0 +1,101 @@
+/* One hidden atlas. Its pixels are GPU-composited into the existing DOM material layers. */
+.liquid-atlas {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  left: -10000px;
+  top: -10000px;
+  pointer-events: none;
+  opacity: 0;
+}
+.liquid-surface-canvas {
+  position: absolute !important;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: inherit;
+  pointer-events: none !important;
+  z-index: -1;
+}
+.liquid-surface-canvas[hidden] {
+  display: none !important;
+}
+.glass-surface[data-liquid-backend="webgl2"] {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: transparent !important;
+  box-shadow:
+    0 var(--glass-elevation) 32px var(--glass-spread)
+      color-mix(
+        in srgb,
+        var(--glass-depth) calc(var(--glass-shadow) * 38%),
+        transparent
+      ),
+    0 3px 8px -4px #173c2d16;
+}
+.glass-surface[data-liquid-backend="webgl2"]::before,
+.glass-surface[data-liquid-backend="webgl2"]::after {
+  display: none;
+}
+html[data-glass-hover-motion]
+  .dashboard-widget
+  > .glass-surface[data-liquid-backend="webgl2"],
+.glass-surface[data-liquid-backend="webgl2"] button:active {
+  transform: none !important;
+}
+.liquid-morph-proxy {
+  position: fixed;
+  z-index: 10000;
+  pointer-events: none;
+  margin: 0;
+}
+[data-liquid-morphing="true"] > :not(.glass-backing) {
+  opacity: var(--liquid-content-opacity, 1);
+}
+.liquid-video-preview {
+  position: absolute;
+  inset: 0;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: inherit;
+  background: #becfba;
+}
+.liquid-video-fallback {
+  margin: 0;
+  padding: 16px;
+  max-width: 35ch;
+  font-size: 12px;
+  color: #203b2a;
+}
+.liquid-video-preview[data-liquid-backend="webgl2"] .liquid-video-fallback {
+  display: none;
+}
+.liquid-engine-controls {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--lunar-border) 55%, transparent);
+}
+.liquid-engine-status {
+  font-size: 12px;
+  line-height: 1.6;
+}
+.liquid-telemetry {
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  line-height: 1.65;
+}
+@media (prefers-reduced-motion: reduce),
+  (prefers-reduced-transparency: reduce),
+  (forced-colors: active) {
+  .liquid-morph-proxy,
+  .liquid-surface-canvas {
+    display: none !important;
+  }
+}
+.liquid-page-heading {
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--organic-radius-panel);
+  padding: 16px 20px;
+}

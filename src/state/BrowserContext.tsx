@@ -60,6 +60,9 @@ export function BrowserProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(!api),
     [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [dashboard, setDashboard] = useState(DEFAULT_DASHBOARD);
+  const [nativeWindowActive, setNativeWindowActive] = useState<boolean | null>(
+    null,
+  );
   const [preview, setPreview] = useState<{
     owner: string;
     theme: ThemeTokens;
@@ -181,6 +184,20 @@ export function BrowserProvider({ children }: { children: React.ReactNode }) {
         setBookmarks(state.bookmarks);
         setShield(state.shield);
         state.warnings.forEach(report);
+        if (typeof state.windowActive === "boolean") {
+          setNativeWindowActive(state.windowActive);
+          unsubscribers.push(
+            api.onWindowActivity((active) => {
+              if (live) setNativeWindowActive(active);
+            }),
+          );
+          void api
+            .getWindowActivity()
+            .then((active) => {
+              if (live) setNativeWindowActive(active);
+            })
+            .catch(report);
+        }
         setReady(true);
       })
       .catch(report);
@@ -279,7 +296,10 @@ export function BrowserProvider({ children }: { children: React.ReactNode }) {
   );
   return (
     <BrowserContext.Provider value={value}>
-      <WorkspaceActivity active>
+      <WorkspaceActivity
+        active
+        nativeForeground={nativeWindowActive ?? undefined}
+      >
         <GlassMaterialProvider
           settings={presentationDashboard.glass}
           wallpaper={presentationDashboard.wallpaper}

@@ -27,6 +27,7 @@ export const GlassMenu = forwardRef<
           ref.current = element;
       }}
       data-glass-owner="true"
+      data-liquid-exiting={!present ? "true" : undefined}
       aria-hidden={!present || undefined}
       initial={reduced ? false : { opacity: 0, y: -4, scale: 0.99 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}

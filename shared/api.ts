@@ -131,6 +131,7 @@ export const requestSchemas = {
     z.boolean(),
   ]),
   "permissions:reset": none,
+  "window:activity": none,
   "window:minimize": none,
   "window:maximize": none,
   "window:close": none,
@@ -190,6 +191,7 @@ export interface Outputs {
   "permissions:resetSite": void;
   "permissions:denySite": void;
   "permissions:reset": void;
+  "window:activity": boolean;
   "window:minimize": void;
   "window:maximize": void;
   "window:close": void;
@@ -273,6 +275,8 @@ export interface LunarAPI {
     deny: boolean,
   ): Promise<void>;
   resetPermissions(): Promise<void>;
+  getWindowActivity(): Promise<boolean>;
+  onWindowActivity(callback: (active: boolean) => void): () => void;
   minimize(): Promise<void>;
   maximize(): Promise<void>;
   close(): Promise<void>;

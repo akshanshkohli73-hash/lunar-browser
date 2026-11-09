@@ -100,8 +100,12 @@ describe("Organic Glass strict preferences and non-destructive migration", () =>
         );
         const storage = new StorageService(directory);
         const migrated = storage.getDashboard();
-        expect(migrated.version).toBe(3);
-        expect(migrated.glass).toEqual({ ...DEFAULT_GLASS, ...glass });
+        expect(migrated.version).toBe(4);
+        expect(migrated.glass).toEqual({
+          ...DEFAULT_GLASS,
+          ...glass,
+          liquid: { ...DEFAULT_GLASS.liquid, quality: "performance" },
+        });
         expect(migrated.widgets).toEqual(old.widgets);
         expect(migrated.wallpaper).toEqual(old.wallpaper);
         expect(migrated.dock).toEqual(old.dock);

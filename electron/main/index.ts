@@ -52,6 +52,7 @@ protocol.registerSchemesAsPrivileged([
       secure: true,
       stream: true,
       supportFetchAPI: true,
+      corsEnabled: true,
     },
   },
 ]);
@@ -150,6 +151,7 @@ handle("browser:bootstrap", (ctx) => ({
   shield: ctx.shield.getState(),
   warnings: ctx.storage.warnings,
   dashboard: ctx.storage.getDashboard(),
+  windowActive: ctx.window.isFocused() && !ctx.window.isMinimized(),
 }));
 handle("browser:info", () => ({
   version: app.getVersion(),
@@ -304,6 +306,13 @@ handle("privacy:clearSiteData", async (ctx) => {
   ctx.permissions.reset();
   ctx.shield.clearSiteDiagnostics();
 });
+handle(
+  "window:activity",
+  (ctx) =>
+    ctx.window.isFocused() &&
+    !ctx.window.isMinimized() &&
+    ctx.window.isVisible(),
+);
 handle("window:minimize", (ctx) => ctx.window.minimize());
 handle("window:maximize", (ctx) => {
   if (ctx.window.isMaximized()) ctx.window.unmaximize();
@@ -389,7 +398,7 @@ async function createWindow() {
   const vault = new AIVault(profile());
   const migrationWarnings = migrateLegacyCredentials(profile(), vault);
   const storage = new StorageService(profile());
-  const wallpapers = new WallpaperStore(profile());
+  const wallpapers = new WallpaperStore(profile(), new URL(entryUrl).origin);
   await registerWallpaperProtocol(uiSession.protocol, wallpapers);
   storage.warnings.push(...migrationWarnings);
   let sessionTimer: ReturnType<typeof setTimeout> | undefined,
@@ -529,6 +538,19 @@ async function createWindow() {
   window.webContents.on("zoom-changed", () =>
     window.webContents.setZoomFactor(1),
   );
+  const reportActivity = () => {
+    if (!window.isDestroyed())
+      sendOwned(
+        "window:activity",
+        window.isFocused() && !window.isMinimized() && window.isVisible(),
+      );
+  };
+  window.on("focus", reportActivity);
+  window.on("blur", reportActivity);
+  window.on("minimize", reportActivity);
+  window.on("restore", reportActivity);
+  window.on("show", reportActivity);
+  window.on("hide", reportActivity);
   window.once("ready-to-show", () => window.show());
   window.on("close", () => {
     if (sessionTimer) clearTimeout(sessionTimer);

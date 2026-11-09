@@ -92,6 +92,8 @@ export interface AIStatus {
   enabled: boolean;
 }
 export interface BrowserBootstrap {
+  /** UI shell only; website contents never receive this bridge. */
+  windowActive?: boolean;
   tabs: TabsSnapshot;
   settings: import("../shared/schemas").BrowserSettings;
   bookmarks: import("../shared/schemas").Bookmark[];

@@ -1,3 +1,4 @@
+import { checkLiquidEngine } from "./liquid-engine-checks.mjs";
 import assert from "node:assert/strict";
 import {
   checkOrganicMaterial,
@@ -23,6 +24,15 @@ try {
   browser = await chromium.launch(options);
   const page = await browser.newPage({
     viewport: { width: 1280, height: 840 },
+  });
+  // This existing suite retains strict CSS/SVG fallback coverage. The separate
+  // Liquid Engine suite below requires an actual WebGL2 renderer and pixels.
+  await page.addInitScript(() => {
+    const original = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (kind, ...args) {
+      if (kind === "webgl2") return null;
+      return original.call(this, kind, ...args);
+    };
   });
   const failures = [];
   page.on("pageerror", (error) => failures.push(error.message));
@@ -609,6 +619,11 @@ try {
     browser,
     server.resolvedUrls.local[0],
     ".artifacts/ui/organic",
+  );
+  await checkLiquidEngine(
+    browser,
+    server.resolvedUrls.local[0],
+    ".artifacts/ui/liquid",
   );
   console.log(
     "PASS: Organic SVG painted-pixel / deterministic repeated capture, unsupported-SVG/no-WebGL CSS fallback, real added Studio tokens, shared pointer proximity with same hovered hit box and stable neighboring responses; Chromium renderer preview — single workspace, real layout/hit targets, all nine Lunar shortcuts and launcher routes, eight keyboard menus, dock restore, Theme Studio, wallpaper/widget/dock preview/cancel, real glass controls / modes, bright/dark draft previews, forced-color fallback, twenty actually visible static materials, three shared depths, fixed-wallpaper scrolling, independently scrolling customization with fixed actions at four sizes and real animated entry, animated-menu keyboard replacement, dock pointer/keyboard/motion settings and responsive stacking; no console errors.",

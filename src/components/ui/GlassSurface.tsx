@@ -85,6 +85,7 @@ export function useGlassSurface({
         "--glass-shadow": tokens.shadow,
         "--glass-refraction-filter": filter,
         "--glass-refraction": optical ? tokens.refraction : 0,
+        "--glass-refraction-strength": tokens.refraction,
         "--glass-paper": colors.paper,
         "--glass-ink": colors.ink,
         "--glass-muted": colors.muted,
@@ -113,6 +114,12 @@ export function useGlassSurface({
       mode === "glass" && active && available && !context.reduced,
     ),
     "data-glass-environment": context.appearance.source,
+    "data-glass-scope": scope,
+    "data-glass-fallback": optical
+      ? "svg-backdrop"
+      : mode === "glass" && context.preferences.blur
+        ? "css-backdrop"
+        : "fallback",
     "data-glass-backend": optical
       ? "svg-backdrop"
       : mode === "glass" && context.preferences.blur

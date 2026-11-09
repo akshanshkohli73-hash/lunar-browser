@@ -1,3 +1,4 @@
+import { GlassBacking as LiquidHeadingBacking } from "./ui/GlassControls";
 import { GlassSectionMotion, GlassPanel } from "./ui/GlassControls";
 import { useEffect, useRef, useState, useId, lazy, Suspense } from "react";
 import { BUILTIN_THEMES } from "../styles/themes";
@@ -61,7 +62,12 @@ export default function ThemeStudioView() {
   ] as const;
   return (
     <section className="internal-page theme-studio">
-      <header className="page-heading">
+      <header
+        className="page-heading liquid-page-heading"
+        data-glass-owner="true"
+        data-liquid-morph="panel-themestudio"
+      >
+        <LiquidHeadingBacking level="light" />
         <div>
           <span className="eyebrow">Make yourself at home</span>
           <h1>Theme Studio</h1>

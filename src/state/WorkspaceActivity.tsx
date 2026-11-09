@@ -10,9 +10,11 @@ const Activity = createContext<boolean | null>(null);
 export function WorkspaceActivity({
   active,
   children,
+  nativeForeground,
 }: {
   active: boolean;
   children: ReactNode;
+  nativeForeground?: boolean;
 }) {
   const parent = useContext(Activity);
   const topLevel = parent === null;
@@ -31,7 +33,15 @@ export function WorkspaceActivity({
     };
   }, [topLevel]);
   return (
-    <Activity.Provider value={active && (parent ?? foreground)}>
+    <Activity.Provider
+      value={
+        active &&
+        (parent ??
+          (nativeForeground === undefined
+            ? foreground
+            : nativeForeground && !document.hidden))
+      }
+    >
       {children}
     </Activity.Provider>
   );

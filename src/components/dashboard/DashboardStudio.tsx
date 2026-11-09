@@ -1,3 +1,4 @@
+import { LiquidControls } from "./LiquidControls";
 import { DEFAULT_GLASS, GLASS_LEVELS } from "../../../shared/glass";
 import { GlassSlider } from "../ui/GlassControls";
 import { GlassSurface } from "../ui/GlassSurface";
@@ -774,11 +775,30 @@ export default function DashboardStudio({
                 })
               }
             >
-              <option value="optical">Optical · controlled SVG lens</option>
+              <option value="optical">
+                Optical · Liquid Engine / SVG fallback
+              </option>
               <option value="balanced">Balanced · softly blurred glass</option>
               <option value="simple">Simple · low power / no blur</option>
             </select>
           </label>
+          <LiquidControls
+            value={draft.glass.liquid}
+            disabled={!draft.glass.enabled}
+            onChange={(patch) =>
+              change({
+                ...draft,
+                glass: {
+                  ...draft.glass,
+                  performance:
+                    patch.quality && patch.quality !== "performance"
+                      ? "optical"
+                      : draft.glass.performance,
+                  liquid: { ...draft.glass.liquid, ...patch },
+                },
+              })
+            }
+          />
           <GlassMaterialControls
             value={draft.glass}
             disabled={!draft.glass.enabled}

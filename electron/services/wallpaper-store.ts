@@ -66,7 +66,10 @@ export class WallpaperStore {
   private readonly root: string;
   private importing: Promise<void> = Promise.resolve();
   private activeCopies = new Set<string>();
-  constructor(profile: string) {
+  constructor(
+    profile: string,
+    private readonly shellOrigin?: string,
+  ) {
     this.root = path.join(profile, "wallpapers");
   }
   private assertRoot() {
@@ -236,6 +239,11 @@ export class WallpaperStore {
         !["GET", "HEAD"].includes(request.method)
       )
         return new Response(null, { status: 403 });
+      // Origin-clean texture access is UI-session-only, exact-origin and anonymous.
+      // The website partition never installs this handler. No wildcard / credentials.
+      const origin = request.headers.get("Origin");
+      if (origin && origin !== this.shellOrigin)
+        return new Response(null, { status: 403 });
       const id = url.pathname.slice(1),
         { file, stat } = this.file(id);
       const range = byteRange(request.headers.get("range"), stat.size);
@@ -253,6 +261,12 @@ export class WallpaperStore {
           "Cache-Control": "private, no-store",
           "Content-Security-Policy": "default-src 'none'",
         };
+      if (origin && origin === this.shellOrigin) {
+        headers["Access-Control-Allow-Origin"] = origin;
+        headers["Vary"] = "Origin";
+        headers["Access-Control-Expose-Headers"] =
+          "Content-Length, Content-Range, Accept-Ranges";
+      }
       if (partial)
         headers["Content-Range"] =
           `bytes ${range.start}-${range.end}/${stat.size}`;

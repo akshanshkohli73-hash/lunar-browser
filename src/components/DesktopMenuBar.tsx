@@ -373,6 +373,7 @@ export function DesktopMenuBar({
           <button
             key={name}
             data-top-menu={name}
+            data-liquid-trigger={`menu-${name}`}
             role="menuitem"
             aria-haspopup="menu"
             aria-expanded={open === name}
@@ -429,6 +430,7 @@ export function DesktopMenuBar({
         {open && (
           <GlassMenu
             key={open}
+            data-liquid-morph={`menu-${open}`}
             ref={menu}
             role="menu"
             aria-label={`${open} menu`}
