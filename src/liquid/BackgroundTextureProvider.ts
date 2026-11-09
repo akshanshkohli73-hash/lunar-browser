@@ -90,6 +90,7 @@ export class BackgroundTextureProvider {
           (Number(a[1].options.active) * 100 + a[1].options.priority),
       );
     for (const [node, { options }] of candidates) {
+      if (node instanceof HTMLImageElement && !node.complete) continue;
       const width =
         node instanceof HTMLVideoElement ? node.videoWidth : node.naturalWidth;
       const height =

@@ -279,6 +279,7 @@ export function Wallpaper({
           <img
             key={source}
             ref={image}
+            draggable={false}
             crossOrigin="anonymous"
             src={source}
             alt=""
@@ -294,6 +295,7 @@ export function Wallpaper({
         {outgoing && (
           <img
             className="wallpaper-outgoing"
+            draggable={false}
             src={outgoing.source}
             style={outgoing.style}
             alt=""

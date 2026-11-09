@@ -121,6 +121,7 @@ export default function LunarDesktop({
           <img
             className="lunar-desktop-art"
             ref={desktopImage}
+            draggable={false}
             crossOrigin="anonymous"
             src={
               theme.category === "dark" || theme.category === "cyber"

@@ -202,17 +202,21 @@ export async function checkLiquidEngine(browser, url, evidence) {
     await editor
       .getByRole("checkbox", { name: "Hover motion", exact: true })
       .check();
+    const lightingSurface = editor.locator(":scope > .glass-backing");
     await page.mouse.move(1, 1);
-    const lightStill = await stableLiquidPixels(sample);
-    const lightBox = await sample.boundingBox();
-    await page.mouse.move(
-      lightBox.x + lightBox.width * 0.9,
-      lightBox.y + lightBox.height * 0.2,
-    );
+    const lightStill = await stableLiquidPixels(lightingSurface);
+    const lightBox = await editor.boundingBox();
+    await page.mouse.move(lightBox.x + lightBox.width * 0.8, lightBox.y + 30);
     await expect
-      .poll(async () => Math.abs((await liquidPixels(sample)).deformation[0]))
+      .poll(
+        async () =>
+          Math.hypot(
+            ...(await liquidPixels(lightingSurface)).deformation.slice(0, 2),
+          ),
+        { timeout: 15000 },
+      )
       .toBeGreaterThan(0.05);
-    const lightMoved = await stableLiquidPixels(sample);
+    const lightMoved = await stableLiquidPixels(lightingSurface);
     assert.notEqual(
       lightStill.hash,
       lightMoved.hash,
@@ -227,11 +231,7 @@ export async function checkLiquidEngine(browser, url, evidence) {
     // containing panel material; its logical controls/hit rectangle stay put.
     const interactionSurface = editor.locator(":scope > .glass-backing");
     const box = await editor.boundingBox();
-    const sampleBox = await sample.boundingBox();
-    await page.mouse.move(
-      sampleBox.x + sampleBox.width * 0.8,
-      sampleBox.y + sampleBox.height * 0.55,
-    );
+    await page.mouse.move(box.x + box.width * 0.55, box.y + 26);
     await page.mouse.down();
     await expect
       .poll(
@@ -425,6 +425,28 @@ export async function checkLiquidEngine(browser, url, evidence) {
       [],
       "No renderer errors in actual Liquid Engine checks",
     );
+  } catch (error) {
+    const diagnostic = await page.evaluate(() => ({
+      reason: document.documentElement.dataset.liquidReason,
+      metrics: document.querySelector("canvas[data-liquid-renderer]")?.dataset
+        .metrics,
+      input: document.querySelector("canvas[data-liquid-renderer]")?.dataset
+        .input,
+      surfaces: [...document.querySelectorAll("[data-liquid-backend]")].map(
+        (node) => ({
+          class: node.className,
+          backend: node.dataset.liquidBackend,
+          rect: node.getBoundingClientRect().toJSON(),
+          deformation: node.querySelector("canvas[data-liquid-output]")?.dataset
+            .deformation,
+        }),
+      ),
+    }));
+    fs.writeFileSync(
+      `${evidence}-failure.json`,
+      JSON.stringify(diagnostic, null, 2),
+    );
+    throw error;
   } finally {
     await page.close();
   }
@@ -457,7 +479,17 @@ export async function checkNativeLiquidVideo(
     },
   };
   try {
+    const prior = await liquidMetrics(ui);
     await api("updateDashboard", { glass: probe });
+    await expect
+      .poll(
+        async () => {
+          const metrics = await liquidMetrics(ui);
+          return metrics?.quality === "balanced" && metrics.draws > prior.draws;
+        },
+        { timeout: 20000 },
+      )
+      .toBe(true);
     await expect(material).toHaveAttribute("data-liquid-backend", "webgl2", {
       timeout: 20000,
     });
@@ -465,13 +497,21 @@ export async function checkNativeLiquidVideo(
       node.muted = true;
       await node.play();
     });
-    const first = await liquidMetrics(ui),
+    let first = await liquidMetrics(ui),
       firstPixels = await liquidPixels(material);
     await expect
       .poll(
         async () => {
           const metrics = await liquidMetrics(ui),
             pixels = await liquidPixels(material);
+          if (
+            pixels.width !== firstPixels.width ||
+            pixels.height !== firstPixels.height
+          ) {
+            first = metrics;
+            firstPixels = pixels;
+            return false;
+          }
           return (
             metrics.source === "video" &&
             metrics.textureUploads > first.textureUploads &&
@@ -497,6 +537,12 @@ export async function checkNativeLiquidVideo(
           node.currentTime = 0.62;
         }),
     );
+    await expect
+      .poll(
+        async () => Math.abs((await liquidMetrics(ui)).sourceMediaTime - 0.62),
+        { timeout: 20000 },
+      )
+      .toBeLessThan(0.02);
     await stableLiquidPixels(material);
     const paused = await liquidMetrics(ui);
     const off = await capture();

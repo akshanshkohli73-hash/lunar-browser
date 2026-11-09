@@ -86,6 +86,9 @@ export class LiquidEngine {
   private draws = 0;
   private sourceUploads = 0;
   private uploadedStamp = "";
+  private uploadedMediaTime: number | null = null;
+  private composing = 0;
+  private compositionSerial = 0;
   private renderFailed = false;
   private uploadError: string | null = null;
   private status: LiquidStatus = {
@@ -146,6 +149,7 @@ export class LiquidEngine {
       const lost = (event: Event) => {
         event.preventDefault();
         this.lost = true;
+        this.composing = 0;
         this.generation++;
         this.hasTexture = false;
         this.background.setRunning(false);
@@ -420,9 +424,14 @@ export class LiquidEngine {
       } else renderer.upload(source.node, source.width, source.height);
       this.hasTexture = true;
       this.uploadError = null;
+      if (this.canvas) delete this.canvas.dataset.textureError;
       this.sourceUploads++;
       this.background.dirty = false;
       this.uploadedStamp = stamp;
+      this.uploadedMediaTime =
+        source.node instanceof HTMLVideoElement
+          ? source.node.currentTime
+          : null;
       this.cached = metadata;
     } catch (error) {
       this.hasTexture = false;
@@ -443,16 +452,17 @@ export class LiquidEngine {
     }
   }
 
-  private tick = (time: number) => {
+  private tick = async (time: number) => {
     this.frame = 0;
-    if (!this.alive) return;
+    if (!this.alive || this.composing) return;
     const reason = this.reason();
     if (reason) {
       this.fallback(reason);
       return;
     }
     const renderer = this.renderer!,
-      quality = LIQUID_QUALITY[this.options.settings.liquid.quality];
+      renderedQuality = this.options.settings.liquid.quality,
+      quality = LIQUID_QUALITY[renderedQuality];
     // Keep a single scheduled loop for settling; GPU/video work is capped separately.
     if (time - this.lastDraw < 1000 / quality.fps - 1) {
       this.frame = this.clock.requestFrame(this.tick);
@@ -539,9 +549,7 @@ export class LiquidEngine {
           this.interaction.dragging,
       );
       settling ||= state.settling;
-      surface.canvas.dataset.deformation = JSON.stringify(
-        state.bend.map((value) => Number(value.toFixed(5))),
-      );
+
       const owner = surface.node.closest<HTMLElement>("[data-liquid-morph]");
       const morphable =
         !surface.view &&
@@ -599,10 +607,7 @@ export class LiquidEngine {
           ? { canvas: morph.morph.canvas, context: morph.morph.context }
           : surface,
       );
-      surface.canvas.hidden = !!morph;
       if (morph) settling = true;
-      surface.node.dataset.liquidBackend = "webgl2";
-      surface.node.dataset.glassBackend = "webgl2";
     }
     const atlas = packAtlas(
       entries.map((e) => e.rect),
@@ -614,7 +619,16 @@ export class LiquidEngine {
       this.fallback("surface-budget");
       return;
     }
+    const generation = this.generation,
+      token = ++this.compositionSerial;
+    this.composing = token;
+    this.dirty = false;
+    this.layoutDirty = false;
+    this.materialDirty = false;
+    let snapshot: ImageBitmap | null = null;
+    let cpuMs = 0;
     try {
+      const submitted = performance.now();
       renderer.render(
         atlas.width,
         atlas.height,
@@ -623,15 +637,31 @@ export class LiquidEngine {
         this.options.settings.liquid,
         quality.samples,
       );
+      cpuMs += performance.now() - submitted;
+      // Snapshot the shared drawing buffer ONCE, rather than requesting a GPU
+      // readback/snapshot for every individual DOM output canvas.
+      const snapshotStart = performance.now();
+      const pendingSnapshot = createImageBitmap(renderer.canvas);
+      cpuMs += performance.now() - snapshotStart;
+      snapshot = await pendingSnapshot;
+      if (!this.alive || generation !== this.generation) return;
+      const unavailable = this.reason();
+      if (unavailable) {
+        this.fallback(unavailable);
+        return;
+      }
+      const compositionStart = performance.now();
       for (const tile of atlas.tiles) {
-        const output = outputs[tile.index];
+        const output = outputs[tile.index],
+          surface = surfaces[tile.index];
+        if (!output.canvas.isConnected || !surface.node.isConnected) continue;
         if (output.canvas.width !== tile.width)
           output.canvas.width = tile.width;
         if (output.canvas.height !== tile.height)
           output.canvas.height = tile.height;
         output.context.clearRect(0, 0, tile.width, tile.height);
         output.context.drawImage(
-          renderer.canvas,
+          snapshot,
           tile.x,
           tile.y,
           tile.width,
@@ -641,15 +671,28 @@ export class LiquidEngine {
           tile.width,
           tile.height,
         );
+        surface.canvas.hidden = output.canvas !== surface.canvas;
+        surface.node.dataset.liquidBackend = "webgl2";
+        surface.node.dataset.glassBackend = "webgl2";
+        surface.canvas.dataset.deformation = JSON.stringify(
+          entries[tile.index].bend.map((value) => Number(value.toFixed(5))),
+        );
       }
+      cpuMs += performance.now() - compositionStart;
     } catch {
-      this.renderFailed = true;
-      this.fallback("render-unavailable");
+      if (!this.lost) this.renderFailed = true;
+      this.fallback(this.lost ? "context-lost" : "render-unavailable");
       return;
+    } finally {
+      snapshot?.close();
+      if (this.composing === token) this.composing = 0;
+      if (this.alive && (this.dirty || settling || this.background.dirty))
+        this.invalidate();
     }
-    const elapsed = performance.now() - start;
+    const latency = performance.now() - start;
+    const elapsed = cpuMs;
     this.ema = this.ema ? this.ema * 0.9 + elapsed * 0.1 : elapsed;
-    if (this.ema > (1000 / quality.fps) * 0.8) {
+    if (Math.max(latency, this.ema) > (1000 / quality.fps) * 0.8) {
       this.slow++;
       this.fast = 0;
     } else {
@@ -658,7 +701,7 @@ export class LiquidEngine {
     }
     if (
       (this.slow > 12 ||
-        elapsed > 80 ||
+        latency > 80 ||
         (this.draws < 3 && elapsed > (1000 / quality.fps) * 1.8)) &&
       this.scale > 0.4
     ) {
@@ -672,9 +715,6 @@ export class LiquidEngine {
     }
     this.draws++;
     this.lastDraw = time;
-    this.dirty = false;
-    this.layoutDirty = false;
-    this.materialDirty = false;
     renderer.canvas.dataset.metrics = JSON.stringify({
       backend: "webgl2",
       surfaces: surfaces.length,
@@ -683,6 +723,8 @@ export class LiquidEngine {
       atlasHeight: atlas.height,
       resolutionScale: atlas.scale,
       cpuSubmitComposeMs: elapsed,
+      frameLatencyMs: latency,
+      atlasSnapshotsPerFrame: 1,
       cpuEmaMs: this.ema,
       gpuMs: renderer.gpuMs,
       draws: this.draws,
@@ -694,7 +736,8 @@ export class LiquidEngine {
           : "image"
         : this.cached.kind,
       sourceLive: !!source,
-      quality: this.options.settings.liquid.quality,
+      quality: renderedQuality,
+      sourceMediaTime: this.uploadedMediaTime,
       blurSamples: quality.samples,
     });
     this.publish(true, source ? "ready" : "environment-paused");
@@ -702,6 +745,7 @@ export class LiquidEngine {
   };
   dispose() {
     this.alive = false;
+    this.composing = 0;
     this.generation++;
     if (this.frame) this.clock.cancelFrame(this.frame);
     this.frame = 0;
