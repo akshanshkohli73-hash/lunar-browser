@@ -498,12 +498,14 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       await expect(video).toBeVisible();
       const material = ui.locator('[data-widget-id="notes"] > .glass-surface');
       await expect(material).toHaveAttribute("data-glass-mode", "glass");
-      assert.match(
-        await material.evaluate(
-          (node) => getComputedStyle(node).backdropFilter,
-        ),
-        /blur\(/u,
-        "Real glass must remain above playing video",
+      assert.ok(
+        (await material.getAttribute("data-liquid-backend")) === "webgl2" ||
+          /blur\(/u.test(
+            await material.evaluate(
+              (node) => getComputedStyle(node).backdropFilter,
+            ),
+          ),
+        "A real shader or CSS fallback material must remain above playing video",
       );
       assert.equal(
         await material.evaluate(
@@ -637,6 +639,18 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
               requestAnimationFrame(() => requestAnimationFrame(resolve)),
             ),
         );
+      console.log(
+        `::notice title=Native video graphics preflight::${JSON.stringify(await ui.evaluate(() => ({ backend: document.documentElement.dataset.liquidEngine, reason: document.documentElement.dataset.liquidReason, error: document.querySelector("canvas[data-liquid-renderer]")?.dataset.textureError, metrics: document.querySelector("canvas[data-liquid-renderer]")?.dataset.metrics })))}`,
+      );
+      // Isolate background filtering from foreground ruled lines/text. GPU text
+      // rasterization can otherwise change edge energy when a backdrop layer appears.
+      const noteField = material.locator("textarea");
+      const originalNoteStyle = await noteField.getAttribute("style");
+      await noteField.evaluate((node) => {
+        node.style.color = "transparent";
+        node.style.backgroundImage = "none";
+        node.style.caretColor = "transparent";
+      });
       const savedGlass = (await api("getDashboard")).glass;
       const cssGlass = {
         ...savedGlass,
@@ -650,6 +664,14 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
         "blur(0px) saturate(1.12)",
       );
       await settleBackdrop();
+      await material.evaluate(async (node) => {
+        await Promise.all(
+          node
+            .getAnimations()
+            .map((animation) => animation.finished.catch(() => {})),
+        );
+      });
+      await settleBackdrop();
       const unfiltered = await sampleGlass();
       await api("updateDashboard", {
         glass: { ...cssGlass, blur: 24, performance: "balanced" },
@@ -658,6 +680,14 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
         "backdrop-filter",
         "blur(24px) saturate(1.12)",
       );
+      await settleBackdrop();
+      await material.evaluate(async (node) => {
+        await Promise.all(
+          node
+            .getAnimations()
+            .map((animation) => animation.finished.catch(() => {})),
+        );
+      });
       await settleBackdrop();
       const filtered = await sampleGlass();
       assert.notEqual(
@@ -718,6 +748,10 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       );
       await api("updateDashboard", { glass: savedGlass });
       await expect(material).toHaveCSS("--glass-blur", `${savedGlass.blur}px`);
+      await noteField.evaluate((node, style) => {
+        if (style === null) node.removeAttribute("style");
+        else node.setAttribute("style", style);
+      }, originalNoteStyle);
       const liquidObservation = await checkNativeLiquidVideo(
         ui,
         api,

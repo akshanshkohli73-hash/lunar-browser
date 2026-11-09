@@ -1,3 +1,4 @@
+import { readMaterial } from "../src/liquid/LiquidMaterial";
 // @vitest-environment jsdom
 // Lifecycle/control tests only. Painted shader/image/video proof is in actual Chromium/Electron scripts.
 import React from "react";
@@ -152,4 +153,16 @@ it("shares the existing desktop video with Studio and transfers ownership only a
   );
   expect(view.container.querySelector("video")).not.toBe(original);
   expect(original?.isConnected).toBe(false);
+});
+
+it("retains manual background tint contribution even while adaptive environment tint is active", () => {
+  const node = document.createElement("div");
+  document.body.append(node);
+  node.style.setProperty("--glass-tint", "#bbd4b1");
+  node.style.setProperty("--glass-adaptive-tint", "#203a2a");
+  const first = readMaterial(node, { x: 0, y: 0, width: 300, height: 200 });
+  node.style.setProperty("--glass-tint", "#e1bdc4");
+  const next = readMaterial(node, { x: 0, y: 0, width: 300, height: 200 });
+  expect(next.tint).not.toEqual(first.tint);
+  expect(next.tint[0]).toBeCloseTo((225 / 255) * 0.65 + (32 / 255) * 0.35);
 });

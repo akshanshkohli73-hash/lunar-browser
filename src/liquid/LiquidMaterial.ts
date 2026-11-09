@@ -34,6 +34,11 @@ export function readMaterial(node: HTMLElement, box: Rect): LiquidMaterial {
           0,
       ),
     );
+  const manual = rgb(css.getPropertyValue("--glass-tint"));
+  const environment = rgb(
+    css.getPropertyValue("--glass-adaptive-tint") ||
+      css.getPropertyValue("--glass-tint"),
+  );
   return {
     opacity: number("--glass-opacity", 0.72),
     blur: number("--glass-effective-blur", 14),
@@ -45,10 +50,9 @@ export function readMaterial(node: HTMLElement, box: Rect): LiquidMaterial {
     reflection: number("--glass-reflection", 0.3),
     edge: number("--glass-border", 0.4),
     dark: node.dataset.glassTone === "dark" ? 1 : 0,
-    tint: rgb(
-      css.getPropertyValue("--glass-adaptive-tint") ||
-        css.getPropertyValue("--glass-tint"),
-    ),
+    tint: manual.map(
+      (channel, index) => channel * 0.65 + environment[index] * 0.35,
+    ) as [number, number, number],
     radii: [
       css.borderTopLeftRadius,
       css.borderTopRightRadius,

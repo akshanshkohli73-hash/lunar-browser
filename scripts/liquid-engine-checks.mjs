@@ -171,6 +171,22 @@ export async function checkLiquidEngine(browser, url, evidence) {
       tokenPixels[name] = { low: low.hash, high: high.hash };
       if (name === "Blur intensity") await slider(name).press("Home");
     }
+    const tintInput = editor.getByLabel("Glass tint", { exact: true });
+    const tintBefore = await stableLiquidPixels(sample);
+    await tintInput.evaluate((input) => {
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value",
+      ).set.call(input, "#d0aebb");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    const tintAfter = await stableLiquidPixels(sample);
+    assert.notEqual(
+      tintBefore.hash,
+      tintAfter.hash,
+      "Manual tint must affect shader pixels even with adaptive tint enabled",
+    );
     await slider("Reflection intensity").focus();
     await slider("Reflection intensity").press("End");
     await slider("Specular intensity").focus();
@@ -186,6 +202,23 @@ export async function checkLiquidEngine(browser, url, evidence) {
     await editor
       .getByRole("checkbox", { name: "Hover motion", exact: true })
       .check();
+    await page.mouse.move(1, 1);
+    const lightStill = await stableLiquidPixels(sample);
+    const lightBox = await sample.boundingBox();
+    await page.mouse.move(
+      lightBox.x + lightBox.width * 0.9,
+      lightBox.y + lightBox.height * 0.2,
+    );
+    await expect
+      .poll(async () => Math.abs((await liquidPixels(sample)).deformation[0]))
+      .toBeGreaterThan(0.05);
+    const lightMoved = await stableLiquidPixels(sample);
+    assert.notEqual(
+      lightStill.hash,
+      lightMoved.hash,
+      "Pointer lighting must move with elasticity zero (not just deform an image)",
+    );
+    await page.mouse.move(1, 1);
     await slider("Surface elasticity").focus();
     await slider("Surface elasticity").press("End");
     await page.mouse.move(1, 1);
@@ -244,6 +277,13 @@ export async function checkLiquidEngine(browser, url, evidence) {
       .poll(async () => (await liquidMetrics(page)).quality)
       .toBe("balanced");
     const balanced = await liquidMetrics(page);
+    await quality.selectOption("experimental");
+    await expect
+      .poll(async () => (await liquidMetrics(page)).quality)
+      .toBe("experimental");
+    const experimental = await liquidMetrics(page);
+    assert.equal(experimental.blurSamples, 13);
+    assert.ok(experimental.atlasWidth * experimental.atlasHeight <= 8388608);
     await quality.selectOption("performance");
     await expect(page.locator("html")).toHaveAttribute(
       "data-liquid-reason",
@@ -362,6 +402,13 @@ export async function checkLiquidEngine(browser, url, evidence) {
       idle: { before: idleStart.draws, after: idleEnd.draws },
       initial,
       balanced,
+      experimental,
+      manualTint: { before: tintBefore.hash, after: tintAfter.hash },
+      movingSpecular: {
+        still: lightStill.hash,
+        moved: lightMoved.hash,
+        elasticity: 0,
+      },
       contextRestored: true,
       recoveredPixels,
       morphProxyStart: proxyStart,

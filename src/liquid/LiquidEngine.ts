@@ -427,6 +427,11 @@ export class LiquidEngine {
     } catch (error) {
       this.hasTexture = false;
       this.background.dirty = false;
+      if (this.canvas)
+        this.canvas.dataset.textureError =
+          error instanceof Error
+            ? error.message.slice(0, 240)
+            : "texture-unavailable";
       this.uploadError =
         error instanceof DOMException && error.name === "SecurityError"
           ? "background-origin"
@@ -690,6 +695,7 @@ export class LiquidEngine {
         : this.cached.kind,
       sourceLive: !!source,
       quality: this.options.settings.liquid.quality,
+      blurSamples: quality.samples,
     });
     this.publish(true, source ? "ready" : "environment-paused");
     if (settling) this.invalidate();
