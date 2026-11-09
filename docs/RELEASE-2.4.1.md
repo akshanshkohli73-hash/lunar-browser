@@ -35,6 +35,10 @@ PowerShell verification:
 
 The original CI artifact ZIP SHA-256 is `2b61ca2d282035025714e5a4c9efd57a088172c6ba78e67671b60e159d46a293`. This is distinct from the installer checksum above. A matching checksum verifies byte identity, **not** general safety or publisher trust.
 
+## Publication record
+
+Manually published `2026-11-09T10:28:01Z` as a public prerelease, not marked as latest. Installer: **113,737,204 bytes**. [Draft-staging job 129104932586](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42600938481/job/129104932586) passed archive/installer hash checks and both uploaded assets re-downloaded and rehashed before explicit public promotion. Anonymous release metadata, exact source tag and public installer/checksum download endpoints were then verified. Previous 2.4.0 asset IDs, sizes, digests and source target remain unchanged. The one-time draft-only stager was removed afterward; no future automatic publication or updater was enabled.
+
 ## Important limitations
 
 - **Authenticode: NotSigned.** Windows reputation, antivirus or Smart App Control may warn or block this unsigned preview. **Do not disable OS or antivirus protections.** No certificate, trusted-publisher claim or security-warning bypass is provided.
