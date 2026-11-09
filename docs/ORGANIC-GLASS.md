@@ -115,10 +115,10 @@ Supporting CI artifacts:
 
 No universal FPS, GPU/battery improvement, physical ray tracing, accessibility certification, native-view refraction, 4K video or hardware acceleration certification is claimed. Small synthetic clips and software/CI rendering do not establish real-device performance. Human installed-NSIS upgrade/uninstall, OS picker interaction, personal codecs, touch devices, cross-scroll drag/drop, Windows DPI/multi-monitor and low-power/large-display hardware remain manual checks. Only the specific 2.4.0 prerelease above was manually authorized and published; future releases still require an explicit request.
 
-## Source-only follow-up — wallpaper image limit
+## 2.4.1 follow-up — wallpaper image limit
 
 The local background **image** import cap is now **50 MB** (50 × 1024 × 1024 bytes), inclusive. The native importer and Dashboard Studio help text share the same limit definition. MP4/WebM remain capped at **150 MB**; the **20-file / 300 MB** profile quota, supported-format checks, private media protocol and chunked asynchronous copying are unchanged.
 
 Boundary regressions import files above the old 20 MB cap and at exactly 50 MB, reject images one byte above 50 MB, and preserve the 150 MB video boundary. They verify copied file sizes and final-byte range responses, plus the rendered Studio limit text. `npm run check` passes **210 tests / 26 files**, typecheck, lint, builds and package validation. These size-validation tests are not decoder or new Windows installer proof.
 
-This source change is **not included in the already-published 2.4.0 installer**; its released bytes and checksums remain unchanged. An updated installer requires a separate build/release.
+This source change is **not included in the already-published 2.4.0 installer**; its released bytes and checksums remain unchanged. The separately authorized **2.4.1** update is undergoing a new Windows source/packaged/NSIS gate. An added native probe imports and decodes a valid PNG padded with ancillary chunks to exactly 50 MB, rejects 50 MB + 1 byte without leaving another asset/partial copy, restores the original wallpaper and prunes only the probe asset. This is a file-size boundary probe, not a large-resolution/hardware benchmark. New run/source/checksum/publication details will be recorded only after the gate completes.

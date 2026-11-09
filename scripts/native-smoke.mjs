@@ -235,8 +235,8 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
         pngChunk("IEND", Buffer.alloc(0)),
       ]),
     );
-    const media = await electron.evaluate(
-      async ({ dialog, BrowserWindow }, selected) => {
+    const selectWallpaperFile = (selectedFile) =>
+      electron.evaluate(async ({ dialog, BrowserWindow }, selected) => {
         const old = dialog.showOpenDialog;
         dialog.showOpenDialog = async () => ({
           canceled: false,
@@ -249,9 +249,8 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
         } finally {
           dialog.showOpenDialog = old;
         }
-      },
-      chosenFile,
-    );
+      }, selectedFile);
+    const media = await selectWallpaperFile(chosenFile);
     assert.equal(media.kind, "image");
     assert.ok(!JSON.stringify(media).includes(profile));
     await api("updateDashboard", {
@@ -278,6 +277,98 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       ),
       false,
       "Websites must not share the UI's private media handler",
+    );
+    // Valid PNG ancillary chunks pad the encoded file to the exact byte cap.
+    // This proves native import/decode boundaries, not large-pixel/hardware performance.
+    const imageLimit = 50 * 1024 * 1024;
+    const originalPng = fs.readFileSync(chosenFile);
+    const paddedParts = [originalPng.subarray(0, originalPng.length - 12)];
+    const padding = pngChunk("paDd", Buffer.alloc(1024 * 1024));
+    let remaining = imageLimit - originalPng.length;
+    while (remaining >= padding.length + 12) {
+      paddedParts.push(padding);
+      remaining -= padding.length;
+    }
+    paddedParts.push(pngChunk("paDd", Buffer.alloc(remaining - 12)));
+    paddedParts.push(originalPng.subarray(-12));
+    const largeFile = path.join(profile, "selected-50mb-wallpaper.png");
+    fs.writeFileSync(largeFile, Buffer.concat(paddedParts));
+    assert.equal(fs.statSync(largeFile).size, imageLimit);
+    const largeMedia = await selectWallpaperFile(largeFile);
+    assert.equal(largeMedia.kind, "image");
+    const copiedBytes = fs.statSync(
+      path.join(profile, "wallpapers", largeMedia.id),
+    ).size;
+    assert.equal(
+      copiedBytes,
+      imageLimit,
+      "Native import must copy the complete 50 MB file",
+    );
+    await api("updateDashboard", {
+      wallpaper: {
+        ...dashboard.wallpaper,
+        effects: false,
+        kind: "image",
+        mediaId: largeMedia.id,
+      },
+    });
+    await expect
+      .poll(() =>
+        ui
+          .locator(".new-tab-dashboard .dashboard-wallpaper img")
+          .getAttribute("src"),
+      )
+      .toContain(largeMedia.id);
+    assert.equal(await decodeWallpaper(), imageWidth);
+    assert.equal(
+      await ui
+        .locator(".new-tab-dashboard .dashboard-wallpaper img")
+        .evaluate((image) => image.naturalHeight),
+      imageHeight,
+    );
+    await ui.screenshot({ path: `${evidence}-50mb-image.png` });
+    const imported = fs.readdirSync(path.join(profile, "wallpapers")).sort();
+    fs.truncateSync(largeFile, imageLimit + 1);
+    await assert.rejects(
+      selectWallpaperFile(largeFile),
+      /Image wallpapers must be 50 MB or smaller\./u,
+    );
+    assert.deepEqual(
+      fs.readdirSync(path.join(profile, "wallpapers")).sort(),
+      imported,
+      "Oversized native import must not leave another asset or partial copy",
+    );
+    await api("updateDashboard", {
+      wallpaper: { ...dashboard.wallpaper, kind: "image", mediaId: media.id },
+    });
+    await expect
+      .poll(() =>
+        ui
+          .locator(".new-tab-dashboard .dashboard-wallpaper img")
+          .getAttribute("src"),
+      )
+      .toContain(media.id);
+    assert.equal(await decodeWallpaper(), imageWidth);
+    assert.equal(
+      await api("pruneWallpapers"),
+      1,
+      "Pruning must remove only the unused boundary-test image",
+    );
+    fs.rmSync(largeFile);
+    const capObservation = {
+      imageLimitBytes: imageLimit,
+      copiedBytes,
+      decodedWidth: imageWidth,
+      decodedHeight: imageHeight,
+      rejectedBytes: imageLimit + 1,
+      syntheticAncillaryPadding: true,
+    };
+    fs.writeFileSync(
+      `${evidence}-wallpaper-limit.json`,
+      JSON.stringify(capObservation, null, 2) + "\n",
+    );
+    console.log(
+      `::notice title=${packaged ? "Packaged" : "Development"} wallpaper image cap::${JSON.stringify(capObservation)}`,
     );
     await checkDashboardScroll(ui);
     await ui.screenshot({ path: `${evidence}-selected-image.png` });
