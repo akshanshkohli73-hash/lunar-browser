@@ -3,3 +3,15 @@ dist
 dist-electron
 release
 *.log
+.artifacts/
+playwright-report/
+test-results/
+.cache-audit.json
+
+# Local credentials and signing material must not become source/package inputs.
+.env
+.env.*
+.secrets/
+*.pfx
+*.p12
+*.key
