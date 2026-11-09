@@ -1,0 +1,124 @@
+# Project Lunar — Organic Liquid Glass
+
+**Version:** Lunar Browser **2.4.0** · dashboard document **v3** · 2026-11-07.
+
+This is a staged evolution of the existing Coquette application, not a new dashboard or browser engine. The original frame/art, nine Lunar dock controls, eight menus, one permanently mounted browser workspace, native `WebContentsView`, widget registry, packing/resizing, saved layouts, wallpaper files, notes/events and theme paths remain.
+
+## Implementation
+
+| Stage                   | Implemented work                                                                                                                                                                                                                                                                                                                                                      |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 · Audit               | Inspected renderer, native bounds/occlusion, wallpaper lifecycle/private protocol, material schema, preview ownership, widgets and existing tests. Ran the unchanged 184-test baseline. Proved SVG backdrop displacement in actual Chromium before selecting it.                                                                                                      |
+| 2 · Tokens / components | Three shared material depths and conservative light/dark palettes in `shared/glass.ts`; organic palette/type/spacing/radius CSS tokens; `GlassMaterialProvider`; reusable surface, semantic backing, button, slider, toolbar, panel, fieldset and section-motion components.                                                                                          |
+| 3 · Optical layer       | CSS blur/saturation and readability wash, fixed seeded SVG backdrop displacement at Optical quality, restrained interpolated pointer lighting. A single filter-definition bank and delegated settling pointer/proximity scheduler. No WebGL, duplicated video texture or frame-copy loop.                                                                             |
+| 4 · Widgets             | Distinct serif clock with a real minute-updated dial; search capsule; local-metadata bookmark previews; ruled, explicitly saving notes; calendar navigation / Today / selected dates / real local events; truthful weather conditions and neutral unconfigured state; restyled recent links, shortcuts and focus timer. Existing functional implementations retained. |
+| 5 · Chrome              | Shared backings in the integrated menu bar, tab strip, toolbar, address field, bookmark bar, dock, dropdowns, modals, assistant and settings. Dark material ink follows its backing, not a conflicting light-theme selector. No extra titlebar, iframe, webpage screenshot or changed viewport reservation.                                                           |
+| 6 · Motion              | Central Framer spring presets, gentle widget entry/layout/drop, hover/press, settings-tab entry, panel/menu entry/exit, finite wallpaper transitions, proximity dock and shared active indicator. Keyboard focus remains explicit; hit boxes stay stationary. Mounted exiting portals retain native occlusion and become inert until actual unmount.                  |
+| 7 · Studio              | All controls below reach real rendering/interaction, support draft preview, explicit Apply/Cancel/reset and validated persistence. Existing colors, themes, layouts, wallpaper and sparse overrides survive migration / unrelated saves.                                                                                                                              |
+| 8 · Regression          | Local 205-test suite, real Chromium layout/hit-target/pixel/fallback checks, production dependency audit and package validation passed. Windows source/packaged integration and unsigned NSIS packaging passed independently; exact source and evidence are below, not inferred from the web preview.                                                                 |
+
+### Material, environment and performance
+
+- **Light / Standard / Deep** continue to share depth multipliers, alpha floors, a bounded six-percent tint contribution, maximum 24px backdrop blur and conservative readable ink. Saturation and elevation scale real filter/shadow values. Reflection and edge strengths affect actual painted layers.
+- **Optical** adds deterministic `feTurbulence` → `feDisplacementMap` of Chromium's backdrop `SourceGraphic`. **Balanced** uses CSS glass without SVG displacement. **Simple** retains tint/opacity/edge/shadow while removing live blur, optical effects, reflections and pointer lighting. Global off and OS reduced-transparency/forced-colors use solid fallbacks.
+- This is **controlled optical displacement**, not physically ray-traced lenses, arbitrary DOM ray tracing or native webpage refraction. The one application wallpaper video remains the source behind glass. Browsers perform their own compositing/filter work; a shared SVG definition does not imply a universally shared GPU texture or zero cost. CSS capability detection is syntactic; pixel gates verify the targeted Chromium/Electron implementation. Unsupported SVG uses CSS, and unsupported blur has a readable fallback.
+- One delegated pointer stream writes CSS custom properties. One RAF runs **only while settling**; it does not dispatch React state each frame. Dock response uses continuous distance from each button center, including neighbors while the same button remains hovered. Pointer leaves fade out; touch/coarse pointer, reduced motion, disabled magnification and inactive-window paths do not run pointer motion. One shared child-list observer releases detached portal/widget references even when the pointer stops; CSS-variable updates do not trigger it. No idle floating, animated noise or backdrop-filter interpolation is added.
+- Built-in wallpapers have deterministic appearance metadata. A loaded local image/video may be sampled **once at 8×8**; a bounded 16-source cache retains palette metadata, not frames. A tainted/private-origin canvas is caught and uses the legible theme/manual fallback. The media protocol's CORS, isolation, range validation and web-security policy were **not relaxed**. Video brightness is not continuously polled.
+- The old optional wallpaper `effects` flag now controls **finite soft transitions**, not perpetual drift. Images can retain one departing image for about 200ms / animation speed. Video is never cloned for crossfade: it uses a finite entry fade, retaining a single decoder per existing wallpaper view. Existing dashboard/editor preview views still have their own normal lifecycle. Reduced motion removes transition layers; playback remains muted by default, explicit for audio, paused when unavailable/inactive, and offers honest decoder errors/retry.
+- New profiles default to Optical with a restrained 20% displacement setting. **Existing v2 Simple/Balanced choices remain unchanged**. Select Optical explicitly to opt an upgraded profile into the new displacement layer. Choose Balanced/Simple for lower-power devices.
+
+## Real Studio controls
+
+Open **Customize dashboard**, or **Appearance → Background & dock**.
+
+| Setting                                | Actual effect                                                                                                                                                                           |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Glass opacity                          | Changes material alpha / wash within legibility floors; not an opaque parent-card hack.                                                                                                 |
+| Blur intensity                         | Real depth-scaled backdrop blur, 0–24px.                                                                                                                                                |
+| Glass saturation                       | Scales the backdrop saturation filter, 50–150% of the chosen depth's baseline.                                                                                                          |
+| Glass tint                             | Bounded validated color contribution; no CSS strings/URLs.                                                                                                                              |
+| Refraction intensity                   | Ten bounded, fixed SVG displacement levels; only enabled at Optical quality with supported normal-motion/transparency rendering. Unsupported values remain saved, not pretended active. |
+| Reflection intensity                   | Static specular layers and the restrained pointer highlight.                                                                                                                            |
+| Border intensity                       | Edge/inset highlight contribution.                                                                                                                                                      |
+| Shadow strength                        | Real shadow opacity.                                                                                                                                                                    |
+| Glass elevation                        | Real shadow elevation and bounded hover lift.                                                                                                                                           |
+| Hover motion                           | Toggles gentle widget/control spatial feedback; pointer lighting and dock magnification have their appropriate independent gates.                                                       |
+| Dock magnification                     | Continuous pointer-proximity magnification with stationary buttons; not a hovered-icon selector.                                                                                        |
+| Animation speed                        | Shared CSS durations, Framer spring timing and finite wallpaper transition duration.                                                                                                    |
+| Glass rendering mode / effects quality | Optical, Balanced, Simple as described above.                                                                                                                                           |
+| Reduced material motion                | Persisted opt-down combined with existing application/OS reduced motion. Removes optics/pointer motion and automatic video playback; explicit Play remains possible.                    |
+
+An additional **Adaptive wallpaper tint** option controls deterministic wallpaper-derived tint/tone. Explicit dashboard Light/Dark text choices remain authoritative. OS accessibility preferences take precedence; unavailable controls are disabled with an explanation.
+
+The retained palette editor’s **Glass blur** control now scales chrome blur against its 12px theme baseline, while the material base and widget overrides remain independent. Saved **Corner radius** and **Tab shape** continue to affect real organic panel/widget corners and tab geometry; renderer checks cover these existing controls too.
+
+Per-widget controls create **sparse** material overrides; they cannot override global quality, motion, adaptive policy or a global off switch. The glass reset clears material overrides/defaults only, without erasing notes, events, wallpaper or layout. Dock preferences remain independently scoped.
+
+### Persistence and security
+
+`migrateDashboard` explicitly upgrades v1/v2 to v3, supplying only the new fields while retaining old material values, quality, media IDs, notes/events, dock values and widget records/overrides. Current documents are not rewritten by the migrator. Partial IPC/save schemas have **no material defaults**: a note-only save cannot reset a material or inject global fields into a widget override. Malformed legacy material data is not silently accepted.
+
+No new runtime dependency, network upload, privileged renderer API, unrestricted file path or shader resource fetch is introduced. Sandboxing, context isolation, sender/argument validation, default-deny website permissions, network-filter disclosures, provider-secret handling, profile retention and `--publish never` packaging remain in place. The separately authorized manual 2.4.0 prerelease below does not grant signing trust, enable automatic updates or authorize future automatic publication. Back up a profile before upgrading; older application versions do not understand the v3 material schema.
+
+## Public prerelease — separately authorized on 2026-11-07
+
+[**Download Lunar Browser 2.4.0 for Windows x64**](https://github.com/akshanshkohli73-hash/lunar-browser/releases/download/v2.4.0/Lunar-Browser-2.4.0-win-x64.exe) · [Release notes](https://github.com/akshanshkohli73-hash/lunar-browser/releases/tag/v2.4.0) · [SHA256SUMS.txt](https://github.com/akshanshkohli73-hash/lunar-browser/releases/download/v2.4.0/SHA256SUMS.txt)
+
+- Manually published **2026-11-07T09:03:17Z** after an explicit release request. Unsigned prerelease, not marked as latest. Source/tag: **`f81a83fe8c4eb9b214025a898c9c76d8cf8fc6b1`**. [Verification run 42356488823](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42356488823) passed both renderer/regressions and Windows source/packaged/NSIS jobs independently.
+- Public installer: **113,736,845 bytes**, Authenticode **`NotSigned`**, SHA-256 **`8cc0584e34a65158e0424d89796a131584a365373400b020e723e4f343370651`**. This is the unchanged installer from artifact **13567721877**, ZIP digest `2ba30b32f462e2bd22c1f378be70cf71696a659f8fd5dd59787237e5c4ff4947`, not a new untested rebuild or a renamed older version.
+- [One-time draft-staging job 128360172489](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42357991999/job/128360172489) verified the source run, artifact provenance, full ZIP digest, extracted installer checksum and both uploaded assets downloaded again. Public promotion was a separate explicit owner operation. The temporary draft-only staging job was removed afterward; ordinary pushes/tags do not publish releases.
+- Anonymous release metadata, the exact source tag and both public download endpoints were checked after publication. A checksum verifies byte identity, not publisher trust or general safety. Windows may warn or block this unsigned preview; **do not disable OS or antivirus protections**. Back up your profile before upgrading. [Full release limitations](RELEASE-2.4.0.md).
+
+The earlier successful candidate record below is retained for audit history. Its installer checksum **644E…4259** is **not** the public release checksum; the published binary is the later fully verified `f81a83f` build specified above.
+
+## Verification record
+
+### Local — executed
+
+- `npm run check`: **205 tests / 26 files**, TypeScript, ESLint, renderer/main/preload builds and package validation passed.
+- `npm audit --omit=dev`: **0 vulnerabilities**. Development-tool advisories are not hidden or force-upgraded.
+- Actual Chromium 153 with software/disabled-GPU test flags: existing preview suite plus new organic checks passed. Nine dock routes, eight keyboard menus, single workspace, editing/preview/Cancel, bright/dark materials, 20 actually visible static surfaces, independently scrolling Studio with fixed actions at 1280×840, 800×600, 700×650 and 520×500 (also measured after actual animated entry), animated menu replacement retaining its current keyboard target, forced colors, dock stationary hit targets / keyboard focus / proximity, reduced motion and fallback remained working.
+- New renderer pixel gate uses a deterministic checker in the **actual wallpaper image element** under the Studio sample, not an imported-user-file claim. Refraction 0 and 1 produce different PNG hashes; repeated fixed refraction is byte-identical:
+  - Off: `b84618b455a525be28c5cd3f533f8a055b4f63754ce26f9f81f96b1a974ea81e`.
+  - On: `4f04046c18f38c12334038acba648e4443513a1f6aa4276132617022912d1d98`.
+  - Evidence: `.artifacts/ui/organic-optics{.json,-off.png,-on.png}`, `organic-studio-dark.png`, `organic-unsupported-fallback.png`, bright/dark and responsive captures.
+- Unit/integration additions exercise v1/v2 migration, retained Simple/Balanced choices, unrelated saves/restart, all new Studio settings, sparse overrides, real backend URLs, touch/leave cleanup, a settling RAF, unsupported SVG/no-WebGL, mounted/inert exit lifetime, one-shot video sampling, canvas-taint fallback and bounded image/video transition cleanup.
+
+### Windows source / packaged application — initial successful candidate
+
+**Passed:** [run 42356102060](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42356102060), runtime/source **`b9eb60d500a9eca98f47a0c0a5ac56935d6d00bc`**, 2026-11-07. Both jobs succeeded: renderer/regressions **128354422357** and Windows native/NSIS **128354422130**.
+
+- Windows `npm run check` passed **205 tests / 26 files**, TypeScript, ESLint, renderer/main/preload builds and package validation. Linux renderer gates and production dependency audit passed independently.
+- **Actual source Electron integration passed**, including profile-owned PNG/H.264/VP8 import/decode, painted video through visible glass, blur smoothing, SVG displacement over paused decoded video, repeated optical-pixel stability, mounted-exit native occlusion, fixed-action layout/resize/drag, navigation/tabs/permissions/security and restart persistence.
+- **A new unsigned x64 NSIS installer was produced**, then the actual `win-unpacked/Lunar Browser.exe` passed the native integration suite again. This is packaged-application execution, not an interactive installed-NSIS upgrade/uninstall test.
+- Five material surfaces were configured and actually visible in each video observation; GPU compositing was deliberately **`disabled_software`**. Synthetic clips are 160×90 at 12fps. These are bounded correctness/cadence observations, not hardware FPS benchmarks:
+
+| Execution | Clip        | Observed | Frame callbacks | Decoded | Dropped | Maximum callback gap |
+| --------- | ----------- | -------- | --------------- | ------- | ------- | -------------------- |
+| Source    | WebM / VP8  | 2201ms   | 26              | 26      | 0       | 125ms                |
+| Source    | MP4 / H.264 | 2200ms   | 26              | 26      | 0       | 125ms                |
+| Packaged  | WebM / VP8  | 2201ms   | 26              | 26      | 0       | 125ms                |
+| Packaged  | MP4 / H.264 | 2201ms   | 26              | 26      | 0       | 125ms                |
+
+Native bitmap hash probes changed from **2597167277 → 1530145031** (WebM) and **3962450577 → 3524291468** (MP4) with SVG enabled; repeated fixed-on captures were stable in both source and packaged execution. Independent blur edge-energy probes decreased **525776 → 514158** for WebM and **520885 → 512809** for MP4. Native hashes are the smoke probe's bounded bitmap hashes, not SHA-256; the renderer PNG proof above and installer/archive digests below use SHA-256.
+
+**Earlier test artifact (not the published binary):** [lunar-windows-x64-unsigned / 13567816386](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42356102060/artifacts/13567816386), ZIP **113,740,776 bytes**. GitHub reports archive SHA-256 **`658b70f5f658ae98bf668924a9884d024e7abcfb60c3a14eb533ac2f9924ed93`**. Inside: `Lunar-Browser-2.4.0-win-x64.exe`, CI-computed SHA-256 **`644E18C24D2F65A03E1ADFE65541BF79F9A9AFB7150FB05834E0436D14B34259`**, Authenticode **`NotSigned`**. These are newly produced 2.4.0 bytes, not substituted 2.3.0/2.2.0 binaries. GitHub artifact retention/authentication applies; this is not a public release or update feed. No signing-trust or Windows-security bypass is offered.
+
+Supporting CI artifacts:
+
+- [Windows material screenshots / video-glass observations · 13566674891](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42356102060/artifacts/13566674891), ZIP SHA-256 `e424156f3334a4243cb054d9b233a4b4da995d11004d48bb89a0b02b76332140`.
+- [Chromium renderer evidence · 13567229985](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42356102060/artifacts/13567229985), ZIP SHA-256 `9320b9400658687ce79c356e11e436eba9c1f69f0c02b6bfd3b54338419d77c1`.
+
+**Corrections before the successful run:** [42355228903](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42355228903) rejected an unchanged immediate MP4 optical capture. Waiting for rendering opportunities and an actually changed native capture retained strict off/on difference and repeated-on stability checks. [42355616217](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42355616217) then passed both native video optical gates but rejected a layout probe measuring during the new entrance spring. The probe now awaits actual stable dialog geometry before measuring; the <1px fixed-footer, independent-scroll and unobscured-hit-target assertions are unchanged. Motion-enabled Chromium and the final native/packaged runs pass. Packaging was correctly skipped in the earlier failed runs. Historical 2.3.0 results are not used to certify 2.4.0.
+
+### Deliberate limitations / manual checks
+
+No universal FPS, GPU/battery improvement, physical ray tracing, accessibility certification, native-view refraction, 4K video or hardware acceleration certification is claimed. Small synthetic clips and software/CI rendering do not establish real-device performance. Human installed-NSIS upgrade/uninstall, OS picker interaction, personal codecs, touch devices, cross-scroll drag/drop, Windows DPI/multi-monitor and low-power/large-display hardware remain manual checks. Only the specific 2.4.0 prerelease above was manually authorized and published; future releases still require an explicit request.
+
+## Source-only follow-up — wallpaper image limit
+
+The local background **image** import cap is now **50 MB** (50 × 1024 × 1024 bytes), inclusive. The native importer and Dashboard Studio help text share the same limit definition. MP4/WebM remain capped at **150 MB**; the **20-file / 300 MB** profile quota, supported-format checks, private media protocol and chunked asynchronous copying are unchanged.
+
+Boundary regressions import files above the old 20 MB cap and at exactly 50 MB, reject images one byte above 50 MB, and preserve the 150 MB video boundary. They verify copied file sizes and final-byte range responses, plus the rendered Studio limit text. `npm run check` passes **210 tests / 26 files**, typecheck, lint, builds and package validation. These size-validation tests are not decoder or new Windows installer proof.
+
+This source change is **not included in the already-published 2.4.0 installer**; its released bytes and checksums remain unchanged. An updated installer requires a separate build/release.
