@@ -83,6 +83,42 @@ export async function checkLiquidScenes(browser, url, evidence) {
         timeout: 15000,
       })
       .toBeGreaterThan(before.textureUploads);
+    const selected = editor.getByRole("button", {
+      name: "Midnight garden",
+      exact: true,
+    });
+    await selected.hover();
+    const selectedContrast = await selected.evaluate((node) => {
+      const css = getComputedStyle(node),
+        canvas = document.createElement("canvas");
+      canvas.width = 2;
+      canvas.height = 1;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      context.fillStyle = css.color;
+      context.fillRect(0, 0, 1, 1);
+      context.fillStyle = css.backgroundColor;
+      context.fillRect(1, 0, 1, 1);
+      const rgba = context.getImageData(0, 0, 2, 1).data;
+      const luminance = (offset) =>
+        [0, 1, 2]
+          .map((i) => {
+            const c = rgba[offset + i] / 255;
+            return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+          })
+          .reduce((sum, c, i) => sum + c * [0.2126, 0.7152, 0.0722][i], 0);
+      const a = luminance(0),
+        b = luminance(4);
+      return {
+        ratio: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05),
+        foreground: css.color,
+        background: css.backgroundColor,
+        backgroundAlpha: rgba[7],
+      };
+    });
+    assert.ok(
+      selectedContrast.ratio >= 4.5 && selectedContrast.backgroundAlpha === 255,
+      "Hovered selected wallpaper text must retain normal-text contrast",
+    );
     const pixels = await stableLiquidPixels(sample);
     assert.ok(pixels.visible > 0);
     const ink = await sample.evaluate((node) => getComputedStyle(node).color);
@@ -94,7 +130,12 @@ export async function checkLiquidScenes(browser, url, evidence) {
       JSON.stringify(
         {
           dockMorph: boxes,
-          dark: { pixels, ink, metrics: await liquidMetrics(page) },
+          dark: {
+            pixels,
+            ink,
+            selectedContrast,
+            metrics: await liquidMetrics(page),
+          },
           errors,
         },
         null,

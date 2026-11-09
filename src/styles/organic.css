@@ -503,3 +503,23 @@ html[data-reduced-motion="true"] .dashboard-wallpaper video {
 .lunar-modal > .glass-backing {
   --glass-radius: var(--organic-radius-panel);
 }
+
+/* Automatic dark wallpaper tones must not inherit a light theme's hover paint.
+   Foreground and backing stay paired on actual controls, not only the glass pane. */
+@media (forced-colors: none) {
+  .lunar-modal button:hover:not(:disabled):not(.primary-button),
+  .ai-sidebar button:hover:not(:disabled):not(.primary-button),
+  .browser-toolbar button:hover:not(:disabled):not(.primary-button),
+  .bookmark-bar button:hover:not(:disabled):not(.primary-button) {
+    background: color-mix(
+      in srgb,
+      var(--organic-ink) 10%,
+      var(--organic-paper)
+    );
+    color: var(--organic-ink);
+  }
+  .glass-surface button:hover:not(:disabled):not(.primary-button) {
+    background: color-mix(in srgb, var(--glass-ink) 10%, var(--glass-paper));
+    color: var(--glass-ink);
+  }
+}
