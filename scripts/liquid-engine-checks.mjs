@@ -8,13 +8,31 @@ export async function liquidMetrics(page) {
     .evaluate((canvas) => JSON.parse(canvas.dataset.metrics || "null"));
 }
 export async function liquidPixels(surface) {
-  return surface.evaluate((node) => {
+  return surface.evaluate(async (node) => {
     const canvas = node.querySelector(":scope > canvas[data-liquid-output]");
     if (!canvas || canvas.hidden || !canvas.width || !canvas.height)
       throw new Error("No visible Liquid Engine output");
-    const pixels = canvas
-      .getContext("2d")
-      .getImageData(0, 0, canvas.width, canvas.height).data;
+    const metadata = {
+      deformation: JSON.parse(canvas.dataset.deformation || "[0,0,0]"),
+      tone: canvas.dataset.liquidTone,
+      radii: JSON.parse(canvas.dataset.liquidRadii || "[]"),
+    };
+    // Never call getImageData on a runtime output context: Chromium can migrate
+    // that context to CPU rendering after diagnostic reads, perturbing the app.
+    // Snapshot its real pixels into a disposable readback-only canvas instead.
+    const bitmap = await createImageBitmap(canvas);
+    const readback = document.createElement("canvas");
+    readback.width = bitmap.width;
+    readback.height = bitmap.height;
+    const context = readback.getContext("2d", { willReadFrequently: true });
+    context.drawImage(bitmap, 0, 0);
+    bitmap.close();
+    const pixels = context.getImageData(
+      0,
+      0,
+      readback.width,
+      readback.height,
+    ).data;
     let hash = 2166136261,
       visible = 0;
     for (let i = 0; i < pixels.length; i++) {
@@ -23,12 +41,17 @@ export async function liquidPixels(surface) {
     }
     return {
       hash: hash >>> 0,
-      width: canvas.width,
-      height: canvas.height,
+      width: readback.width,
+      height: readback.height,
       visible,
-      deformation: JSON.parse(canvas.dataset.deformation || "[0,0,0]"),
+      ...metadata,
     };
   });
+}
+export async function liquidDeformation(surface) {
+  return surface
+    .locator(":scope > canvas[data-liquid-output]")
+    .evaluate((canvas) => JSON.parse(canvas.dataset.deformation || "[0,0,0]"));
 }
 export async function stableLiquidPixels(surface) {
   await surface.scrollIntoViewIfNeeded();
@@ -171,6 +194,38 @@ export async function checkLiquidEngine(browser, url, evidence) {
       tokenPixels[name] = { low: low.hash, high: high.hash };
       if (name === "Blur intensity") await slider(name).press("Home");
     }
+    // Tone-only changes must update actual shader contrast, not just white DOM ink.
+    const textChoice = editor.getByRole("combobox", {
+      name: "Dashboard text",
+      exact: true,
+    });
+    await textChoice.selectOption("light");
+    const whiteInk = await stableLiquidPixels(sample);
+    assert.equal(whiteInk.tone, "dark");
+    await textChoice.selectOption("dark");
+    const darkInk = await stableLiquidPixels(sample);
+    assert.equal(darkInk.tone, "light");
+    assert.notEqual(whiteInk.hash, darkInk.hash);
+    await textChoice.selectOption("theme");
+    // Existing radius preferences are root CSS tokens, not new material settings.
+    const oldRadius = await page.evaluate(() =>
+      document.documentElement.style.getPropertyValue("--lunar-radius"),
+    );
+    await page.evaluate(() =>
+      document.documentElement.style.setProperty("--lunar-radius", "0px"),
+    );
+    const square = await stableLiquidPixels(sample);
+    assert.ok(
+      square.radii.every((radius) => radius === 0),
+      "Theme radius zero must update the shader geometry",
+    );
+    await page.evaluate((value) => {
+      if (value)
+        document.documentElement.style.setProperty("--lunar-radius", value);
+      else document.documentElement.style.removeProperty("--lunar-radius");
+    }, oldRadius);
+    const rounded = await stableLiquidPixels(sample);
+    assert.ok(rounded.radii.some((radius) => radius > 0));
     const tintInput = editor.getByLabel("Glass tint", { exact: true });
     const tintBefore = await stableLiquidPixels(sample);
     await tintInput.evaluate((input) => {
@@ -210,9 +265,7 @@ export async function checkLiquidEngine(browser, url, evidence) {
     await expect
       .poll(
         async () =>
-          Math.hypot(
-            ...(await liquidPixels(lightingSurface)).deformation.slice(0, 2),
-          ),
+          Math.hypot(...(await liquidDeformation(lightingSurface)).slice(0, 2)),
         { timeout: 15000 },
       )
       .toBeGreaterThan(0.05);
@@ -234,10 +287,9 @@ export async function checkLiquidEngine(browser, url, evidence) {
     await page.mouse.move(box.x + box.width * 0.55, box.y + 26);
     await page.mouse.down();
     await expect
-      .poll(
-        async () => (await liquidPixels(interactionSurface)).deformation[2],
-        { timeout: 15000 },
-      )
+      .poll(async () => (await liquidDeformation(interactionSurface))[2], {
+        timeout: 15000,
+      })
       .toBeGreaterThan(0.1);
     const pressed = await liquidPixels(interactionSurface);
     assert.deepEqual(
@@ -250,7 +302,7 @@ export async function checkLiquidEngine(browser, url, evidence) {
     await expect
       .poll(
         async () =>
-          (await liquidPixels(interactionSurface)).deformation.every(
+          (await liquidDeformation(interactionSurface)).every(
             (value) => Math.abs(value) < 0.001,
           ),
         { timeout: 15000 },
@@ -294,8 +346,18 @@ export async function checkLiquidEngine(browser, url, evidence) {
     await expect(sample).toHaveAttribute("data-liquid-backend", "webgl2");
     await page.setViewportSize({ width: 1000, height: 760 });
     await expect
-      .poll(async () => (await liquidMetrics(page)).atlasWidth)
-      .toBeGreaterThan(0);
+      .poll(
+        async () => {
+          const metrics = await liquidMetrics(page);
+          return (
+            metrics.viewportWidth === 1000 &&
+            metrics.viewportHeight === 760 &&
+            metrics.atlasWidth > 0
+          );
+        },
+        { timeout: 20000 },
+      )
+      .toBe(true);
     await page.setViewportSize({ width: 1280, height: 840 });
     await editor
       .getByRole("button", { name: "Cancel dashboard changes", exact: true })
@@ -397,6 +459,8 @@ export async function checkLiquidEngine(browser, url, evidence) {
     const results = {
       image: { off, on, repeated },
       tokenPixels,
+      toneOnly: { whiteInk, darkInk },
+      retainedGeometry: { square, rounded },
       specular: { off: noSpec.hash, on: spec.hash },
       deformation: { pressed, released, stationaryHitBox: true },
       idle: { before: idleStart.draws, after: idleEnd.draws },

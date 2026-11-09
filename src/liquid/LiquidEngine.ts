@@ -201,12 +201,15 @@ export class LiquidEngine {
           continue;
         }
         const target = mutation.target;
-        if (
-          !(target instanceof HTMLElement) ||
-          target.matches("canvas") ||
-          target === document.documentElement
-        )
+        if (!(target instanceof HTMLElement) || target.matches("canvas"))
           continue;
+        // Theme Studio geometry/palette live on :root, outside the body observer.
+        // They must invalidate shader radii/tone even if DOM bounds did not change.
+        if (target === document.documentElement) {
+          layout = true;
+          material = true;
+          continue;
+        }
         if (mutation.attributeName === "style") {
           const signature = [
             target.style.transform,
@@ -251,11 +254,16 @@ export class LiquidEngine {
         "style",
         "hidden",
         "data-glass-mode",
+        "data-glass-tone",
         "data-glass-active",
         "data-glass-fallback",
         "data-liquid-exiting",
         "data-liquid-morph",
       ],
+    });
+    this.observer.observe(root.documentElement, {
+      attributes: true,
+      attributeFilter: ["style", "class"],
     });
     const moved = () => this.invalidate(true),
       hidden = () => this.invalidate(true);
@@ -302,6 +310,14 @@ export class LiquidEngine {
       "--glass-effective-blur",
       "--glass-saturation",
       "--glass-refraction",
+      "--glass-refraction-strength",
+      "--glass-paper",
+      "--glass-ink",
+      "border-radius",
+      "border-top-left-radius",
+      "border-top-right-radius",
+      "border-bottom-left-radius",
+      "border-bottom-right-radius",
       "--glass-reflection",
       "--glass-border",
       "--glass-tint",
@@ -469,6 +485,8 @@ export class LiquidEngine {
       return;
     }
     const start = performance.now();
+    const viewportWidth = innerWidth,
+      viewportHeight = innerHeight;
     const seconds = this.lastTime
       ? Math.min(0.05, (time - this.lastTime) / 1000)
       : 1 / 60;
@@ -674,6 +692,12 @@ export class LiquidEngine {
         surface.canvas.hidden = output.canvas !== surface.canvas;
         surface.node.dataset.liquidBackend = "webgl2";
         surface.node.dataset.glassBackend = "webgl2";
+        surface.canvas.dataset.liquidTone = entries[tile.index].material.dark
+          ? "dark"
+          : "light";
+        surface.canvas.dataset.liquidRadii = JSON.stringify(
+          entries[tile.index].material.radii,
+        );
         surface.canvas.dataset.deformation = JSON.stringify(
           entries[tile.index].bend.map((value) => Number(value.toFixed(5))),
         );
@@ -721,6 +745,8 @@ export class LiquidEngine {
       contexts: 1,
       atlasWidth: atlas.width,
       atlasHeight: atlas.height,
+      viewportWidth,
+      viewportHeight,
       resolutionScale: atlas.scale,
       cpuSubmitComposeMs: elapsed,
       frameLatencyMs: latency,

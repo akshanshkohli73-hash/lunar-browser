@@ -1,3 +1,4 @@
+import { checkLiquidScenes } from "./liquid-scenes-checks.mjs";
 import { checkLiquidEngine } from "./liquid-engine-checks.mjs";
 import assert from "node:assert/strict";
 import {
@@ -625,8 +626,13 @@ try {
     server.resolvedUrls.local[0],
     ".artifacts/ui/liquid",
   );
+  await checkLiquidScenes(
+    browser,
+    server.resolvedUrls.local[0],
+    ".artifacts/ui/liquid",
+  );
   console.log(
-    "PASS: Organic SVG painted-pixel / deterministic repeated capture, unsupported-SVG/no-WebGL CSS fallback, real added Studio tokens, shared pointer proximity with same hovered hit box and stable neighboring responses; Chromium renderer preview — single workspace, real layout/hit targets, all nine Lunar shortcuts and launcher routes, eight keyboard menus, dock restore, Theme Studio, wallpaper/widget/dock preview/cancel, real glass controls / modes, bright/dark draft previews, forced-color fallback, twenty actually visible static materials, three shared depths, fixed-wallpaper scrolling, independently scrolling customization with fixed actions at four sizes and real animated entry, animated-menu keyboard replacement, dock pointer/keyboard/motion settings and responsive stacking; no console errors.",
+    "PASS: actual shared WebGL2 image lensing / all optical controls / moving specular with zero elasticity / finite press recovery and fixed hit boxes / idle stop / quality-resolution budgets / context-loss repaint / toolbar-menu and dock-panel material morphs / dark material readability, plus Organic SVG painted-pixel / deterministic repeated capture, unsupported-SVG/no-WebGL CSS fallback, real added Studio tokens, shared pointer proximity with same hovered hit box and stable neighboring responses; Chromium renderer preview — single workspace, real layout/hit targets, all nine Lunar shortcuts and launcher routes, eight keyboard menus, dock restore, Theme Studio, wallpaper/widget/dock preview/cancel, real glass controls / modes, bright/dark draft previews, forced-color fallback, twenty actually visible static materials, three shared depths, fixed-wallpaper scrolling, independently scrolling customization with fixed actions at four sizes and real animated entry, animated-menu keyboard replacement, dock pointer/keyboard/motion settings and responsive stacking; no console errors.",
   );
   console.log(
     "This test is not a native Electron or Windows runtime test. Screenshots: .artifacts/ui/",
