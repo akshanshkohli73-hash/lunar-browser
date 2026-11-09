@@ -20,7 +20,7 @@
 
 ## Verification status
 
-**Passed runtime/source:** `848dfa9e4b80dc20ef2c2024d27c8b09fb56f3ee` · [run 42622793883](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42622793883). Both renderer/regressions (**129178905714**) and Windows native/NSIS (**129178905388**) succeeded. This is new 2.5.0 evidence, not substituted historical 2.4.1 proof.
+**Passed final runtime/source:** `a7e3b2b17991ab11bb12555fd49a125b9651fae0` · [run 42629657311](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42629657311). Both renderer/regressions (**129202353663**) and Windows native/NSIS (**129202354080**) succeeded. Earlier successful runtime `848dfa9` / run 42622793883 is retained as preceding evidence, not substituted for this final pass. This is new 2.5.0 evidence, not substituted historical 2.4.1 proof.
 
 - **224 tests / 28 files**, TypeScript, ESLint, renderer/main/preload builds, package configuration/input validation and production audit (**0 vulnerabilities**) passed. Development-tool advisories remain disclosed, not force-upgraded/suppressed.
 - Actual production Chromium 153 with test-only software ANGLE/SwiftShader passed real wallpaper/optical-control pixels, specular movement with elasticity zero, press/release recovery with unchanged DOM hit boxes, idle-stop, quality/resolution budgets, resizing, context-loss fallback and actual restored pixels, toolbar-to-menu morph and keyboard roving. Existing broad CSS/SVG unsupported-WebGL, reduced-motion/forced-color, widget/theme/layout, dock/proximity/hit-target and portal/focus regressions also passed.
@@ -81,29 +81,29 @@ Native tests forced software ANGLE/SwiftShader using **test-launch flags only**.
 
 | Execution / clip | Observed ms | Video callbacks | Total frame counter | Dropped frames | Max callback gap ms |
 | ---------------- | ----------- | --------------- | ------------------- | -------------- | ------------------- |
-| Source webm      | 2348        | 9               | 28                  | 13             | 313                 |
-| Source mp4       | 2370        | 9               | 24                  | 11             | 328                 |
-| Packaged webm    | 2222        | 10              | 24                  | 10             | 328                 |
-| Packaged mp4     | 2260        | 8               | 20                  | 9              | 672                 |
+| Source webm      | 2640        | 9               | 30                  | 18             | 453                 |
+| Source mp4       | 2491        | 8               | 27                  | 17             | 453                 |
+| Packaged webm    | 2454        | 7               | 26                  | 15             | 672                 |
+| Packaged mp4     | 2443        | 8               | 28                  | 17             | 453                 |
 
-**The dropped frames/stalls are real limitations of this software test setup.** They are not hidden and these results do not establish consistently smooth 60-FPS performance. During the controlled Balanced moving probes, sampled submission/composition ranged roughly 0.9–94.7ms and snapshot latency 2.5–181.6ms; steady paused samples were lower. Select Balanced/Performance on constrained systems. Physical GPUs, low-power devices, high DPI, large displays/4K video, personal codecs, battery use and sustained interaction latency still require hardware/manual profiling. No universal performance improvement or accessibility certification is claimed.
+**The dropped frames/stalls are real limitations of this software test setup.** They are not hidden and these results do not establish consistently smooth 60-FPS performance. During the controlled Balanced moving probes, sampled submission/composition ranged roughly 2.4–136.3ms and snapshot latency 130.5–140ms; steady paused samples were lower. Select Balanced/Performance on constrained systems. Physical GPUs, low-power devices, high DPI, large displays/4K video, personal codecs, battery use and sustained interaction latency still require hardware/manual profiling. No universal performance improvement or accessibility certification is claimed.
 
 All four source/packaged optical probes required a moving, uploaded video frame and real painted native-window refraction; fixed paused repeats were stable, with one existing video element and no new texture upload for a refraction-uniform change:
 
 | Execution / clip | Native window off hash → on hash | Repeat stable |
 | ---------------- | -------------------------------- | ------------- |
-| Source webm      | 3420594612 → 309948011           | True          |
-| Source mp4       | 3966374528 → 3849680048          | True          |
-| Packaged webm    | 2543740689 → 309948011           | True          |
-| Packaged mp4     | 3966374528 → 3849680048          | True          |
+| Source webm      | 241256656 → 1010718360           | True          |
+| Source mp4       | 2304235826 → 839627731           | True          |
+| Packaged webm    | 241256656 → 1010718360           | True          |
+| Packaged mp4     | 2876393206 → 1853053304          | True          |
 
 ## Candidate artifacts — unreleased / unsigned
 
-The **newly built** `Lunar-Browser-2.5.0-win-x64.exe` is `NotSigned`, CI-computed SHA-256 **`A704230882A9A8FD8334CB016B411C381B2F55B93558479B76A3D9FBCECD4D98`**. It is not the previous 2.4.1 EXE renamed. The actual packaged app was executed before hashing/upload. GitHub artifact authentication/retention applies; this is not a public release or an auto-update feed.
+The **newly built** `Lunar-Browser-2.5.0-win-x64.exe` is `NotSigned`, CI-computed SHA-256 **`ECC0D6DEC4033B9764DA97358D644D1183B4DAD61D0A3EA63306FBF5EFFA6A76`**. It is not the previous 2.4.1 EXE renamed. The actual packaged app was executed before hashing/upload. GitHub artifact authentication/retention applies; this is not a public release or an auto-update feed.
 
-- [lunar-windows-x64-unsigned · 13678395050](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42622793883/artifacts/13678395050): ZIP **113,752,457 bytes**, `sha256:b83187ef3dd286e33a1c9a1f041abad9cf164c71a96f26ac99cc4e31a0a39105`.
-- [chromium-renderer-evidence · 13677890219](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42622793883/artifacts/13677890219): ZIP **7,998,807 bytes**, `sha256:70c271c5d21e8ab5bc106e8c12ce48fcf3cb83beac5dfaecf850f971a7e66039`.
-- [windows-material-evidence · 13676179260](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42622793883/artifacts/13676179260): ZIP **4,943,579 bytes**, `sha256:fd21131b9de7946a7e46e82d6100884c05a3e8f790a6f10f1e6b6f8922ec8555`.
+- [chromium-renderer-evidence · 13680730815](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42629657311/artifacts/13680730815): ZIP **8,412,621 bytes**, `sha256:94412702d97ba682775d2b6491db2dac326ad82ccc70eb00e603d79637114d71`.
+- [windows-material-evidence · 13679494639](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42629657311/artifacts/13679494639): ZIP **5,091,767 bytes**, `sha256:dd350c9e68368bd56549cd0f57ab1746924b83a2b773ad20c7e7c61886a8b4f4`.
+- [lunar-windows-x64-unsigned · 13679369612](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42629657311/artifacts/13679369612): ZIP **113,752,625 bytes**, `sha256:d986b5ea24d706d25450c2cffced89af5154f52304a9cfff55a403e5bd300b1d`.
 
 Local evidence is under `.artifacts/liquid-engine/` and `.artifacts/ui/liquid*`; CI uploads the actual graphics/native screenshot/JSON folders. Manual installed-NSIS upgrade/uninstall, physical file/color dialogs, touch, multi-monitor/DPI, user media and sustained hardware performance remain distinct unverified checks. The package remains `UNLICENSED`. Do not disable Windows/antivirus protections or describe this unsigned candidate as a trusted/signed public release.
 
@@ -116,3 +116,7 @@ Graphics test readbacks use a disposable readback-only canvas from a snapshot of
 ### Final visual/interaction review
 
 Actual dark-scene screenshots exposed a light-theme hover background being paired with automatically dark-material white ink on the selected wallpaper button. Material-backed modal/sidebar/toolbar/widget hover controls now keep ink and backing paired; forced colors retain their system path. The actual Chromium dark scene checks the selected hovered button's resolved colors for an opaque background and at least 4.5:1 normal-text contrast. This is a specific regression check, not an accessibility certification.
+
+### Final code / evidence status
+
+The final code run above includes shader tone-only and retained theme-radius assertions, actual Dock/Theme Studio and dark-hover contrast scenes, all legacy regressions, Windows source execution, NSIS packaging, packaged execution and hashes. Only this new candidate is covered; manual hardware/installed-NSIS limits remain. The 2.5.0 implementation was not publicly released. Subsequent report-only edits do not change the tested runtime bytes.
