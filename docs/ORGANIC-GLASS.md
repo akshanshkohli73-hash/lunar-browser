@@ -58,7 +58,7 @@ Per-widget controls create **sparse** material overrides; they cannot override g
 
 `migrateDashboard` explicitly upgrades v1/v2 to v3, supplying only the new fields while retaining old material values, quality, media IDs, notes/events, dock values and widget records/overrides. Current documents are not rewritten by the migrator. Partial IPC/save schemas have **no material defaults**: a note-only save cannot reset a material or inject global fields into a widget override. Malformed legacy material data is not silently accepted.
 
-No new runtime dependency, network upload, privileged renderer API, unrestricted file path or shader resource fetch is introduced. Sandboxing, context isolation, sender/argument validation, default-deny website permissions, network-filter disclosures, provider-secret handling, profile retention and `--publish never` packaging remain in place. The separately authorized manual 2.4.0 prerelease below does not grant signing trust, enable automatic updates or authorize future automatic publication. Back up a profile before upgrading; older application versions do not understand the v3 material schema.
+No new runtime dependency, network upload, privileged renderer API, unrestricted file path or shader resource fetch is introduced. Sandboxing, context isolation, sender/argument validation, default-deny website permissions, network-filter disclosures, provider-secret handling, profile retention and `--publish never` packaging remain in place. The separately authorized manual prereleases listed below do not grant signing trust, enable automatic updates or authorize future automatic publication. Back up a profile before upgrading; older application versions do not understand the v3 material schema.
 
 ## Public prerelease — separately authorized on 2026-11-07
 
@@ -113,7 +113,7 @@ Supporting CI artifacts:
 
 ### Deliberate limitations / manual checks
 
-No universal FPS, GPU/battery improvement, physical ray tracing, accessibility certification, native-view refraction, 4K video or hardware acceleration certification is claimed. Small synthetic clips and software/CI rendering do not establish real-device performance. Human installed-NSIS upgrade/uninstall, OS picker interaction, personal codecs, touch devices, cross-scroll drag/drop, Windows DPI/multi-monitor and low-power/large-display hardware remain manual checks. Only the specific 2.4.0 prerelease above was manually authorized and published; future releases still require an explicit request.
+No universal FPS, GPU/battery improvement, physical ray tracing, accessibility certification, native-view refraction, 4K video or hardware acceleration certification is claimed. Small synthetic clips and software/CI rendering do not establish real-device performance. Human installed-NSIS upgrade/uninstall, OS picker interaction, personal codecs, touch devices, cross-scroll drag/drop, Windows DPI/multi-monitor and low-power/large-display hardware remain manual checks. Only the specifically authorized prereleases recorded in this report were published; future releases still require an explicit request.
 
 ## 2.4.1 follow-up — wallpaper image limit
 
