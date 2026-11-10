@@ -5,6 +5,7 @@ import {
   useState,
   type CSSProperties,
 } from "react";
+import { createPortal } from "react-dom";
 import { rgbAppearance, type WallpaperAppearance } from "../../../shared/glass";
 import {
   useGlassMaterial,
@@ -62,11 +63,17 @@ export function Wallpaper({
   active,
   preview = false,
   reduceMotion = false,
+  controlsHost = null,
+  shell = false,
+  resumeKey = "",
 }: {
   value: WallpaperSettings;
   active: boolean;
   preview?: boolean;
   reduceMotion?: boolean;
+  controlsHost?: HTMLElement | null;
+  shell?: boolean;
+  resumeKey?: string;
 }) {
   const preferred = useReducedMotionPreference();
   const material = useGlassMaterial();
@@ -80,7 +87,11 @@ export function Wallpaper({
       return;
     }
     const update = () =>
-      setOwnsVideo(!document.querySelector(".new-tab-dashboard video"));
+      setOwnsVideo(
+        !document.querySelector(
+          '[data-wallpaper-owner="shell"] video, .new-tab-dashboard video',
+        ),
+      );
     update();
     const observer = new MutationObserver(update);
     observer.observe(document.body, { childList: true, subtree: true });
@@ -157,7 +168,7 @@ export function Wallpaper({
     return () => {
       live = false;
     };
-  }, [playing, value.mediaId, value.kind, ownsVideo]);
+  }, [playing, value.mediaId, value.kind, ownsVideo, resumeKey]);
   // Only a source change/unmount owns cleanup. Do not pause a synchronous user-
   // initiated Play again during the previous playback effect's cleanup.
   useEffect(() => {
@@ -241,6 +252,55 @@ export function Wallpaper({
     if (appearance)
       material.reportAppearance(wallpaperIdentity(value), appearance);
   };
+  const feedback = (
+    <>
+      {error && (
+        <p className="wallpaper-error" role="status">
+          This wallpaper could not load or play. {error}
+        </p>
+      )}
+      {value.kind === "video" && (!preview || ownsVideo) && (
+        <div className="wallpaper-playback">
+          <button
+            disabled={!active || !foreground}
+            onClick={() => {
+              const node = video.current;
+              if (!node) return;
+              if (!paused) {
+                setPaused(true);
+                node.pause();
+                return;
+              }
+              setError("");
+              if (node.error) node.load();
+              setPaused(false);
+              start(node); // Keep the browser's user activation: do not defer Play to an effect.
+            }}
+          >
+            {paused ? "Play wallpaper" : "Pause wallpaper"}
+          </button>
+          {!preview && (
+            <button
+              onClick={() => {
+                if (video.current && active && foreground) {
+                  video.current.muted = !muted;
+                  setMuted(!muted);
+                }
+              }}
+              disabled={!playing || !value.audioControls}
+              title={
+                !value.audioControls
+                  ? "Enable manual sound controls in Appearance to unmute."
+                  : undefined
+              }
+            >
+              {muted ? "Unmute wallpaper" : "Mute wallpaper"}
+            </button>
+          )}
+        </div>
+      )}
+    </>
+  );
   return (
     <>
       <div
@@ -306,51 +366,11 @@ export function Wallpaper({
           style={{ opacity: value.overlay }}
         />
       </div>
-      {error && (
-        <p className="wallpaper-error" role="status">
-          This wallpaper could not load or play. {error}
-        </p>
-      )}
-      {value.kind === "video" && (!preview || ownsVideo) && (
-        <div className="wallpaper-playback">
-          <button
-            disabled={!active || !foreground}
-            onClick={() => {
-              const node = video.current;
-              if (!node) return;
-              if (!paused) {
-                setPaused(true);
-                node.pause();
-                return;
-              }
-              setError("");
-              if (node.error) node.load();
-              setPaused(false);
-              start(node); // Keep the browser's user activation: do not defer Play to an effect.
-            }}
-          >
-            {paused ? "Play wallpaper" : "Pause wallpaper"}
-          </button>
-          {!preview && (
-            <button
-              onClick={() => {
-                if (video.current && active && foreground) {
-                  video.current.muted = !muted;
-                  setMuted(!muted);
-                }
-              }}
-              disabled={!playing || !value.audioControls}
-              title={
-                !value.audioControls
-                  ? "Enable manual sound controls in Appearance to unmute."
-                  : undefined
-              }
-            >
-              {muted ? "Unmute wallpaper" : "Mute wallpaper"}
-            </button>
-          )}
-        </div>
-      )}
+      {controlsHost
+        ? createPortal(feedback, controlsHost)
+        : !shell
+          ? feedback
+          : null}
     </>
   );
 }

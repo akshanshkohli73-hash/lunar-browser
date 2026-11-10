@@ -11,11 +11,14 @@ import {
   type DashboardSettings,
   type DashboardWidget,
 } from "../../../shared/dashboard";
+import { aquaGreeting } from "../../../shared/aqua";
+import { useMinuteClock } from "../useMinuteClock";
 import { useBrowser } from "../../state/BrowserContext";
 import { Icon } from "../ui/Icon";
 import { Modal } from "../ui/Modal";
 const DashboardStudio = lazy(() => import("./DashboardStudio"));
 import { useReducedMotionPreference } from "../useReducedMotionPreference";
+import { useWallpaperControls } from "./WallpaperEnvironment";
 import { Wallpaper } from "./Wallpaper";
 import { WidgetCell } from "./WidgetCell";
 import { useGlassMaterial } from "../../state/GlassMaterialProvider";
@@ -46,6 +49,8 @@ export default function NewTabDashboard({
   const reduced = useReducedMotionPreference(),
     current = preview ?? presentationDashboard;
   const effectsActive = useWorkspaceActivity() && active;
+  const { shared, controlsRef } = useWallpaperControls(active);
+  const now = useMinuteClock(effectsActive);
   const [selected, setSelected] = useState<string | null>(null),
     [dragging, setDragging] = useState<string | null>(null),
     [target, setTarget] = useState<string | null>(null);
@@ -70,6 +75,7 @@ export default function NewTabDashboard({
       className="new-tab-dashboard"
       aria-label="New tab dashboard"
       data-alignment={current.alignment}
+      data-wallpaper-shared={String(shared)}
       data-glass-enabled={String(current.glass.enabled)}
       data-glass-performance={current.glass.performance}
       data-effects-active={String(effectsActive)}
@@ -81,18 +87,26 @@ export default function NewTabDashboard({
       }
       style={{ "--widget-opacity": current.widgetOpacity } as CSSProperties}
     >
-      <Wallpaper
-        value={current.wallpaper}
-        active={active}
-        reduceMotion={reducedMotion || !!reduced}
-      />
+      {!shared && (
+        <Wallpaper
+          value={current.wallpaper}
+          active={active}
+          reduceMotion={reducedMotion || !!reduced}
+        />
+      )}
       <div className="dashboard-body">
         <header className="dashboard-heading">
           <div>
             <Icon name="moon" size={18} />
-            <span>Your space, at your pace.</span>
+            <span className="lunar-greeting">
+              <strong>{aquaGreeting(now.getHours())}</strong>
+              <small>Your space, at your pace.</small>
+            </span>
           </div>
           <div>
+            {shared && (
+              <div className="wallpaper-controls-host" ref={controlsRef} />
+            )}
             <button
               disabled={!ready || arranging}
               data-liquid-trigger="modal-Customize dashboard"
@@ -230,14 +244,19 @@ export default function NewTabDashboard({
           </div>
         )}
         <footer className="dashboard-footer">
-          <span>
+          <button
+            className="dashboard-shield-status"
+            disabled={!api}
+            aria-label="Open Lunar Shield"
+            onClick={() => navigate("lunar://shield")}
+          >
             <Icon name="shield" size={14} />
             {api
               ? settings.shield.enabled
                 ? `Lunar Shield · ${shield?.stats.totalBlocked ?? 0} requests / popups blocked this session`
                 : "Lunar Shield is paused"
               : "Your Coquette desktop, made for the web."}
-          </span>
+          </button>
           <button disabled={!api} onClick={() => navigate("lunar://bookmarks")}>
             Bookmarks
           </button>

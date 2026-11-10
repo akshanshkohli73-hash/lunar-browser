@@ -1,10 +1,10 @@
 :root {
-  --organic-sage: #3c5945;
-  --organic-pastel: #c5d9b8;
-  --organic-ivory: #f4f5e9;
-  --organic-forest: #18392a;
-  --organic-highlight: #fffef8;
-  --organic-shadow: #2c483b;
+  --organic-sage: #285b61;
+  --organic-pastel: #bdeae2;
+  --organic-ivory: #e6f7f3;
+  --organic-forest: #253f43;
+  --organic-highlight: #f7fffe;
+  --organic-shadow: #183d43;
   --organic-font-display:
     Georgia, "Iowan Old Style", "Palatino Linotype", serif;
   --organic-font-body: "Segoe UI", system-ui, -apple-system, sans-serif;

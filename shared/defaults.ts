@@ -15,7 +15,7 @@ export const DEFAULT_SHIELD: ShieldSettings = {
 };
 export const DEFAULT_SETTINGS: BrowserSettings = {
   searchEngine: "google",
-  themeId: "lunar-coquette",
+  themeId: "aqua-coquette",
   reducedMotion: false,
   showBookmarksBar: true,
   recordHistory: true,

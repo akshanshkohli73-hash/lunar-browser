@@ -122,7 +122,7 @@ export async function checkLiquidScenes(browser, url, evidence) {
     const pixels = await stableLiquidPixels(sample);
     assert.ok(pixels.visible > 0);
     const ink = await sample.evaluate((node) => getComputedStyle(node).color);
-    assert.equal(ink, "rgb(244, 248, 239)");
+    assert.equal(ink, "rgb(243, 251, 249)");
     await page.screenshot({ path: `${evidence}-dark-scene.png` });
     assert.deepEqual(errors, []);
     fs.writeFileSync(

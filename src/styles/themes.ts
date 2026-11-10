@@ -1,7 +1,75 @@
+import { AQUA_COLORS } from "../../shared/aqua";
 import type { ThemeTokens } from "../../shared/schemas";
 export type { ThemeTokens } from "../../shared/schemas";
 
 export const BUILTIN_THEMES: Record<string, ThemeTokens> = {
+  "aqua-coquette": {
+    id: "aqua-coquette",
+    name: "Aqua Coquette",
+    description:
+      "Light, water and glass. Mint, pearl, powder aqua and a trace of lilac.",
+    category: "pastel",
+    colors: {
+      bg: "#edf8f5",
+      bgSecondary: "#dcefe9",
+      surface: AQUA_COLORS.pearl,
+      surfaceHover: "#d2eae5",
+      border: "rgba(37, 63, 67, 0.18)",
+      text: AQUA_COLORS.teal,
+      textMuted: "#3e5d60",
+      primary: "#285b61",
+      secondary: AQUA_COLORS.mint,
+      accent: AQUA_COLORS.lilac,
+      glow: "rgba(72, 139, 151, 0.12)",
+    },
+    appearance: {
+      glassIntensity: 0.85,
+      blur: 8,
+      glowIntensity: 0.1,
+      shadowStrength: 0.22,
+      borderBrightness: 0.35,
+      cornerRadius: 16,
+    },
+    typography: {
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      fontSize: "comfortable",
+      uiScale: 1,
+    },
+    layout: { density: "comfortable", tabStyle: "pill" },
+  },
+  "aqua-moonlit": {
+    id: "aqua-moonlit",
+    name: "Aqua Moonlit",
+    description: "Deep teal water, pearl ink and quiet lunar reflections.",
+    category: "dark",
+    colors: {
+      bg: "#101f29",
+      bgSecondary: "#152d36",
+      surface: "#1b3540",
+      surfaceHover: "#254651",
+      border: "rgba(185, 220, 235, 0.22)",
+      text: AQUA_COLORS.pearl,
+      textMuted: "#b4d1d1",
+      primary: AQUA_COLORS.mint,
+      secondary: AQUA_COLORS.aqua,
+      accent: AQUA_COLORS.lilac,
+      glow: "rgba(185, 220, 235, 0.12)",
+    },
+    appearance: {
+      glassIntensity: 0.8,
+      blur: 8,
+      glowIntensity: 0.1,
+      shadowStrength: 0.32,
+      borderBrightness: 0.35,
+      cornerRadius: 16,
+    },
+    typography: {
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      fontSize: "comfortable",
+      uiScale: 1,
+    },
+    layout: { density: "comfortable", tabStyle: "pill" },
+  },
   "lunar-dark": {
     id: "lunar-dark",
     name: "Lunar Dark",
@@ -401,6 +469,17 @@ export function applyThemeTokens(theme: ThemeTokens) {
   const root = document.documentElement;
 
   root.style.setProperty("--lunar-bg", theme.colors.bg);
+  for (const [name, color] of Object.entries(AQUA_COLORS))
+    root.style.setProperty(`--aqua-${name}`, color);
+  // Existing persisted theme token, now also consumed by actual shader optics.
+  root.style.setProperty(
+    "--lunar-liquid-intensity",
+    String(theme.appearance.glassIntensity),
+  );
+  root.dataset.themeId = theme.id;
+  root.style.colorScheme = ["dark", "cyber"].includes(theme.category)
+    ? "dark"
+    : "light";
   root.style.setProperty("--lunar-bg-secondary", theme.colors.bgSecondary);
   root.style.setProperty("--lunar-surface", theme.colors.surface);
   root.style.setProperty("--lunar-surface-hover", theme.colors.surfaceHover);

@@ -10,6 +10,7 @@ import { useGlassMaterial } from "../state/GlassMaterialProvider";
 import { GlassBacking, GlassToolbar } from "./ui/GlassControls";
 import { useBrowser } from "../state/BrowserContext";
 import { isInternalUrl, isWebUrl } from "../../shared/navigation";
+import { BrowserTabs } from "./BrowserTabs";
 import { useNativeViewport } from "./useNativeViewport";
 import { WorkspaceActivity } from "../state/WorkspaceActivity";
 import NewTabDashboard from "./dashboard/NewTabDashboard";
@@ -65,8 +66,7 @@ export default function App({
     [readerLoading, setReaderLoading] = useState(false);
   const address = useRef<HTMLInputElement>(null),
     pageRef = useRef<HTMLDivElement>(null),
-    focused = useRef(false),
-    dragId = useRef<string | null>(null);
+    focused = useRef(false);
   const internalPage = !api
     ? previewPage
     : active && isInternalUrl(active.url)
@@ -214,68 +214,13 @@ export default function App({
       <main className="browser-app" aria-label="Lunar browser workspace">
         <div className="browser-tabstrip" data-glass-owner="true">
           <GlassToolbar />
-          <div
-            className="browser-tabs"
-            role="tablist"
-            aria-label="Browser tabs"
-          >
-            {tabs.map((tab) => (
-              <div
-                className={`browser-tab ${tab.id === activeId ? "is-active" : ""}`}
-                key={tab.id}
-                draggable
-                onDragEnd={() => {
-                  dragId.current = null;
-                }}
-                onDragStart={() => {
-                  dragId.current = tab.id;
-                }}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  const from = dragId.current;
-                  dragId.current = null;
-                  if (!api || !from || from === tab.id) return;
-                  const ids = tabs
-                    .map((item) => item.id)
-                    .filter((id) => id !== from);
-                  ids.splice(ids.indexOf(tab.id), 0, from);
-                  void api.reorderTabs(ids).catch(report);
-                }}
-                onContextMenu={(event) => {
-                  event.preventDefault();
-                  setTabMenu(tab.id);
-                }}
-              >
-                <button
-                  role="tab"
-                  aria-selected={tab.id === activeId}
-                  aria-controls="page-viewport"
-                  title={tab.url}
-                  onClick={() => void api?.switchTab(tab.id).catch(report)}
-                >
-                  {tab.isLoading ? (
-                    <span className="loading-spinner" />
-                  ) : tab.isPinned ? (
-                    <Icon name="pin" size={13} />
-                  ) : (
-                    <Icon name="globe" size={13} />
-                  )}
-                  <span>{tab.title}</span>
-                  {tab.isMuted || tab.audible ? (
-                    <Icon name="volume" size={12} />
-                  ) : null}
-                </button>
-                <button
-                  className="tab-close"
-                  aria-label={`Close ${tab.title}`}
-                  onClick={() => void api?.closeTab(tab.id).catch(report)}
-                >
-                  <Icon name="x" size={13} />
-                </button>
-              </div>
-            ))}
-          </div>
+          <BrowserTabs
+            tabs={tabs}
+            activeId={activeId}
+            api={api}
+            report={report}
+            onMenu={setTabMenu}
+          />
           <button
             className="icon-button"
             aria-label="New tab"

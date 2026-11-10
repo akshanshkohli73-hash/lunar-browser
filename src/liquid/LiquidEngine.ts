@@ -1,3 +1,4 @@
+import { AQUA_OPTICS } from "../../shared/aqua";
 import { DEFAULT_GLASS, type GlassSettings } from "../../shared/glass";
 import { cssMaterialVariant, wantsLiquid } from "../../shared/materials";
 import {
@@ -399,6 +400,7 @@ export class LiquidEngine {
   }
   private fallback(reason: string) {
     this.background.setRunning(false);
+    this.interaction.clearRipples();
     this.motion.suspend(
       document.querySelectorAll<HTMLElement>("[data-liquid-morph]"),
     );
@@ -569,6 +571,14 @@ export class LiquidEngine {
     );
     const surfaces = selected.slice(0, quality.surfaces);
     for (const s of selected.slice(quality.surfaces)) this.fallbackSurface(s);
+    if (!surfaces.length) {
+      // No one can see an optical output: stop video callbacks and skip the
+      // empty-atlas draw/snapshot. Mount/visibility events wake the same clock.
+      this.background.setRunning(false);
+      this.dirty = this.layoutDirty = this.materialDirty = false;
+      this.publish(false, "no-visible-surfaces");
+      return;
+    }
     const entries: DrawSurface[] = [],
       outputs: {
         canvas: HTMLCanvasElement;
@@ -585,8 +595,9 @@ export class LiquidEngine {
         this.options.settings.hoverMotion ||
           this.interaction.down ||
           this.interaction.dragging,
+        time,
       );
-      settling ||= state.settling;
+      settling ||= state.settling && surface.material.intensity > 0;
 
       const owner = surface.node.closest<HTMLElement>("[data-liquid-morph]");
       const morphable =
@@ -635,6 +646,13 @@ export class LiquidEngine {
         material,
         bend: state.bend,
         pointer: state.pointer,
+        ripple: surface.view ? [0.5, 0.5, 0, 0] : state.ripple,
+        // A calm field evolves only on already-presented video frames. Static
+        // wallpaper has finite input ripples, not an additional idle RAF loop.
+        flow:
+          !surface.view && this.cached.kind === "video"
+            ? [this.uploadedMediaTime ?? 0, AQUA_OPTICS.flowPixels]
+            : [0, 0],
         view: surface.view,
         shade: background.options.shade,
         backgroundBlur: background.options.blur,
@@ -727,6 +745,12 @@ export class LiquidEngine {
         surface.canvas.dataset.liquidRadii = JSON.stringify(
           entries[tile.index].material.radii,
         );
+        surface.canvas.dataset.liquidIntensity = String(
+          entries[tile.index].material.intensity,
+        );
+        surface.canvas.dataset.liquidRipple = JSON.stringify(
+          entries[tile.index].ripple,
+        );
         surface.canvas.dataset.deformation = JSON.stringify(
           entries[tile.index].bend.map((value) => Number(value.toFixed(5))),
         );
@@ -794,6 +818,8 @@ export class LiquidEngine {
       quality: renderedQuality,
       sourceMediaTime: this.uploadedMediaTime,
       blurSamples: quality.samples,
+      opticalIntensity: entries[0]?.material.intensity ?? 0,
+      finiteRipples: entries.filter((entry) => entry.ripple[3] > 0).length,
     });
     this.publish(true, source ? "ready" : "environment-paused");
     if (settling) this.invalidate();

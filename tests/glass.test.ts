@@ -157,7 +157,11 @@ describe("validated, persistent glass materials", () => {
           ).toBe(0);
           expect(settings).toEqual(before);
         }
-    const material = resolveGlass(DEFAULT_GLASS, undefined, true);
+    const material = resolveGlass(
+      { ...DEFAULT_GLASS, blur: 14 },
+      undefined,
+      true,
+    );
     const depths = (Object.keys(GLASS_LEVELS) as GlassLevel[]).map((level) =>
       glassDepth(material, level, "light"),
     );

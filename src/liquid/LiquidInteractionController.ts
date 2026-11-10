@@ -1,3 +1,4 @@
+import { AQUA_OPTICS } from "../../shared/aqua";
 import { springStep, type Rect, type Spring } from "../../shared/liquid";
 export type SurfacePhysics = { x: Spring; y: Spring; press: Spring };
 export const freshPhysics = (): SurfacePhysics => ({
@@ -14,6 +15,41 @@ export class LiquidInteractionController {
   fine = true;
   private target: EventTarget | null = null;
   private remove: () => void = () => {};
+  private serial = 0;
+  private impulse: {
+    serial: number;
+    at: number;
+    x: number;
+    y: number;
+    allowed: boolean;
+  } | null = null;
+  private ripples = new WeakMap<
+    SurfacePhysics,
+    {
+      serial: number;
+      at: number;
+      age: number;
+      x: number;
+      y: number;
+      allowed: boolean;
+    }
+  >();
+  private pulse() {
+    this.impulse = {
+      serial: ++this.serial,
+      at: performance.now(),
+      x: this.x,
+      y: this.y,
+      allowed: !(
+        this.target instanceof Element &&
+        this.target.closest("input,textarea,[contenteditable=true],[inert]")
+      ),
+    };
+  }
+  clearRipples() {
+    this.impulse = null;
+    this.ripples = new WeakMap();
+  }
   constructor(private invalidate: () => void) {}
   move = (event: PointerEvent | DragEvent) => {
     this.x = event.clientX;
@@ -26,12 +62,14 @@ export class LiquidInteractionController {
     this.down = false;
     this.dragging = false;
     this.target = null;
+    this.clearRipples();
     this.invalidate();
   };
   mount(root: Document) {
     const down = (event: PointerEvent) => {
       this.move(event);
       this.down = true;
+      this.pulse();
       this.invalidate();
     };
     const up = () => {
@@ -57,6 +95,7 @@ export class LiquidInteractionController {
       this.y = rect.y + rect.height / 2;
       this.target = event.target;
       this.down = event.type === "keydown";
+      if (this.down && !event.repeat) this.pulse();
       this.invalidate();
     };
     root.addEventListener("pointerdown", down, {
@@ -94,6 +133,7 @@ export class LiquidInteractionController {
     seconds: number,
     response: number,
     enabled: boolean,
+    now = performance.now(),
   ) {
     const localX = ((this.x - rect.x) / Math.max(1, rect.width)) * 2 - 1,
       localY = ((this.y - rect.y) / Math.max(1, rect.height)) * 2 - 1;
@@ -124,9 +164,49 @@ export class LiquidInteractionController {
       response,
     );
     state.press = springStep(state.press, press, seconds, response);
-    const settling = [state.x, state.y, state.press].some(
-      (s) => s.velocity !== 0,
-    );
+    if (
+      this.impulse &&
+      this.ripples.get(state)?.serial !== this.impulse.serial
+    ) {
+      const x = (this.impulse.x - rect.x) / Math.max(1, rect.width),
+        y = (this.impulse.y - rect.y) / Math.max(1, rect.height);
+      this.ripples.set(state, {
+        serial: this.impulse.serial,
+        at: this.impulse.at,
+        age: 0,
+        x,
+        y,
+        allowed:
+          enabled &&
+          this.impulse.allowed &&
+          x >= 0 &&
+          x <= 1 &&
+          y >= 0 &&
+          y <= 1,
+      });
+    }
+    const ripple = this.ripples.get(state);
+    if (ripple)
+      ripple.age = Math.min(
+        AQUA_OPTICS.rippleSeconds,
+        // Also age in real time: a hidden/new surface must not replay an old
+        // press merely because it did not participate in previous frames.
+        Math.max(
+          ripple.age +
+            Math.max(0, Math.min(0.05, seconds)) *
+              Math.max(0.25, Math.min(3.5, response)),
+          (Math.max(0, now - ripple.at) / 1000) *
+            Math.max(0.25, Math.min(3.5, response)),
+        ),
+      );
+    const rippling =
+      !!ripple?.allowed && ripple.age < AQUA_OPTICS.rippleSeconds;
+    const envelope = rippling
+      ? Math.sin((Math.PI * ripple.age) / AQUA_OPTICS.rippleSeconds) *
+        Math.exp(-ripple.age * 3)
+      : 0;
+    const settling =
+      rippling || [state.x, state.y, state.press].some((s) => s.velocity !== 0);
     return {
       bend: [state.x.value, state.y.value, state.press.value] as [
         number,
@@ -134,6 +214,9 @@ export class LiquidInteractionController {
         number,
       ],
       pointer: [state.x.value, state.y.value] as [number, number],
+      ripple: (rippling
+        ? [ripple.x, ripple.y, ripple.age, envelope]
+        : [0.5, 0.5, 0, 0]) as [number, number, number, number],
       settling,
     };
   }

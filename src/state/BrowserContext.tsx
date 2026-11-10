@@ -210,7 +210,7 @@ export function BrowserProvider({ children }: { children: React.ReactNode }) {
     preview?.theme ??
     settings.customTheme ??
     BUILTIN_THEMES[settings.themeId] ??
-    BUILTIN_THEMES["lunar-coquette"];
+    BUILTIN_THEMES["aqua-coquette"];
   useEffect(() => {
     applyThemeTokens(theme);
     document.documentElement.dataset.reducedMotion = String(reducedMotion);

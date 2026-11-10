@@ -9,12 +9,12 @@ import { GlassSlider } from "../ui/GlassControls";
 const sliders = [
   ["opacity", "Glass opacity", 0.6, 1, 0.01],
   ["blur", "Blur intensity", 0, 24, 1],
-  ["saturation", "Glass saturation", 0.5, 1.5, 0.05],
-  ["refraction", "Refraction intensity", 0, 1, 0.1],
-  ["reflection", "Reflection intensity", 0, 1, 0.05],
-  ["border", "Border intensity", 0, 1, 0.05],
-  ["shadow", "Shadow strength", 0, 1, 0.05],
-  ["elevation", "Glass elevation", 0, 1.5, 0.05],
+  ["saturation", "Glass saturation", 0.5, 1.5, 0.01],
+  ["refraction", "Refraction intensity", 0, 1, 0.01],
+  ["reflection", "Reflection intensity", 0, 1, 0.01],
+  ["border", "Border intensity", 0, 1, 0.01],
+  ["shadow", "Shadow strength", 0, 1, 0.01],
+  ["elevation", "Glass elevation", 0, 1.5, 0.01],
 ] as const;
 /** Material keys only: global motion/quality must never leak into a strict sparse override. */
 export function materialFromGlobal(global: GlassSettings): GlassMaterial {

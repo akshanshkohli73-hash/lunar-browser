@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AQUA_MATERIAL_TONES, AQUA_WATER_LENS } from "./aqua";
 import { liquidSchema, DEFAULT_LIQUID } from "./liquid";
 
 // Constrained material tokens, never arbitrary CSS/URLs from a saved profile.
@@ -33,16 +34,8 @@ export type WidgetGlass = z.infer<typeof widgetGlassSchema>;
 export type GlassTone = "light" | "dark";
 export const DEFAULT_GLASS: GlassSettings = {
   enabled: true,
-  opacity: 0.72,
-  blur: 14,
-  tint: "#b8d6b4",
-  border: 0.4,
-  reflection: 0.3,
-  shadow: 0.32,
+  ...AQUA_WATER_LENS,
   performance: "optical",
-  saturation: 1,
-  refraction: 0.2,
-  elevation: 1,
   hoverMotion: true,
   animationSpeed: 1,
   adaptive: true,
@@ -138,22 +131,8 @@ export function glassDepth(
 }
 
 /** Bounded palette; adaptive tint occupies at most the existing 6% tint contribution. */
-export const MATERIAL_COLORS = {
-  light: {
-    paper: "#f1f7ea",
-    ink: "#102a20",
-    muted: "#152d21",
-    edge: "#ffffff",
-    depth: "#173c2d",
-  },
-  dark: {
-    paper: "#162e27",
-    ink: "#f4f8ef",
-    muted: "#eaf1e4",
-    edge: "#d8edda",
-    depth: "#020b07",
-  },
-} as const;
+export const MATERIAL_COLORS = AQUA_MATERIAL_TONES;
+
 export type WallpaperAppearance = {
   color: string;
   luminance: number;

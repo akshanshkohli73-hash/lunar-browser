@@ -130,7 +130,7 @@ describe("presentation-only Aqua Coquette material variants", () => {
     expect(MATERIAL_PROFILES.toolbar.shadow).toBeLessThan(
       MATERIAL_PROFILES.widget.shadow,
     );
-    expect(DEFAULT_GLASS.blur).toBe(14);
+    expect(DEFAULT_GLASS.blur).toBe(4);
   });
   it("does not allocate filter banks or extra material canvases when WebGL2 is unavailable", () => {
     const view = render(
@@ -164,7 +164,11 @@ describe("presentation-only Aqua Coquette material variants", () => {
         <GlassToolbar data-testid="toolbar" />
         <GlassSurface data-testid="search" variant="search" />
         <GlassSurface data-testid="notes" variant="notes" />
-        <GlassSurface data-testid="dock" materialRole="dock" />
+        <GlassSurface
+          data-testid="dock"
+          materialRole="dock"
+          material={{ ...DEFAULT_GLASS, blur: 24 }}
+        />
         <GlassPanel data-testid="panel">A text-heavy form</GlassPanel>
         <GlassFieldset>
           <input aria-label="Nested control" />

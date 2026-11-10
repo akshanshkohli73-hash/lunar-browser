@@ -7,11 +7,11 @@ import {
 import { useGlassMaterial } from "../../state/GlassMaterialProvider";
 import { GlassSlider } from "../ui/GlassControls";
 const controls = [
-  ["edgeLensing", "Edge lensing", 0, 1, 0.05],
-  ["specular", "Specular intensity", 0, 1, 0.05],
-  ["curvature", "Glass curvature", 0, 1, 0.05],
-  ["elasticity", "Surface elasticity", 0, 1, 0.05],
-  ["responsiveness", "Motion responsiveness", 0.25, 2, 0.05],
+  ["edgeLensing", "Edge lensing", 0, 1, 0.01],
+  ["specular", "Specular intensity", 0, 1, 0.01],
+  ["curvature", "Glass curvature", 0, 1, 0.01],
+  ["elasticity", "Surface elasticity", 0, 1, 0.01],
+  ["responsiveness", "Motion responsiveness", 0.25, 2, 0.01],
 ] as const;
 export function LiquidControls({
   value,

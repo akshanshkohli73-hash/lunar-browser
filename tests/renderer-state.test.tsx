@@ -263,7 +263,7 @@ describe("renderer connected to the real validated profile service", () => {
     expect((await screen.findByRole("alert")).textContent).toContain(
       "Disk is full",
     );
-    expect(storage.getSettings().themeId).toBe("lunar-coquette");
+    expect(storage.getSettings().themeId).toBe(DEFAULT_SETTINGS.themeId);
     expect(
       screen.queryByRole("status", { name: "Theme save status" }),
     ).toBeNull();

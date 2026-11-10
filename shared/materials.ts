@@ -1,3 +1,4 @@
+import { AQUA_COLORS } from "./aqua";
 import type { GlassTone, glassDepth, resolveGlass } from "./glass";
 
 /** Rendering intent is independent of component geometry and saved preferences.
@@ -6,11 +7,16 @@ export type MaterialVariant = "liquid-webgl" | "pearl-css" | "clear-surface";
 
 /** One restrained Aqua Coquette palette. No noise maps or spectral/rainbow paint. */
 export const PEARL_COLORS = {
-  light: { aqua: "#b9dcd4", sheen: "#fffef6", rim: "#edf9f3", highlightCap: 1 },
+  light: {
+    aqua: AQUA_COLORS.mint,
+    sheen: "#f7fffe",
+    rim: "#eafcf8",
+    highlightCap: 1,
+  },
   dark: {
-    aqua: "#28574e",
-    sheen: "#83afa0",
-    rim: "#b3d7c8",
+    aqua: "#28515a",
+    sheen: "#83aeb3",
+    rim: "#b3d9db",
     highlightCap: 0.12,
   },
 } as const;

@@ -112,7 +112,7 @@ export async function checkLiquidEngine(browser, url, evidence) {
       return canvas.toDataURL("image/png");
     });
     const mainImage = page
-      .locator(".new-tab-dashboard .dashboard-wallpaper > img")
+      .locator("[data-wallpaper-owner='shell'] .dashboard-wallpaper > img")
       .first();
     await mainImage.evaluate(async (node, src) => {
       node.src = src;
@@ -634,7 +634,7 @@ export async function checkNativeLiquidVideo(
     assert.ok(after.surfaces >= 5);
     assert.ok(pixelsOn.visible > 0);
     assert.equal(
-      await ui.locator(".new-tab-dashboard video").count(),
+      await ui.locator("[data-wallpaper-owner='shell'] video").count(),
       1,
       "The shared renderer must reuse the existing wallpaper video",
     );

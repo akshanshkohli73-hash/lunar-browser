@@ -1,3 +1,4 @@
+import { MaterialPresets } from "./MaterialPresets";
 import { LiquidControls } from "./LiquidControls";
 import { DEFAULT_GLASS, GLASS_LEVELS } from "../../../shared/glass";
 import { widgetMaterialRole } from "../../../shared/materials";
@@ -741,14 +742,20 @@ export default function DashboardStudio({
                 />
               </label>
               <p className="muted-text">
-                Video always starts/resumes muted. Hidden/inactive dashboards
-                pause playback.
+                Video always starts/resumes muted. Desktop and internal pages
+                share one player; inactive windows and covering native pages
+                pause it.
               </p>
             </>
           )}
         </fieldset>
         <fieldset disabled={busy || !ready} className="glass-settings">
-          <legend>Liquid Glass widgets</legend>
+          <legend>Aqua Coquette material</legend>
+          <MaterialPresets
+            value={draft.glass}
+            disabled={!draft.glass.enabled}
+            onChange={(glass) => change({ ...draft, glass })}
+          />
           <label className="setting-toggle">
             Enable Liquid Glass
             <input
@@ -872,16 +879,13 @@ export default function DashboardStudio({
             </label>
           </div>
           <p className="muted-text">
-            Light Glass is used for glanceable widgets, Standard Glass for
-            general widgets, and Deep Glass for notes and calendars. Blur is the
-            shared base intensity; each depth scales it, capped at 24px. A light
-            readability wash protects text contrast. Effects reduce when the
-            workspace is inactive; reduced-motion and reduced-transparency
-            system preferences are respected. Video blur still has GPU cost:
-            choose Simple on lower-powered devices. Optical adds a fixed, seeded
-            SVG displacement of the existing backdrop, not physical ray tracing
-            or native webpage refraction. No WebGL or video texture copies are
-            needed.
+            One shared WebGL2 renderer samples the actual wallpaper for lensing,
+            curved highlights and finite interaction ripples. Text, icons and
+            native webpages are not distorted or captured. Role-aware Pearl CSS
+            is the non-refractive alternative when optics are unavailable or
+            disabled; nested text controls stay clear without another blur pass.
+            Quality, reduced motion and reduced transparency take priority over
+            decoration.
           </p>
           <button
             onClick={() =>

@@ -200,7 +200,7 @@ describe("actual surface backend, strict overrides and overlay lifecycle", () =>
       "",
     );
     expect(surface.style.getPropertyValue("--glass-refraction-strength")).toBe(
-      "0.2",
+      String(DEFAULT_GLASS.refraction),
     );
     view.rerender(
       <Provider settings={{ ...DEFAULT_GLASS, performance: "balanced" }}>

@@ -1,3 +1,5 @@
+import { checkNativeAquaCoquette } from "./aqua-coquette-checks.mjs";
+import { checkNativeAquaTabs } from "./aqua-tabs-checks.mjs";
 import { checkNativeMaterialSwitch } from "./pearl-material-checks.mjs";
 import {
   checkNativeLiquidVideo,
@@ -230,6 +232,9 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
     ).toBeVisible();
     await waitNative(0);
     const dashboard = await api("getDashboard");
+    await checkNativeAquaCoquette(ui, api, evidence);
+    await checkNativeAquaTabs(ui, api, evidence);
+
     const crc = (bytes) => {
       let value = 0xffffffff;
       for (const byte of bytes) {
@@ -297,7 +302,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
     const decodeWallpaper = async () => {
       try {
         return await ui
-          .locator(".new-tab-dashboard .dashboard-wallpaper img")
+          .locator("[data-wallpaper-owner='shell'] .dashboard-wallpaper img")
           .evaluate(async (image) => {
             await image.decode();
             return image.naturalWidth;
@@ -360,14 +365,14 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
     await expect
       .poll(() =>
         ui
-          .locator(".new-tab-dashboard .dashboard-wallpaper img")
+          .locator("[data-wallpaper-owner='shell'] .dashboard-wallpaper img")
           .getAttribute("src"),
       )
       .toContain(largeMedia.id);
     assert.equal(await decodeWallpaper(), imageWidth);
     assert.equal(
       await ui
-        .locator(".new-tab-dashboard .dashboard-wallpaper img")
+        .locator("[data-wallpaper-owner='shell'] .dashboard-wallpaper img")
         .evaluate((image) => image.naturalHeight),
       imageHeight,
     );
@@ -394,7 +399,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
     await expect
       .poll(() =>
         ui
-          .locator(".new-tab-dashboard .dashboard-wallpaper img")
+          .locator("[data-wallpaper-owner='shell'] .dashboard-wallpaper img")
           .getAttribute("src"),
       )
       .toContain(media.id);
@@ -458,7 +463,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
           loop: true,
         },
       });
-      const video = ui.locator(".new-tab-dashboard video");
+      const video = ui.locator("[data-wallpaper-owner='shell'] video");
       await expect(video).toHaveCount(1);
       const play = ui.getByRole("button", {
         name: "Play wallpaper",
@@ -943,7 +948,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
     await expect
       .poll(() =>
         ui
-          .locator(".new-tab-dashboard video")
+          .locator("[data-wallpaper-owner='shell'] video")
           .evaluate((video) => video.error?.code ?? 0),
       )
       .not.toBe(0);
@@ -951,13 +956,13 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       await expect
         .poll(() =>
           ui
-            .locator(".new-tab-dashboard .wallpaper-playback button")
+            .locator(".wallpaper-controls-host .wallpaper-playback button")
             .allTextContents(),
         )
         .toContain("Play wallpaper");
     } catch (error) {
       throw new Error(
-        `Decoder retry defect: ${JSON.stringify(await ui.locator(".new-tab-dashboard video").evaluate((v) => ({ code: v.error?.code, paused: v.paused, ready: v.readyState })))}; controls=${JSON.stringify(await ui.locator(".new-tab-dashboard .wallpaper-playback button").allTextContents())}`,
+        `Decoder retry defect: ${JSON.stringify(await ui.locator("[data-wallpaper-owner='shell'] video").evaluate((v) => ({ code: v.error?.code, paused: v.paused, ready: v.readyState })))}; controls=${JSON.stringify(await ui.locator(".wallpaper-controls-host .wallpaper-playback button").allTextContents())}`,
         { cause: error },
       );
     }
@@ -1747,7 +1752,9 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
         .click();
       await expect
         .poll(() =>
-          ui.locator(".dashboard-preview video").evaluate((v) => v.videoWidth),
+          ui
+            .locator("[data-wallpaper-owner='shell'] video")
+            .evaluate((v) => v.videoWidth),
         )
         .toBe(160);
     } finally {
@@ -1776,13 +1783,13 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
     await expect
       .poll(() =>
         ui
-          .locator(".new-tab-dashboard video")
+          .locator("[data-wallpaper-owner='shell'] video")
           .evaluate((v) => !v.paused && v.currentTime > 0.1),
       )
       .toBe(true);
     assert.equal(
       await ui
-        .locator(".new-tab-dashboard video")
+        .locator("[data-wallpaper-owner='shell'] video")
         .evaluate((v) => v.muted && v.loop),
       true,
     );
@@ -1790,14 +1797,18 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       .getByRole("button", { name: "Unmute wallpaper", exact: true })
       .click();
     assert.equal(
-      await ui.locator(".new-tab-dashboard video").evaluate((v) => v.muted),
+      await ui
+        .locator("[data-wallpaper-owner='shell'] video")
+        .evaluate((v) => v.muted),
       false,
     );
     await ui
       .getByRole("button", { name: "Pause wallpaper", exact: true })
       .click();
     assert.equal(
-      await ui.locator(".new-tab-dashboard video").evaluate((v) => v.paused),
+      await ui
+        .locator("[data-wallpaper-owner='shell'] video")
+        .evaluate((v) => v.paused),
       true,
     );
     await ui
@@ -1806,10 +1817,19 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
     await expect
       .poll(() =>
         ui
-          .locator(".new-tab-dashboard video")
+          .locator("[data-wallpaper-owner='shell'] video")
           .evaluate((v) => !v.paused && v.muted),
       )
       .toBe(true);
+    // The shell, not a route, owns the decoder. Desktop and Studio reuse it;
+    // only an actually covering native page/inactive window pauses it.
+    const wallpaperOwner = ui.locator("[data-wallpaper-owner='shell'] video");
+    await wallpaperOwner.evaluate((video) => {
+      window.__aquaWallpaperOwner = video;
+    });
+    await ui
+      .getByRole("button", { name: "Unmute wallpaper", exact: true })
+      .click();
     await ui.getByRole("button", { name: "Show desktop", exact: true }).click();
     await expect(
       ui.locator(
@@ -1818,11 +1838,36 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
     ).toHaveAttribute("data-glass-mode", "simple");
     await expect
       .poll(() =>
-        ui
-          .locator(".new-tab-dashboard video")
-          .evaluate((video) => video.paused),
+        wallpaperOwner.evaluate(
+          (video) =>
+            !video.paused &&
+            video.muted &&
+            video === window.__aquaWallpaperOwner,
+        ),
       )
       .toBe(true);
+    await expect(ui.locator("video")).toHaveCount(1);
+    await expect(
+      ui.locator(".lunar-desktop-sheet .wallpaper-playback"),
+    ).toBeVisible();
+    await ui
+      .getByRole("navigation", { name: "Dock" })
+      .getByRole("button", { name: "Appearance", exact: true })
+      .click();
+    await expect
+      .poll(() =>
+        wallpaperOwner.evaluate(
+          (video) =>
+            !video.paused &&
+            video.muted &&
+            video === window.__aquaWallpaperOwner,
+        ),
+      )
+      .toBe(true);
+    await expect(ui.locator("video")).toHaveCount(1);
+    await expect(
+      ui.locator(".theme-studio .page-heading .wallpaper-playback"),
+    ).toBeVisible();
     await ui
       .getByRole("navigation", { name: "Dock" })
       .getByRole("button", { name: "Home", exact: true })
@@ -1832,10 +1877,36 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
         '.new-tab-dashboard [data-widget-id="notes"] > .glass-surface',
       ),
     ).toHaveAttribute("data-glass-mode", "glass");
+    const homeOwnerTab = (await api("bootstrap")).tabs.activeTabId;
+    const coveredOwnerTab = await api(
+      "createTab",
+      `${origin}/wallpaper-covered`,
+    );
+    await waitNative(1);
+    await expect
+      .poll(() =>
+        wallpaperOwner.evaluate((video) => video.paused && video.muted),
+      )
+      .toBe(true);
+    await api("switchTab", homeOwnerTab);
+    await waitNative(0);
+    await expect
+      .poll(() =>
+        wallpaperOwner.evaluate(
+          (video) =>
+            !video.paused &&
+            video.muted &&
+            video === window.__aquaWallpaperOwner,
+        ),
+      )
+      .toBe(true);
+    await api("closeTab", coveredOwnerTab.id);
     await ui.emulateMedia({ reducedMotion: "reduce" });
     await expect
       .poll(() =>
-        ui.locator(".new-tab-dashboard video").evaluate((v) => v.paused),
+        ui
+          .locator("[data-wallpaper-owner='shell'] video")
+          .evaluate((v) => v.paused),
       )
       .toBe(true);
     await ui
@@ -1843,7 +1914,9 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       .click();
     await expect
       .poll(() =>
-        ui.locator(".new-tab-dashboard video").evaluate((v) => !v.paused),
+        ui
+          .locator("[data-wallpaper-owner='shell'] video")
+          .evaluate((v) => !v.paused),
       )
       .toBe(true);
     await ui.emulateMedia({ reducedMotion: "no-preference" });
@@ -1888,7 +1961,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
     await expect
       .poll(() =>
         ui
-          .locator(".new-tab-dashboard video")
+          .locator("[data-wallpaper-owner='shell'] video")
           .evaluate(
             (v) =>
               v.videoWidth === 160 &&
@@ -1918,7 +1991,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       JSON.stringify(videoMeasurements, null, 2) + "\n",
     );
     console.log(
-      `PASS: ${packaged ? "Packaged" : "Development"} native Electron on ${process.platform}: isolated Chromium tabs, navigation/loading/stop, background focus and native Ctrl+L, geometry/resize, overlay detachment, real Shield request interception on/off, profile-owned patterned image/video decoding/scope, painted glass response / role-capped blur smoothing / deterministic Pearl CSS highlights without simulated refraction / real context-loss CSS recovery with retained native address draft, focus, selection and geometry, mounted-exit native occlusion, multi-widget video frame observations, independent modal scrolling at native minimum bounds, fixed-wallpaper/dashboard safe space, dashboard preview/cancel/layout and restart, scoped cookie/storage clearing and permission reset, content zoom geometry, real extension content script/unload, download bytes, sender rejection, malformed IPC, restart/persistence and explicit repeated-close webContents cleanup.`,
+      `PASS: ${packaged ? "Packaged" : "Development"} native Electron on ${process.platform}: Aqua preset/intensity preview/apply/cancel and profile preservation, actual keyboard/overflow/HTML-drag tabs, one persistent wallpaper decoder through desktop/Studio/native coverage; isolated Chromium tabs, navigation/loading/stop, background focus and native Ctrl+L, geometry/resize, overlay detachment, real Shield request interception on/off, profile-owned patterned image/video decoding/scope, painted glass response / role-capped blur smoothing / deterministic Pearl CSS highlights without simulated refraction / real context-loss CSS recovery with retained native address draft, focus, selection and geometry, mounted-exit native occlusion, multi-widget video frame observations, independent modal scrolling at native minimum bounds, fixed-wallpaper/dashboard safe space, dashboard preview/cancel/layout and restart, scoped cookie/storage clearing and permission reset, content zoom geometry, real extension content script/unload, download bytes, sender rejection, malformed IPC, restart/persistence and explicit repeated-close webContents cleanup.`,
     );
     console.log(
       "Installed NSIS launch/upgrade/uninstall, multi-monitor Windows DPI, additional video codecs and OS device consent still need manual verification. Known H.264 MP4 / VP8 WebM decoding, painted frames, seeking, persistence and controls executed above. No signing service is required.",

@@ -5,15 +5,15 @@
    noise or continuously running decorative animations. Each eligible surface
    samples its backdrop at most once, with a role-specific 4–12px CSS blur cap. */
 .glass-surface {
-  --glass-paper: #f1f7ea;
-  --glass-ink: #102a20;
-  --glass-muted: #152d21;
+  --glass-paper: #e6f7f3;
+  --glass-ink: #102a2d;
+  --glass-muted: #102b2f;
   --glass-edge: #ffffff;
-  --glass-depth: #173c2d;
+  --glass-depth: #183d43;
   --glass-radius: var(--organic-radius-widget);
-  --pearl-aqua: #b9dcd4;
-  --pearl-highlight: #fffef6;
-  --pearl-rim: #edf9f3;
+  --pearl-aqua: #bdeae2;
+  --pearl-highlight: #f7fffe;
+  --pearl-rim: #eafcf8;
   --pearl-light-cap: 1;
   --pearl-sheen-x: 12%;
   --pearl-sheen-y: -42%;
@@ -76,14 +76,14 @@
   transition: border-color var(--organic-duration) ease;
 }
 .glass-surface[data-glass-tone="dark"] {
-  --glass-paper: #162e27;
-  --glass-ink: #f4f8ef;
-  --glass-muted: #eaf1e4;
-  --glass-edge: #d8edda;
-  --glass-depth: #020b07;
-  --pearl-aqua: #28574e;
-  --pearl-highlight: #83afa0;
-  --pearl-rim: #b3d7c8;
+  --glass-paper: #152e32;
+  --glass-ink: #f3fbf9;
+  --glass-muted: #e6f4f1;
+  --glass-edge: #d5f0ed;
+  --glass-depth: #030e12;
+  --pearl-aqua: #28515a;
+  --pearl-highlight: #83aeb3;
+  --pearl-rim: #b3d9db;
   /* Even a 100% reflection preference must not wash out light glyphs. */
   --pearl-light-cap: 0.12;
 }
@@ -107,7 +107,8 @@
 }
 .glass-surface::before {
   opacity: calc(
-    var(--glass-reflection) * var(--pearl-sheen, 0.5) * var(--pearl-light-cap)
+    var(--glass-reflection) * var(--pearl-sheen, 0.5) * var(--pearl-light-cap) *
+      var(--lunar-liquid-intensity, 1)
   );
   background:
     radial-gradient(

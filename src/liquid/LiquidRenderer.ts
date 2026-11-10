@@ -7,6 +7,8 @@ export type DrawSurface = {
   material: LiquidMaterial;
   bend: [number, number, number];
   pointer: [number, number];
+  ripple: [number, number, number, number];
+  flow: [number, number];
   view?: boolean;
   shade: number;
   backgroundBlur: number;
@@ -208,6 +210,11 @@ export class LiquidRenderer {
         m.edge,
       );
       gl.uniform3f(this.loc("uTint"), ...m.tint);
+      gl.uniform3f(this.loc("uPaper"), ...m.paper);
+      gl.uniform3f(this.loc("uHighlight"), ...m.highlight);
+      gl.uniform1f(this.loc("uIntensity"), m.intensity);
+      gl.uniform4f(this.loc("uRipple"), ...s.ripple);
+      gl.uniform2f(this.loc("uFlow"), ...s.flow);
       gl.uniform3f(this.loc("uDeform"), ...s.bend);
       gl.uniform2f(this.loc("uPointer"), ...s.pointer);
       gl.uniform1f(this.loc("uDark"), m.dark);

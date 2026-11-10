@@ -1,5 +1,7 @@
 import type { SVGProps } from "react";
 const paths = {
+  droplet:
+    "M12 3c-2 4-7 7-7 12a7 7 0 0 0 14 0c0-5-5-8-7-12ZM8 15a4 4 0 0 0 3 4",
   resize: "M8 20 20 8M14 20l6-6M3 3h6M3 3v6",
   widgets: "M3 3h7v7H3V3Zm11 0h7v7h-7V3ZM3 14h7v7H3v-7Zm11 0h7v7h-7v-7Z",
   info: "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM12 11v6m0-10v.01",

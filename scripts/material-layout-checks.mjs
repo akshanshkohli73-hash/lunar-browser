@@ -97,7 +97,9 @@ export async function checkCustomizationLayout(page, editor, evidence) {
 
 export async function checkDashboardScroll(page) {
   const scene = page.getByRole("region", { name: "New tab dashboard" });
-  const wallpaper = scene.locator(".dashboard-wallpaper");
+  const wallpaper = page.locator(
+    '[data-wallpaper-owner="shell"] .dashboard-wallpaper',
+  );
   const scroll = scene.locator(".dashboard-body");
   const before = await wallpaper.boundingBox();
   assert.ok(before);

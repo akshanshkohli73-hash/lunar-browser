@@ -5,15 +5,17 @@ import { BUILTIN_THEMES } from "../styles/themes";
 import { themeSchema, type ThemeTokens } from "../../shared/schemas";
 import { useBrowser } from "../state/BrowserContext";
 const DashboardStudio = lazy(() => import("./dashboard/DashboardStudio"));
+import { useWallpaperControls } from "./dashboard/WallpaperEnvironment";
 import { Icon } from "./ui/Icon";
 export default function ThemeStudioView() {
   const { api, ready, settings, updateSettings, previewTheme } = useBrowser();
   const owner = useId();
+  const { controlsRef } = useWallpaperControls(true);
   const [livePreview, setLivePreview] = useState(true);
   const current =
     settings.customTheme ??
     BUILTIN_THEMES[settings.themeId] ??
-    BUILTIN_THEMES["lunar-coquette"];
+    BUILTIN_THEMES["aqua-coquette"];
   const [draft, setDraft] = useState<ThemeTokens>(current),
     [tab, setTab] = useState<"presets" | "customize" | "dashboard">("presets"),
     [draftMotion, setDraftMotion] = useState(settings.reducedMotion),
@@ -72,10 +74,12 @@ export default function ThemeStudioView() {
           <span className="eyebrow">Make yourself at home</span>
           <h1>Theme Studio</h1>
           <p>
-            One palette for your desktop, browser chrome, and utilities.
-            Websites keep their own colors.
+            Aqua Coquette — one language of light, water and glass across your
+            desktop, browser chrome and utilities. Websites keep their own
+            colors.
           </p>
         </div>
+        <div className="wallpaper-controls-host" ref={controlsRef} />
         <Icon name="palette" size={32} />
       </header>
       <div className="section-tabs">
@@ -209,6 +213,35 @@ export default function ThemeStudioView() {
                 </label>
               ))}
             </div>
+            <h2>Light & material</h2>
+            <label className="setting-row">
+              Liquid intensity
+              <input
+                type="range"
+                aria-label="Liquid intensity"
+                min={0}
+                max={1}
+                step={0.01}
+                value={draft.appearance.glassIntensity}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    appearance: {
+                      ...current.appearance,
+                      glassIntensity: Number(event.target.value),
+                    },
+                  }))
+                }
+              />
+              <output>
+                {Math.round(draft.appearance.glassIntensity * 100)}%
+              </output>
+            </label>
+            <p className="muted-text">
+              Scales actual WebGL lensing, reflections, waves and compression.
+              At zero the readable material remains. Pearl CSS scales its static
+              reflection only; it never becomes refractive.
+            </p>
             <h2>Finishing touches</h2>
             <label className="setting-toggle">
               Reduced motion

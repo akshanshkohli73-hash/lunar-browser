@@ -1,4 +1,4 @@
-/* Organic Lunar: geometry of the installed browser stays unchanged. Material
+/* Aqua Coquette extends Organic Lunar: one material grammar, preserved geometry. Material
    backings sit behind existing semantic containers, never in their flex flow. */
 .lunar-menubar,
 .browser-tabstrip,
@@ -43,17 +43,283 @@
   outline-offset: 2px;
 }
 .browser-tab {
-  border-radius: var(--lunar-tab-radius) var(--lunar-tab-radius) 4px 4px;
+  position: relative;
+  isolation: isolate;
+  flex: 0 0 176px;
+  min-width: 112px;
+  height: 30px;
+  overflow: hidden;
+  border-radius: var(--lunar-tab-radius);
   transition:
     background-color var(--organic-duration),
     color var(--organic-duration);
 }
 .browser-tab.is-active {
-  background: color-mix(in srgb, var(--lunar-surface) 70%, transparent);
-  box-shadow:
-    inset 0 1px 0 #ffffff60,
-    0 2px 5px -3px #173c2d30;
+  background: none;
+  border-color: transparent;
+  color: var(--organic-ink);
+  box-shadow: none;
 }
+.browser-tab-rail {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: 4px;
+}
+.browser-tab-rail .browser-tabs {
+  padding: 2px;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.browser-tab-rail .browser-tabs::-webkit-scrollbar {
+  display: none;
+}
+.browser-tab:not(.is-active) {
+  color: var(--organic-muted);
+}
+.browser-tab:not(.is-active):hover {
+  background: color-mix(in srgb, var(--organic-paper) 40%, transparent);
+}
+.browser-tab > button[role="tab"] {
+  height: 100%;
+}
+.browser-tab > button[role="tab"]:hover {
+  background: none;
+}
+.browser-tab-light {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--organic-paper) 80%, transparent);
+  border: 1px solid
+    color-mix(in srgb, var(--aqua-mint, #bdeae2) 70%, var(--organic-paper));
+  box-shadow:
+    inset 0 1px 0 #ffffff80,
+    inset 0 -1px 0 #83c0c14d,
+    0 3px 9px -6px #183d4340;
+}
+.browser-tab .tab-close {
+  opacity: 0.55;
+  border-radius: 50%;
+}
+.browser-tab:is(:hover, :focus-within) .tab-close,
+.browser-tab.is-active .tab-close {
+  opacity: 1;
+}
+.browser-tab .tab-close:hover {
+  background: color-mix(in srgb, var(--organic-ink) 12%, var(--organic-paper));
+}
+.browser-tab-rail .tab-scroll {
+  min-width: 22px;
+  width: 22px;
+  height: 26px;
+  color: var(--organic-ink);
+}
+.browser-tab button:focus-visible {
+  outline-offset: -3px;
+  outline-color: var(--organic-ink);
+}
+
+/* One persistent wallpaper environment, outside scrolling/route content. Its
+   controls are portalled into the current view; no floating overlay steals hits. */
+.lunar-wallpaper-environment {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.lunar-shell .browser-app,
+.lunar-shell .page-viewport,
+.new-tab-dashboard[data-wallpaper-shared="true"] {
+  background: transparent;
+}
+.lunar-shell .internal-page {
+  background: color-mix(in srgb, var(--lunar-bg) 94%, transparent);
+}
+.wallpaper-controls-host:empty {
+  display: none;
+}
+.wallpaper-controls-host {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.wallpaper-controls-host .wallpaper-playback {
+  position: static;
+  transform: none;
+  display: flex;
+  flex-wrap: wrap;
+}
+.wallpaper-controls-host button {
+  font: inherit;
+  font-size: 10px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--lunar-border);
+  background: var(--lunar-surface);
+  color: var(--lunar-text);
+}
+.wallpaper-controls-host .wallpaper-error {
+  max-width: 280px;
+  border-radius: 8px;
+}
+.lunar-greeting {
+  display: grid;
+  gap: 2px;
+}
+.lunar-greeting strong {
+  font-family: var(--organic-font-display);
+  font-weight: 400;
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+.lunar-greeting small {
+  font-size: 10px;
+}
+.dashboard-footer .dashboard-shield-status {
+  margin-right: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-align: left;
+}
+.dashboard-widget.widget-search .new-tab-search {
+  border-radius: var(--organic-radius-capsule);
+  transition:
+    border-color var(--organic-duration),
+    box-shadow var(--organic-duration);
+}
+.dashboard-widget.widget-search .new-tab-search:focus-within {
+  border-color: var(--glass-ink);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--glass-ink) 18%, transparent);
+}
+.lunar-desktop-sheet header {
+  background: color-mix(in srgb, var(--lunar-bg) 88%, transparent);
+  border: 1px solid var(--lunar-border);
+  border-radius: var(--organic-radius-panel);
+  padding: 20px 25px;
+}
+.lunar-desktop-sheet header .wallpaper-controls-host {
+  margin-top: 12px;
+}
+
+/* Presets patch the same validated controls below, never a simulated preview. */
+.aqua-section-caption {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 14px;
+}
+.aqua-section-caption .eyebrow {
+  margin: 0;
+}
+.aqua-section-caption > strong {
+  font: 400 24px/1.2 var(--organic-font-display);
+}
+.aqua-material-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.aqua-material-options .aqua-material-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  text-align: left;
+  padding: 16px;
+  min-width: 0;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--organic-ink) 16%, transparent);
+  background: color-mix(in srgb, var(--organic-paper) 75%, transparent);
+  color: var(--organic-ink);
+}
+.aqua-material-options .aqua-material-option[aria-pressed="true"] {
+  outline: 2px solid var(--organic-ink);
+  outline-offset: -2px;
+}
+.aqua-material-glyph {
+  width: 39px;
+  height: 39px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid #83bfc066;
+  background: color-mix(in srgb, var(--aqua-mint) 38%, var(--organic-paper));
+}
+.aqua-material-pearl-glass .aqua-material-glyph {
+  background: color-mix(in srgb, var(--aqua-lilac) 30%, var(--organic-paper));
+}
+.aqua-material-crystal .aqua-material-glyph {
+  background: color-mix(in srgb, var(--aqua-aqua) 45%, var(--organic-paper));
+}
+.aqua-material-option small {
+  line-height: 1.55;
+  font-size: 11px;
+  color: var(--organic-muted);
+}
+.aqua-material-presets > label {
+  display: grid;
+  gap: 6px;
+  max-width: 280px;
+}
+.aqua-tint-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 10px 0 16px;
+}
+.aqua-tint-choices button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 999px;
+}
+.aqua-tint-choices i {
+  width: 13px;
+  height: 13px;
+  border: 1px solid #253f4333;
+  border-radius: 50%;
+}
+.aqua-tint-choices [aria-pressed="true"] {
+  outline: 1px solid var(--organic-ink);
+  outline-offset: 1px;
+}
+@media (max-width: 540px) {
+  .aqua-material-options {
+    grid-template-columns: 1fr;
+  }
+  .aqua-material-options .aqua-material-option {
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    padding: 12px;
+    column-gap: 12px;
+  }
+  .aqua-material-glyph {
+    grid-row: span 2;
+  }
+}
+@media (forced-colors: active) {
+  .browser-tab-light,
+  .aqua-material-options .aqua-material-option,
+  .aqua-material-glyph {
+    background: Canvas;
+    border: 1px solid CanvasText;
+    box-shadow: none;
+  }
+  .browser-tab.is-active {
+    color: Highlight;
+  }
+  .browser-tab.is-active .browser-tab-light {
+    border-color: Highlight;
+  }
+  .aqua-material-options .aqua-material-option[aria-pressed="true"] {
+    outline-color: Highlight;
+  }
+}
+
 .lunar-modal,
 .lunar-dropdown,
 .ai-sidebar {

@@ -42,7 +42,7 @@ describe("Organic Glass strict preferences and non-destructive migration", () =>
     expect(
       glassSchema.parse({ ...DEFAULT_GLASS, performance: "optical" })
         .refraction,
-    ).toBe(0.2);
+    ).toBe(DEFAULT_GLASS.refraction);
     expect(widgetGlassSchema.parse({ refraction: 0.5, elevation: 0 })).toEqual({
       refraction: 0.5,
       elevation: 0,
@@ -194,10 +194,12 @@ describe("bounded material and motion math", () => {
 });
 
 it("keeps existing theme chrome blur effective without altering shared material preferences or widget overrides", () => {
-  const before = structuredClone(DEFAULT_GLASS);
-  expect(chromeGlassMaterial(DEFAULT_GLASS, 12).blur).toBe(14);
-  expect(chromeGlassMaterial(DEFAULT_GLASS, 0).blur).toBe(0);
-  expect(chromeGlassMaterial(DEFAULT_GLASS, 32).blur).toBe(24);
-  expect(chromeGlassMaterial({ ...DEFAULT_GLASS, blur: 0 }, 32).blur).toBe(0);
-  expect(DEFAULT_GLASS).toEqual(before);
+  // The legacy 14px preference remains honored even though fresh profiles are clearer.
+  const legacy = { ...DEFAULT_GLASS, blur: 14 };
+  const before = structuredClone(legacy);
+  expect(chromeGlassMaterial(legacy, 12).blur).toBe(14);
+  expect(chromeGlassMaterial(legacy, 0).blur).toBe(0);
+  expect(chromeGlassMaterial(legacy, 32).blur).toBe(24);
+  expect(chromeGlassMaterial({ ...legacy, blur: 0 }, 32).blur).toBe(0);
+  expect(legacy).toEqual(before);
 });

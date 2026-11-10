@@ -195,7 +195,7 @@ export async function checkUnsupportedOptics(browser, url, evidence) {
     await expect(notes).toHaveAttribute("data-glass-backend", "css-backdrop");
     await expect(notes).toHaveCSS(
       "backdrop-filter",
-      "blur(6px) saturate(1.12)",
+      "blur(5px) saturate(1.12)",
     );
     await expect(page.locator("feDisplacementMap")).toHaveCount(0);
     await page

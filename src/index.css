@@ -208,7 +208,7 @@ body,
   align-items: center;
   gap: 4px;
   min-height: 37px;
-  padding: 4px 10px 0;
+  padding: 4px 10px;
   border-bottom: 1px solid var(--lunar-border);
   background: var(--lunar-bg-secondary);
 }
@@ -239,7 +239,7 @@ body,
   border-bottom-color: var(--lunar-bg);
   background: var(--lunar-bg);
 }
-.browser-tab > button:first-child {
+.browser-tab > button[role="tab"] {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -249,7 +249,7 @@ body,
   text-align: left;
   border-radius: inherit;
 }
-.browser-tab > button:first-child span:not(.loading-spinner) {
+.browser-tab > button[role="tab"] span:not(.loading-spinner) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2486,7 +2486,9 @@ html[data-reduced-motion="true"] .lunar-dock-button {
   --glass-radius: 14px;
 }
 .dashboard-widget > .glass-weather {
-  --glass-radius: 18px;
+  --glass-radius: calc(var(--lunar-radius, 12px) * 1.6)
+    calc(var(--lunar-radius, 12px) * 1.6) calc(var(--lunar-radius, 12px) * 1.2)
+    calc(var(--lunar-radius, 12px) * 1.2);
 }
 .dashboard-widget .widget-content {
   color: var(--glass-ink);
@@ -2675,7 +2677,9 @@ html .lunar-shell .lunar-dock {
   -webkit-backdrop-filter: none;
   border: 0;
   box-shadow: none;
-  border-radius: 18px;
+  border-radius: calc(var(--lunar-radius, 12px) * 1.6)
+    calc(var(--lunar-radius, 12px) * 1.6) calc(var(--lunar-radius, 12px) * 1.2)
+    calc(var(--lunar-radius, 12px) * 1.2);
 }
 .lunar-shell .lunar-dock > .lunar-dock-material {
   position: absolute;
