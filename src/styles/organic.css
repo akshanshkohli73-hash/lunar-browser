@@ -1,0 +1,525 @@
+/* Organic Lunar: geometry of the installed browser stays unchanged. Material
+   backings sit behind existing semantic containers, never in their flex flow. */
+.lunar-menubar,
+.browser-tabstrip,
+.browser-toolbar,
+.bookmark-bar,
+.address-bar,
+.lunar-modal,
+.lunar-dropdown,
+.ai-sidebar {
+  isolation: isolate;
+}
+.lunar-menubar,
+.browser-tabstrip,
+.browser-toolbar,
+.bookmark-bar,
+.address-bar {
+  background: transparent;
+  box-shadow: none;
+  color: var(--glass-ink, var(--lunar-text));
+}
+.browser-tabstrip,
+.browser-toolbar,
+.bookmark-bar,
+.address-bar {
+  position: relative;
+}
+.lunar-menubar > .glass-backing,
+.browser-tabstrip > .glass-backing,
+.browser-toolbar > .glass-backing,
+.bookmark-bar > .glass-backing {
+  --glass-radius: 0px;
+}
+.address-bar {
+  border-radius: var(--organic-radius-capsule);
+  border-color: color-mix(in srgb, var(--lunar-primary) 15%, transparent);
+}
+.address-bar > .glass-backing {
+  --glass-radius: var(--organic-radius-capsule);
+}
+.address-bar:focus-within {
+  outline: 2px solid color-mix(in srgb, var(--lunar-primary) 65%, transparent);
+  outline-offset: 2px;
+}
+.browser-tab {
+  border-radius: var(--lunar-tab-radius) var(--lunar-tab-radius) 4px 4px;
+  transition:
+    background-color var(--organic-duration),
+    color var(--organic-duration);
+}
+.browser-tab.is-active {
+  background: color-mix(in srgb, var(--lunar-surface) 70%, transparent);
+  box-shadow:
+    inset 0 1px 0 #ffffff60,
+    0 2px 5px -3px #173c2d30;
+}
+.lunar-modal,
+.lunar-dropdown,
+.ai-sidebar {
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--lunar-text);
+}
+.lunar-modal {
+  position: relative;
+  border-radius: var(--organic-radius-panel);
+}
+.lunar-modal h2,
+.page-heading h1,
+.dashboard-studio legend {
+  font-family: var(--organic-font-display);
+  letter-spacing: -0.015em;
+}
+.lunar-modal > header h2 {
+  font-size: 20px;
+  font-weight: 400;
+}
+.lunar-modal-body,
+.dashboard-studio {
+  font-family: var(--organic-font-body);
+}
+.lunar-modal > header,
+.lunar-modal .dashboard-apply {
+  background: color-mix(in srgb, var(--lunar-surface) 60%, transparent);
+}
+.modal-backdrop {
+  background: #203b2a20;
+  backdrop-filter: none;
+}
+.lunar-dropdown {
+  border-radius: 14px;
+  transform-origin: 20% 0;
+}
+.lunar-dropdown > .glass-backing {
+  --glass-radius: 14px;
+}
+.lunar-dropdown > .glass-backing::before {
+  pointer-events: none;
+}
+.lunar-dropdown small {
+  color: var(--lunar-text-muted);
+}
+.ai-sidebar > .glass-backing {
+  --glass-radius: 0px;
+}
+.dashboard-widget.widget-clock .widget-clock {
+  position: relative;
+}
+.dashboard-widget.widget-clock time {
+  font-family: var(--organic-font-display);
+  letter-spacing: -0.045em;
+  font-weight: 400;
+}
+.clock-orbit {
+  position: absolute;
+  right: 0;
+  top: 2px;
+  width: 31px;
+  height: 31px;
+  border: 1px solid color-mix(in srgb, var(--glass-ink) 22%, transparent);
+  border-radius: 50%;
+  opacity: 0.65;
+}
+.clock-orbit::after {
+  content: "";
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  left: 13px;
+  top: 13px;
+}
+.clock-orbit i,
+.clock-orbit b {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  width: 1px;
+  height: 7px;
+  background: currentColor;
+  transform-origin: bottom;
+}
+.clock-orbit b {
+  height: 10px;
+  opacity: 0.7;
+}
+.dashboard-widget h2 {
+  font-family: var(--organic-font-body);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.dashboard-widget.widget-search h1 {
+  font-family: var(--organic-font-display);
+  letter-spacing: -0.025em;
+  font-weight: 400;
+}
+.dashboard-widget .widget-note {
+  padding: 3px 2px;
+  font-size: 13px;
+  caret-color: var(--glass-ink);
+}
+.widget-footer small[role="status"] {
+  line-height: 1.4;
+  max-width: 72%;
+}
+.widget-link-list button {
+  border: 1px solid transparent;
+  border-radius: 10px;
+  min-height: 38px;
+  transition:
+    background-color var(--organic-duration),
+    border-color var(--organic-duration);
+}
+.widget-link-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.45;
+}
+.widget-link-meta strong {
+  font-size: 11px;
+  font-weight: 600;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.widget-link-meta small {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 10px;
+  color: var(--glass-muted);
+}
+.widget-site-mark {
+  flex: 0 0 27px;
+  width: 27px;
+  height: 29px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px 7px 9px 7px;
+  background: color-mix(in srgb, var(--glass-paper) 50%, transparent);
+  border: 1px solid color-mix(in srgb, var(--glass-ink) 12%, transparent);
+  font: 15px var(--organic-font-display);
+}
+.calendar-navigation {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.calendar-navigation button {
+  min-height: 24px;
+}
+.calendar-days button[aria-current="date"] {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.dashboard-widget .calendar-days button[aria-pressed="true"] {
+  border-radius: 9px 6px 9px 6px;
+  background: var(--glass-ink);
+  color: var(--glass-paper);
+}
+.calendar-empty {
+  color: var(--glass-muted);
+  font-family: var(--organic-font-display);
+  font-style: italic;
+}
+.widget-weather .widget-temperature,
+.widget-focus .widget-countdown {
+  font-family: var(--organic-font-display);
+  font-weight: 400;
+}
+.dashboard-widget .shortcut-links button {
+  border-radius: 13px 9px 13px 9px;
+  background: color-mix(in srgb, var(--glass-paper) 35%, transparent);
+}
+.dashboard-widget .shortcut-links button svg {
+  stroke-width: 1.4;
+}
+.dashboard-widget button,
+.browser-toolbar button,
+.bookmark-bar button,
+.lunar-modal button {
+  transition:
+    background-color var(--organic-duration),
+    border-color var(--organic-duration),
+    transform var(--organic-duration);
+}
+.dashboard-widget button:active:not(:disabled),
+.browser-toolbar > button:active:not(:disabled) {
+  transform: scale(var(--organic-press-scale, 0.985));
+}
+.glass-global-controls {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+.glass-slider {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5px 10px;
+}
+.glass-slider > input {
+  grid-row: 2;
+  grid-column: 1;
+  width: 100%;
+}
+.glass-slider > output {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 40px;
+  font-variant-numeric: tabular-nums;
+}
+.glass-control-grid > p {
+  grid-column: 1/-1;
+}
+.lunar-shell .lunar-dock .lunar-dock-art {
+  border-radius: 13px 9px 13px 9px;
+  transition:
+    background-color var(--organic-duration),
+    box-shadow var(--organic-duration);
+}
+html[data-dock-magnify="true"][data-glass-pointer="true"]
+  .lunar-shell
+  .lunar-dock-button
+  .lunar-dock-art {
+  transform: translateY(calc(var(--dock-proximity, 0) * -4px))
+    scale(calc(1 + var(--dock-proximity, 0) * var(--organic-dock-scale, 0.16)));
+}
+.lunar-dock .lunar-dock-button:focus-visible .lunar-dock-art {
+  transform: translateY(-1px) scale(1.025);
+}
+.lunar-shell
+  .lunar-dock
+  .lunar-dock-button:active:not(:disabled)
+  .lunar-dock-art {
+  transform: translateY(1px) scale(0.97);
+}
+.dashboard-wallpaper .wallpaper-outgoing {
+  position: absolute;
+  inset: 0;
+  animation: organic-wallpaper-out var(--wallpaper-fade-ms) ease-out both;
+}
+.dashboard-wallpaper.has-soft-transitions
+  > :is(img, video):not(.wallpaper-outgoing) {
+  animation: organic-wallpaper-in var(--wallpaper-fade-ms) ease-out both;
+}
+@keyframes organic-wallpaper-in {
+  from {
+    opacity: 0.65;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes organic-wallpaper-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+html[data-glass-hover-motion="false"] .lunar-desktop-shortcuts button:hover {
+  transform: none;
+}
+html[data-reduced-motion="true"] .lunar-shell .lunar-dock .lunar-dock-art,
+html[data-reduced-motion="true"] .dashboard-widget > .glass-surface {
+  transform: none !important;
+}
+html[data-reduced-motion="true"] .dashboard-wallpaper img,
+html[data-reduced-motion="true"] .dashboard-wallpaper video {
+  animation: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lunar-shell .lunar-dock .lunar-dock-art,
+  .dashboard-widget > .glass-surface {
+    transform: none !important;
+  }
+  .dashboard-wallpaper img,
+  .dashboard-wallpaper video {
+    animation: none !important;
+  }
+}
+@media (forced-colors: active) {
+  .widget-site-mark,
+  .lunar-modal > header,
+  .lunar-modal .dashboard-apply {
+    background: Canvas;
+    border-color: CanvasText;
+  }
+  .browser-tab.is-active {
+    outline: 1px solid Highlight;
+  }
+}
+/* Semantic owners inherit the same contrast-safe ink as their backing, including
+   when an automatic midnight wallpaper changes material tone independently of a theme. */
+.lunar-menubar,
+.browser-tabstrip,
+.browser-toolbar,
+.bookmark-bar,
+.address-bar,
+.lunar-modal,
+.lunar-dropdown,
+.ai-sidebar {
+  color: var(--organic-ink, var(--lunar-text));
+}
+.lunar-menubar button,
+.lunar-menubar .lunar-dropdown button,
+.lunar-modal button:not(.primary-button),
+.ai-sidebar button:not(.primary-button),
+.browser-toolbar button,
+.bookmark-bar button {
+  color: inherit;
+}
+.lunar-modal :is(input, textarea, select),
+.ai-sidebar :is(input, textarea, select) {
+  color: var(--organic-ink);
+  background: color-mix(in srgb, var(--organic-paper) 70%, transparent);
+  border-color: color-mix(in srgb, var(--organic-ink) 18%, transparent);
+}
+.lunar-modal :is(input, textarea)::placeholder {
+  color: var(--organic-muted);
+  opacity: 0.8;
+}
+.lunar-modal :is(.muted-text, small),
+.lunar-dropdown :is(small, kbd),
+.ai-sidebar .muted-text {
+  color: var(--organic-muted);
+}
+.lunar-modal button:not(.primary-button):not(header button),
+.ai-sidebar button:not(.primary-button) {
+  background: color-mix(in srgb, var(--organic-paper) 55%, transparent);
+  border-color: color-mix(in srgb, var(--organic-ink) 14%, transparent);
+}
+.lunar-modal .primary-button,
+.ai-sidebar .primary-button {
+  background: var(--organic-ink);
+  color: var(--organic-paper);
+}
+.lunar-modal > header,
+.lunar-modal .dashboard-apply {
+  background: color-mix(in srgb, var(--organic-paper) 60%, transparent);
+}
+.lunar-menubar
+  .lunar-dropdown
+  button:is(:hover, :focus-visible):not(:disabled) {
+  color: var(--organic-ink);
+  background: color-mix(in srgb, var(--organic-ink) 12%, transparent);
+}
+/* Match the retained shell's selector specificity; its old theme-only ink must
+   not override an automatic dark backing. No height/padding/bounds changes. */
+.lunar-shell .lunar-menubar {
+  background: transparent;
+  color: var(--organic-ink);
+}
+.lunar-shell .lunar-menubar :is(button, time, .lunar-mark),
+.lunar-shell .browser-toolbar :is(button, input),
+.lunar-shell .bookmark-bar button {
+  color: inherit;
+}
+.lunar-shell .lunar-menubar button:is(:hover, :focus-visible):not(:disabled) {
+  background: color-mix(in srgb, var(--organic-ink) 12%, transparent);
+  color: var(--organic-ink);
+}
+.lunar-shell .lunar-menubar [aria-expanded="true"] {
+  background: var(--organic-ink);
+  color: var(--organic-paper);
+}
+.lunar-shell .address-bar input::placeholder {
+  color: var(--organic-muted);
+  opacity: 0.8;
+}
+.lunar-modal .glass-button {
+  background: color-mix(in srgb, var(--organic-paper) 48%, transparent);
+  border-color: color-mix(in srgb, var(--organic-ink) 22%, transparent);
+}
+.glass-section-motion {
+  min-width: 0;
+}
+.settings-content > .glass-fieldset {
+  position: relative;
+  isolation: isolate;
+  background: none;
+  border-color: transparent;
+  color: var(--glass-ink);
+}
+.settings-content > .glass-fieldset > .glass-backing {
+  --glass-radius: var(--organic-radius-panel);
+}
+.glass-fieldset :is(.muted-text, small),
+.theme-controls.glass-panel .muted-text {
+  color: var(--glass-muted);
+}
+.glass-fieldset :is(input, select, textarea),
+.theme-controls.glass-panel :is(input, select, textarea) {
+  color: var(--glass-ink);
+  background: color-mix(in srgb, var(--glass-paper) 72%, transparent);
+  border-color: color-mix(in srgb, var(--glass-ink) 18%, transparent);
+}
+.glass-fieldset button:not(.primary-button),
+.theme-controls.glass-panel button:not(.primary-button) {
+  color: var(--glass-ink);
+  background: color-mix(in srgb, var(--glass-paper) 48%, transparent);
+}
+.glass-fieldset .primary-button,
+.theme-controls.glass-panel .primary-button {
+  color: var(--glass-paper);
+  background: var(--glass-ink);
+}
+.glass-fieldset legend {
+  font-family: var(--organic-font-display);
+}
+
+/* Existing saved theme geometry remains functional within the new organic grammar. */
+.dashboard-widget > .glass-clock {
+  --glass-radius: calc(var(--lunar-radius, 12px) * 1.5)
+    var(--lunar-radius, 12px) calc(var(--lunar-radius, 12px) * 1.5)
+    var(--lunar-radius, 12px);
+}
+.dashboard-widget > .glass-search {
+  --glass-radius: var(--lunar-radius, 12px)
+    calc(var(--lunar-radius, 12px) * 1.5) var(--lunar-radius, 12px)
+    calc(var(--lunar-radius, 12px) * 1.5);
+}
+.dashboard-widget > .glass-notes {
+  --glass-radius: calc(var(--lunar-radius, 12px) * 0.8333333333)
+    calc(var(--lunar-radius, 12px) * 1.25)
+    calc(var(--lunar-radius, 12px) * 1.25)
+    calc(var(--lunar-radius, 12px) * 0.8333333333);
+}
+.dashboard-widget > .glass-calendar {
+  --glass-radius: calc(var(--lunar-radius, 12px) * 1.1666666667);
+}
+.dashboard-widget > .glass-weather {
+  --glass-radius: calc(var(--lunar-radius, 12px) * 1.5);
+}
+.lunar-modal > .glass-backing {
+  --glass-radius: var(--organic-radius-panel);
+}
+
+/* Automatic dark wallpaper tones must not inherit a light theme's hover paint.
+   Foreground and backing stay paired on actual controls, not only the glass pane. */
+@media (forced-colors: none) {
+  .lunar-modal button:hover:not(:disabled):not(.primary-button),
+  .ai-sidebar button:hover:not(:disabled):not(.primary-button),
+  .browser-toolbar button:hover:not(:disabled):not(.primary-button),
+  .bookmark-bar button:hover:not(:disabled):not(.primary-button) {
+    background: color-mix(
+      in srgb,
+      var(--organic-ink) 10%,
+      var(--organic-paper)
+    );
+    color: var(--organic-ink);
+  }
+  .glass-surface button:hover:not(:disabled):not(.primary-button) {
+    background: color-mix(in srgb, var(--glass-ink) 10%, var(--glass-paper));
+    color: var(--glass-ink);
+  }
+}

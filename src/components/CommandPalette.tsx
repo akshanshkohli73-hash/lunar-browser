@@ -1,89 +1,84 @@
-import React, { useState, useEffect } from 'react';
-
+import { AnimatePresence } from "framer-motion";
+import { useState } from "react";
+import { Modal } from "./ui/Modal";
+import { CONTROL_PANELS } from "../state/control-center";
 export interface CommandPaletteProps {
   isOpen: boolean;
+  nativeAvailable: boolean;
+  hasTab: boolean;
   onClose: () => void;
   onNavigatePage: (page: string) => void;
   onNewTab: () => void;
   onCloseTab: () => void;
 }
-
-export const CommandPalette: React.FC<CommandPaletteProps> = ({
+export default function CommandPalette({
   isOpen,
+  nativeAvailable,
+  hasTab,
   onClose,
   onNavigatePage,
   onNewTab,
   onCloseTab,
-}) => {
-  const [query, setQuery] = useState('');
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        if (isOpen) onClose();
-      } else if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
+}: CommandPaletteProps) {
+  const [query, setQuery] = useState("");
   const commands = [
-    { id: 'new_tab', label: 'New Tab', category: 'Tabs', action: () => { onNewTab(); onClose(); } },
-    { id: 'close_tab', label: 'Close Current Tab', category: 'Tabs', action: () => { onCloseTab(); onClose(); } },
-    { id: 'settings', label: 'Open Settings', category: 'Navigation', action: () => { onNavigatePage('lunar://settings'); onClose(); } },
-    { id: 'history', label: 'Open History', category: 'Navigation', action: () => { onNavigatePage('lunar://history'); onClose(); } },
-    { id: 'bookmarks', label: 'Open Bookmarks', category: 'Navigation', action: () => { onNavigatePage('lunar://bookmarks'); onClose(); } },
-    { id: 'downloads', label: 'Open Downloads', category: 'Navigation', action: () => { onNavigatePage('lunar://downloads'); onClose(); } },
-    { id: 'extensions', label: 'Open Extensions', category: 'Navigation', action: () => { onNavigatePage('lunar://extensions'); onClose(); } },
+    { name: "New tab", action: onNewTab, disabled: !nativeAvailable },
+    {
+      name: "Close current tab",
+      action: onCloseTab,
+      disabled: !nativeAvailable || !hasTab,
+    },
+    ...CONTROL_PANELS.map((item) => ({
+      name: item.label,
+      action: () => onNavigatePage(`lunar://${item.page}`),
+      disabled: false,
+    })),
   ];
-
-  const filtered = commands.filter((c) =>
-    c.label.toLowerCase().includes(query.toLowerCase()) ||
-    c.category.toLowerCase().includes(query.toLowerCase())
+  const filtered = commands.filter((command) =>
+    command.name.toLowerCase().includes(query.toLowerCase()),
   );
-
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center pt-20">
-      <div className="w-full max-w-xl bg-[#0d0f17] border border-cyan-500/30 rounded-xl shadow-2xl overflow-hidden flex flex-col">
-        <div className="p-3 border-b border-white/10 flex items-center gap-2">
-          <span className="text-cyan-400">⌘</span>
+    <AnimatePresence>
+      {isOpen && (
+        <Modal title="Browser commands" onClose={onClose}>
           <input
-            type="text"
-            autoFocus
+            className="command-search"
+            aria-label="Find a command"
+            placeholder="What would you like to do?"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Type a command or search..."
-            className="w-full bg-transparent text-xs text-slate-100 placeholder-slate-500 focus:outline-none"
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (
+                event.key === "Enter" &&
+                filtered[0] &&
+                !filtered[0].disabled
+              ) {
+                filtered[0].action();
+                setQuery("");
+                onClose();
+              }
+            }}
           />
-          <span className="text-[10px] text-slate-500 font-mono">ESC to cancel</span>
-        </div>
-
-        <div className="p-2 max-h-80 overflow-y-auto space-y-1">
-          {filtered.length === 0 ? (
-            <div className="p-4 text-center text-xs text-slate-500">No matching commands</div>
-          ) : (
-            filtered.map((cmd) => (
+          <div className="command-list">
+            {filtered.map((command) => (
               <button
-                key={cmd.id}
-                onClick={cmd.action}
-                className="w-full flex items-center justify-between p-2.5 rounded-lg hover:bg-cyan-500/10 hover:text-cyan-300 text-slate-300 text-xs transition text-left"
+                key={command.name}
+                disabled={command.disabled}
+                onClick={() => {
+                  command.action();
+                  setQuery("");
+                  onClose();
+                }}
               >
-                <span>{cmd.label}</span>
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-slate-400">
-                  {cmd.category}
-                </span>
+                {command.name}
               </button>
-            ))
-          )}
-        </div>
-      </div>
-    </div>
+            ))}
+            {!filtered.length && (
+              <p className="empty-state">No matching commands.</p>
+            )}
+          </div>
+        </Modal>
+      )}
+    </AnimatePresence>
   );
-};
-
-export default CommandPalette;
+}
