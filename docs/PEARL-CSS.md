@@ -72,6 +72,8 @@ Actual Chromium comparison evidence is written to ignored `.artifacts/ui/pearl-c
 
 The existing `Verify Lunar Browser` workflow runs real Windows source Electron, unsigned NSIS packaging, and the packaged `win-unpacked/Lunar Browser.exe`. `scripts/native-smoke.mjs` now also forces loss/restoration of the actual shared context and verifies the **enabled native address field** retains its draft, selection, focus and geometry. The renderer-only preview intentionally keeps that native field disabled; its equivalent editable-draft proof uses the real dashboard note rather than a fake bridge.
 
+Native material readiness is observed atomically in one main-thread snapshot (backend, output visibility/dimensions, CSS filter/backing and OS preferences), so separate protocol reads cannot combine two different rendering modes during promotion. Failure annotations retain the complete observed state.
+
 Native PNG/MP4/WebM import/decode, actual painted-video CSS blur smoothing, stable decorative CSS highlights, unchanged CSS pixels for a shader-only refraction change, live WebGL video refraction, single existing video ownership, security, navigation, viewport/overlay occlusion, resize/DND, persistence and profile retention continue to be gated. The native comparison evidence is emitted as `*-pearl-switch.json` and `*-pearl-context-lost.png` for both source and packaged runs.
 
 This does not substitute a web preview for Electron, a packaged-app launch for a human-installed NSIS upgrade/uninstall, or software CI for physical GPU/touch/DPI/battery/codec testing. Publication remains manual and requires a separate request.

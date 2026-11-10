@@ -500,14 +500,52 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       await expect(video).toBeVisible();
       const material = ui.locator('[data-widget-id="notes"] > .glass-surface');
       await expect(material).toHaveAttribute("data-glass-mode", "glass");
+      // One main-thread snapshot: two protocol reads can straddle CSS → WebGL
+      // promotion and incorrectly combine the old backend with the new "none"
+      // backdrop. Actual native pixel/smoothing/lensing gates below are retained.
+      const materialPaint = await material.evaluate((node) => {
+        const css = getComputedStyle(node),
+          output = node.querySelector(":scope > canvas[data-liquid-output]");
+        const color = document.createElement("canvas");
+        color.width = color.height = 1;
+        const context = color.getContext("2d", { willReadFrequently: true });
+        context.fillStyle = css.backgroundColor;
+        context.fillRect(0, 0, 1, 1);
+        return {
+          backend: node.dataset.liquidBackend,
+          variant: node.dataset.materialVariant,
+          mode: node.dataset.glassMode,
+          backdrop: css.backdropFilter,
+          alpha: context.getImageData(0, 0, 1, 1).data[3] / 255,
+          output: output
+            ? {
+                visible: !output.hidden,
+                width: output.width,
+                height: output.height,
+              }
+            : null,
+          engine: document.documentElement.dataset.liquidEngine,
+          reason: document.documentElement.dataset.liquidReason,
+          focused: document.hasFocus(),
+          preferences: [
+            "(prefers-reduced-motion: reduce)",
+            "(prefers-reduced-transparency: reduce)",
+            "(forced-colors: active)",
+          ].map((query) => ({ query, matches: matchMedia(query).matches })),
+        };
+      });
       assert.ok(
-        (await material.getAttribute("data-liquid-backend")) === "webgl2" ||
-          /blur\(/u.test(
-            await material.evaluate(
-              (node) => getComputedStyle(node).backdropFilter,
-            ),
-          ),
-        "A real shader or CSS fallback material must remain above playing video",
+        materialPaint.mode === "glass" &&
+          ((materialPaint.backend === "webgl2" &&
+            materialPaint.variant === "liquid-webgl" &&
+            materialPaint.output?.visible &&
+            materialPaint.output.width > 1 &&
+            materialPaint.output.height > 1) ||
+            (materialPaint.backend !== "webgl2" &&
+              materialPaint.variant === "pearl-css" &&
+              /blur\(/u.test(materialPaint.backdrop) &&
+              materialPaint.alpha > 0.25)),
+        `A real visible shader or readable CSS backdrop must remain above playing video: ${JSON.stringify(materialPaint)}`,
       );
       assert.equal(
         await material.evaluate(
