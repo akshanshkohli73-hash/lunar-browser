@@ -657,6 +657,15 @@ try {
   console.log(
     "This test is not a native Electron or Windows runtime test. Screenshots: .artifacts/ui/",
   );
+} catch (error) {
+  if (process.env.GITHUB_ACTIONS === "true") {
+    const detail = String(error?.stack ?? error)
+      .replaceAll("%", "%25")
+      .replaceAll("\r", "%0D")
+      .replaceAll("\n", "%0A");
+    console.error(`::error file=scripts/ui-smoke.mjs::${detail}`);
+  }
+  throw error;
 } finally {
   await browser?.close();
   await new Promise((resolve) => server.httpServer.close(resolve));
