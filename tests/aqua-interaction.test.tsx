@@ -129,3 +129,22 @@ it("does not replay expired input on a new or previously hidden surface", () => 
     now.mockRestore();
   }
 });
+
+it("retains a complete between-frame click when hover motion is off, without enabling hover compression", () => {
+  const { controller, node, state } = scene();
+  node.dispatchEvent(
+    new MouseEvent("pointerdown", { clientX: 100, clientY: 50, bubbles: true }),
+  );
+  node.dispatchEvent(new MouseEvent("pointerup", { bubbles: true }));
+  const frame = controller.advance(
+    state,
+    rect,
+    1 / 60,
+    1,
+    false,
+    performance.now(),
+    true,
+  );
+  expect(frame.ripple[3]).toBeGreaterThan(0);
+  expect(frame.bend).toEqual([0, 0, 0]);
+});

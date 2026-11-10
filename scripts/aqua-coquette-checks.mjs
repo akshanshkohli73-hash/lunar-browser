@@ -3,11 +3,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { expect } from "@playwright/test";
-import {
-  liquidMetrics,
-  liquidPixels,
-  stableLiquidPixels,
-} from "./liquid-engine-checks.mjs";
+import { liquidMetrics, stableLiquidPixels } from "./liquid-engine-checks.mjs";
 const presets = [
   { name: "Water Lens", opacity: "0.68", blur: "4", refraction: "0.32" },
   { name: "Pearl Glass", opacity: "0.76", blur: "9", refraction: "0.14" },
@@ -125,32 +121,63 @@ export async function checkAquaCoquette(browser, url, evidence) {
     await sample.evaluate((node) => {
       const canvas = node.querySelector(":scope > canvas[data-liquid-output]");
       window.__aquaRippleFrames = [];
-      window.__aquaRippleObserver = new MutationObserver(() => {
+      window.__aquaRipplePixels = [];
+      window.__aquaRippleObserver = new MutationObserver(async () => {
         const ripple = JSON.parse(canvas.dataset.liquidRipple || "[0,0,0,0]");
-        if (ripple[3] > 0 && window.__aquaRippleFrames.length < 100)
-          window.__aquaRippleFrames.push(ripple);
+        if (ripple[3] <= 0 || window.__aquaRippleFrames.length >= 40) return;
+        window.__aquaRippleFrames.push(ripple);
+        // Snapshot the exact published frame here. Separate protocol reads of
+        // pixels and pulse age can straddle the short ripple's expiration.
+        // Read only a disposable canvas, never the runtime output context.
+        const bitmap = await createImageBitmap(canvas);
+        const readback = document.createElement("canvas");
+        readback.width = bitmap.width;
+        readback.height = bitmap.height;
+        const context = readback.getContext("2d", { willReadFrequently: true });
+        context.drawImage(bitmap, 0, 0);
+        bitmap.close();
+        const pixels = context.getImageData(
+          0,
+          0,
+          readback.width,
+          readback.height,
+        ).data;
+        let hash = 2166136261;
+        for (const channel of pixels)
+          hash = Math.imul(hash ^ channel, 16777619);
+        window.__aquaRipplePixels.push({
+          hash: hash >>> 0,
+          width: readback.width,
+          height: readback.height,
+          ripple,
+        });
       });
       window.__aquaRippleObserver.observe(canvas, {
         attributes: true,
         attributeFilter: ["data-liquid-ripple"],
       });
     });
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
     await page.mouse.up();
     let during;
     await expect
       .poll(
         async () => {
-          during = await liquidPixels(sample);
-          const pulse = await sample
-            .locator(":scope > canvas[data-liquid-output]")
-            .getAttribute("data-liquid-ripple");
-          return (
-            JSON.parse(pulse || "[0,0,0,0]")[3] > 0 &&
-            during.hash !== before.hash
+          during = await page.evaluate(
+            (before) =>
+              window.__aquaRipplePixels.find(
+                (frame) =>
+                  frame.ripple[3] > 0 &&
+                  frame.hash !== before.hash &&
+                  frame.width === before.width &&
+                  frame.height === before.height,
+              ),
+            before,
           );
+          return !!during;
         },
-        { timeout: 5000, intervals: [30, 50, 80] },
+        { timeout: 15000, intervals: [50, 100, 150] },
       )
       .toBe(true);
     const after = await stableLiquidPixels(sample);
@@ -275,6 +302,23 @@ export async function checkAquaCoquette(browser, url, evidence) {
       `${evidence}-aqua.json`,
       JSON.stringify(observed, null, 2) + "\n",
     );
+  } catch (error) {
+    fs.writeFileSync(
+      `${evidence}-failed.json`,
+      JSON.stringify(
+        {
+          ...observed,
+          message: String(error),
+          metrics: await liquidMetrics(page),
+          rippleFrames: await page.evaluate(
+            () => window.__aquaRippleFrames ?? [],
+          ),
+        },
+        null,
+        2,
+      ) + "\n",
+    );
+    throw error;
   } finally {
     await page.close();
   }
@@ -344,7 +388,7 @@ export async function checkNativeAquaCoquette(ui, api, evidence) {
     .getByRole("button", { name: "Open Lunar Shield", exact: true })
     .click();
   await expect(
-    ui.getByRole("heading", { name: "Lunar Shield", exact: true }),
+    ui.getByRole("heading", { name: "Lunar Shield", exact: true, level: 1 }),
   ).toBeVisible();
   await dockAction(ui, "Home").click();
   fs.writeFileSync(

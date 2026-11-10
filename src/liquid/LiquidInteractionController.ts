@@ -134,6 +134,7 @@ export class LiquidInteractionController {
     response: number,
     enabled: boolean,
     now = performance.now(),
+    allowRipples = enabled,
   ) {
     const localX = ((this.x - rect.x) / Math.max(1, rect.width)) * 2 - 1,
       localY = ((this.y - rect.y) / Math.max(1, rect.height)) * 2 - 1;
@@ -177,7 +178,7 @@ export class LiquidInteractionController {
         x,
         y,
         allowed:
-          enabled &&
+          allowRipples &&
           this.impulse.allowed &&
           x >= 0 &&
           x <= 1 &&

@@ -596,6 +596,9 @@ export class LiquidEngine {
           this.interaction.down ||
           this.interaction.dragging,
         time,
+        // A completed quick click remains an impulse even when hover is off;
+        // reduced/disabled/fallback policies have already stopped this tick.
+        surface.material.intensity > 0,
       );
       settling ||= state.settling && surface.material.intensity > 0;
 
