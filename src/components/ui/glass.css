@@ -1,0 +1,350 @@
+@import "./organic-tokens.css";
+
+/* Pearl CSS is a material in its own right, not simulated optical refraction.
+   Paint stays below semantic content. No displacement, content filters, animated
+   noise or continuously running decorative animations. Each eligible surface
+   samples its backdrop at most once, with a role-specific 4–12px CSS blur cap. */
+.glass-surface {
+  --glass-paper: #f1f7ea;
+  --glass-ink: #102a20;
+  --glass-muted: #152d21;
+  --glass-edge: #ffffff;
+  --glass-depth: #173c2d;
+  --glass-radius: var(--organic-radius-widget);
+  --pearl-aqua: #b9dcd4;
+  --pearl-highlight: #fffef6;
+  --pearl-rim: #edf9f3;
+  --pearl-light-cap: 1;
+  --pearl-sheen-x: 12%;
+  --pearl-sheen-y: -42%;
+  --pearl-sheen-width: 115%;
+  --pearl-sheen-height: 95%;
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  min-height: 0;
+  border-radius: var(--glass-radius);
+  color: var(--glass-ink);
+  background-color: var(--glass-paper);
+  background-color: color-mix(
+    in srgb,
+    color-mix(
+        in srgb,
+        var(--glass-paper) 94%,
+        color-mix(in srgb, var(--glass-tint) 60%, var(--glass-adaptive-tint))
+      )
+      calc(var(--pearl-alpha, 0.86) * 100%),
+    transparent
+  );
+  background-image: linear-gradient(
+    152deg,
+    color-mix(in srgb, var(--glass-paper) var(--glass-wash-start), transparent),
+    color-mix(in srgb, var(--glass-paper) var(--glass-wash-end), transparent)
+      72%
+  );
+  border: 1px solid var(--lunar-border);
+  border-color: color-mix(
+    in srgb,
+    var(--pearl-rim) calc(var(--glass-border) * var(--pearl-edge, 1) * 74%),
+    transparent
+  );
+  box-shadow:
+    inset 0 1px 0
+      color-mix(
+        in srgb,
+        var(--glass-edge) calc(var(--glass-border) * 70%),
+        transparent
+      ),
+    0 var(--glass-elevation) 28px var(--glass-spread)
+      color-mix(
+        in srgb,
+        var(--glass-depth)
+          calc(var(--glass-shadow) * var(--pearl-shadow, 1) * 40%),
+        transparent
+      ),
+    0 3px 9px -5px
+      color-mix(
+        in srgb,
+        var(--glass-depth)
+          calc(var(--glass-shadow) * var(--pearl-shadow, 1) * 32%),
+        transparent
+      );
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  /* Never fade from a lost GPU's transparent background: CSS must be legible
+     in the very first fallback frame. Interaction borders may still settle. */
+  transition: border-color var(--organic-duration) ease;
+}
+.glass-surface[data-glass-tone="dark"] {
+  --glass-paper: #162e27;
+  --glass-ink: #f4f8ef;
+  --glass-muted: #eaf1e4;
+  --glass-edge: #d8edda;
+  --glass-depth: #020b07;
+  --pearl-aqua: #28574e;
+  --pearl-highlight: #83afa0;
+  --pearl-rim: #b3d7c8;
+  /* Even a 100% reflection preference must not wash out light glyphs. */
+  --pearl-light-cap: 0.12;
+}
+@supports (
+  (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))
+) {
+  .glass-surface[data-glass-mode="glass"][data-glass-backdrop="true"] {
+    -webkit-backdrop-filter: blur(var(--pearl-blur))
+      saturate(var(--glass-saturation));
+    backdrop-filter: blur(var(--pearl-blur)) saturate(var(--glass-saturation));
+  }
+}
+.glass-surface::before,
+.glass-surface::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: -1;
+}
+.glass-surface::before {
+  opacity: calc(
+    var(--glass-reflection) * var(--pearl-sheen, 0.5) * var(--pearl-light-cap)
+  );
+  background:
+    radial-gradient(
+      ellipse 160px 100px at var(--glass-pointer-x, 50%)
+        var(--glass-pointer-y, 35%),
+      color-mix(
+        in srgb,
+        var(--pearl-highlight) calc(var(--glass-pointer-presence, 0) * 26%),
+        transparent
+      ),
+      transparent 80%
+    ),
+    radial-gradient(
+      ellipse var(--pearl-sheen-width) var(--pearl-sheen-height) at
+        var(--pearl-sheen-x) var(--pearl-sheen-y),
+      color-mix(in srgb, var(--pearl-highlight) 70%, transparent),
+      transparent 76%
+    ),
+    linear-gradient(
+      116deg,
+      transparent 26%,
+      color-mix(in srgb, var(--pearl-highlight) 24%, transparent) 43%,
+      transparent 61%
+    );
+}
+.glass-surface::after {
+  inset: 1px;
+  box-shadow:
+    inset 1px 0 0
+      color-mix(
+        in srgb,
+        var(--pearl-rim) calc(var(--glass-border) * 28%),
+        transparent
+      ),
+    inset 0 -1px 0
+      color-mix(
+        in srgb,
+        var(--pearl-aqua) calc(var(--glass-border) * 46%),
+        transparent
+      );
+}
+/* The dock is a floating pearl, not the same rectangular frosting as a widget. */
+.glass-surface[data-material-role="dock"] {
+  --pearl-sheen-x: 28%;
+  --pearl-sheen-y: -65%;
+  --pearl-sheen-width: 135%;
+  --pearl-sheen-height: 170%;
+  background-image: linear-gradient(
+    173deg,
+    color-mix(in srgb, var(--glass-paper) 42%, transparent),
+    color-mix(in srgb, var(--glass-paper) 22%, transparent) 54%,
+    color-mix(
+      in srgb,
+      color-mix(in srgb, var(--glass-paper) 75%, var(--pearl-aqua)) 27%,
+      transparent
+    )
+  );
+}
+/* Search is a quiet, illuminated shelf; dense reading widgets are matte pearl. */
+.glass-surface[data-material-role="search"] {
+  --pearl-sheen-x: 50%;
+  --pearl-sheen-y: -70%;
+  --pearl-sheen-width: 85%;
+  --pearl-sheen-height: 120%;
+}
+.glass-surface[data-material-role="clock"] {
+  --pearl-sheen-x: -22%;
+  --pearl-sheen-height: 130%;
+}
+.glass-surface:is(
+  [data-material-role="toolbar"],
+  [data-material-role="menubar"]
+) {
+  border-color: transparent;
+  border-bottom-color: color-mix(
+    in srgb,
+    var(--pearl-rim) calc(var(--glass-border) * 45%),
+    transparent
+  );
+}
+.glass-surface[data-material-role="menu"] {
+  --pearl-sheen-width: 90%;
+  --pearl-sheen-height: 65%;
+  --pearl-sheen-y: -12%;
+}
+/* Shared text-control variant: deliberately no additional backdrop or GPU layer.
+   The owner's material supplies depth; a thin pearl wash keeps glyphs crisp. */
+.glass-surface[data-material-request="clear-surface"] {
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--glass-paper) 20%, transparent),
+    transparent
+  );
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: inset 0 1px 0
+    color-mix(
+      in srgb,
+      var(--glass-edge) calc(var(--glass-border) * 38%),
+      transparent
+    );
+}
+.glass-surface[data-material-request="clear-surface"]::before {
+  display: none;
+}
+.glass-surface[data-glass-mode="simple"] {
+  /* Inactive/Simple uses the same pearl vocabulary without live sampling. */
+  background-color: color-mix(
+    in srgb,
+    var(--glass-paper) calc((0.6 + var(--glass-opacity) * 0.4) * 100%),
+    transparent
+  );
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.glass-surface[data-glass-mode="solid"] {
+  background: var(--glass-paper);
+  border-color: var(--lunar-border);
+  box-shadow: 0 2px 7px -5px #15352733;
+}
+.glass-surface[data-glass-mode="solid"]::before,
+.glass-surface[data-glass-mode="simple"]::before {
+  opacity: 0;
+}
+.glass-surface[data-glass-mode="solid"]::after {
+  display: none;
+}
+.glass-surface[data-glass-active="true"]:hover {
+  border-color: color-mix(
+    in srgb,
+    var(--pearl-rim) calc(var(--glass-border) * 90%),
+    transparent
+  );
+}
+.glass-surface:focus-within {
+  outline: 2px solid var(--lunar-primary);
+  outline-offset: 3px;
+}
+.glass-surface button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.glass-surface[data-glass-active="false"] {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .glass-surface,
+  .glass-surface button {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+html:is([data-reduced-motion="true"], [data-material-motion="reduced"])
+  .glass-surface,
+html:is([data-reduced-motion="true"], [data-material-motion="reduced"])
+  .glass-surface
+  button {
+  transition: none !important;
+  transform: none !important;
+}
+/* Accessibility also wins during the frame in which a GPU context is changing. */
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  .glass-surface[data-glass-mode] {
+    background: var(--glass-paper) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    box-shadow: none !important;
+  }
+  .glass-surface::before {
+    opacity: 0;
+  }
+}
+@media (forced-colors: active) {
+  .glass-surface[data-glass-mode] {
+    background: Canvas !important;
+    color: CanvasText;
+    border: 1px solid CanvasText;
+  }
+}
+
+.glass-backing {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+.glass-button {
+  border-radius: var(--organic-radius-control);
+  border: 1px solid color-mix(in srgb, var(--lunar-primary) 16%, transparent);
+  background:
+    linear-gradient(155deg, #ffffff28, transparent),
+    color-mix(in srgb, var(--lunar-surface) 48%, transparent);
+  color: inherit;
+  transition:
+    transform var(--organic-duration),
+    background-color var(--organic-duration),
+    border-color var(--organic-duration);
+}
+.glass-button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--lunar-primary) 30%, transparent);
+}
+.glass-button:active:not(:disabled) {
+  transform: scale(var(--organic-press-scale, 0.985));
+}
+.glass-button:focus-visible,
+.glass-slider input:focus-visible {
+  outline: 2px solid var(--lunar-primary);
+  outline-offset: 3px;
+}
+.glass-slider input {
+  accent-color: var(--lunar-primary);
+  min-height: 24px;
+  cursor: pointer;
+}
+.glass-panel {
+  --glass-radius: var(--organic-radius-panel);
+}
+html[data-glass-hover-motion="true"]
+  .dashboard-widget:not(.is-dragging):not(.is-resizing):hover
+  > .glass-surface {
+  transform: translateY(var(--organic-hover-y, -2px));
+}
+html[data-glass-hover-motion="true"] .dashboard-widget > .glass-surface {
+  transition:
+    transform var(--organic-duration),
+    border-color var(--organic-duration);
+}
+.dashboard-widget.is-dragging > .glass-surface {
+  transform: translateY(-3px) scale(1.01);
+}
+@media (prefers-reduced-motion: reduce),
+  (prefers-reduced-transparency: reduce),
+  (forced-colors: active) {
+  .glass-surface::before {
+    --glass-pointer-presence: 0 !important;
+  }
+}
+html:is([data-reduced-motion="true"], [data-material-motion="reduced"])
+  .glass-surface::before {
+  --glass-pointer-presence: 0 !important;
+}
