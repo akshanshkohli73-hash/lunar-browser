@@ -8,6 +8,19 @@ export async function checkNativeAquaTabs(ui, api, evidence) {
     created = [];
   const tab = (id) => ui.locator(`[role="tab"][data-tab-id="${id}"]`);
   const state = async () => (await api("bootstrap")).tabs;
+  await ui.evaluate(() => {
+    window.__aquaTabKeys = [];
+    window.__aquaTabKeyListener = (event) => {
+      if (window.__aquaTabKeys.length < 20)
+        window.__aquaTabKeys.push({
+          key: event.key,
+          prevented: event.defaultPrevented,
+          tab: event.target?.dataset?.tabId,
+          active: document.activeElement?.getAttribute("data-tab-id"),
+        });
+    };
+    document.addEventListener("keydown", window.__aquaTabKeyListener);
+  });
   try {
     for (let i = 0; i < 8; i++) created.push(await api("createTab"));
     await expect(ui.getByRole("tab")).toHaveCount(initial.tabs.length + 8);
@@ -36,7 +49,31 @@ export async function checkNativeAquaTabs(ui, api, evidence) {
     await tab(initial.tabs[0].id).press("ArrowRight");
     await expect(tab(created[0].id)).toBeFocused();
     await tab(created[0].id).press("Delete");
-    await expect(tab(created[0].id)).toHaveCount(0);
+    try {
+      await expect(tab(created[0].id)).toHaveCount(0);
+    } catch (error) {
+      const snapshot = await state();
+      const retiring = await tab(created[0].id).evaluateAll((nodes) =>
+        nodes.map((node) => ({
+          html: node.parentElement.outerHTML,
+          opacity: getComputedStyle(node.parentElement).opacity,
+          animations: node.parentElement
+            .getAnimations()
+            .map((animation) => ({
+              state: animation.playState,
+              time: animation.currentTime,
+            })),
+          hidden: document.hidden,
+          focused: document.hasFocus(),
+          activeElement: document.activeElement?.outerHTML,
+          keyEvents: window.__aquaTabKeys,
+        })),
+      );
+      throw new Error(
+        `Native Delete transition: ${JSON.stringify({ snapshot, retiring })}`,
+        { cause: error },
+      );
+    }
     assert.equal((await state()).activeTabId, created.at(-1).id);
     await expect(tab(created[1].id)).toBeFocused();
     await tab(created[1].id).press("Home");
@@ -100,6 +137,9 @@ export async function checkNativeAquaTabs(ui, api, evidence) {
       ) + "\n",
     );
   } finally {
+    await ui.evaluate(() =>
+      document.removeEventListener("keydown", window.__aquaTabKeyListener),
+    );
     await api("switchTab", initial.activeTabId);
     for (const item of created)
       if ((await state()).tabs.some((existing) => existing.id === item.id))
