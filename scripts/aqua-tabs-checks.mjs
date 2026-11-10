@@ -104,9 +104,10 @@ export async function checkNativeAquaTabs(ui, api, evidence) {
     for (const item of created)
       if ((await state()).tabs.some((existing) => existing.id === item.id))
         await api("closeTab", item.id);
-    await expect(ui.getByRole("tab")).toHaveCount(initial.tabs.length);
-    await expect(
-      ui.getByRole("button", { name: "Scroll tabs right", exact: true }),
-    ).toHaveCount(0);
   }
+  // Do not let a cleanup assertion mask an earlier keyboard/drag failure.
+  await expect(ui.getByRole("tab")).toHaveCount(initial.tabs.length);
+  await expect(
+    ui.getByRole("button", { name: "Scroll tabs right", exact: true }),
+  ).toHaveCount(0);
 }

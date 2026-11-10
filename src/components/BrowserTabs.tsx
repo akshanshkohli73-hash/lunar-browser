@@ -23,6 +23,7 @@ export function BrowserTabs({ tabs, activeId, api, report, onMenu }: Props) {
     dragId = useRef<string | null>(null);
   const buttons = useRef(new Map<string, HTMLButtonElement>());
   const measure = useRef<() => void>(() => {});
+  const exitFrame = useRef(0);
   const [focused, setFocused] = useState<string | null>(null);
   const [edges, setEdges] = useState({ before: false, after: false });
   const roving = tabs.some((tab) => tab.id === focused) ? focused : activeId;
@@ -45,6 +46,7 @@ export function BrowserTabs({ tabs, activeId, api, report, onMenu }: Props) {
     node.addEventListener("scroll", update, { passive: true });
     return () => {
       measure.current = () => {};
+      cancelAnimationFrame(exitFrame.current);
       observer.disconnect();
       node.removeEventListener("scroll", update);
     };
@@ -125,7 +127,15 @@ export function BrowserTabs({ tabs, activeId, api, report, onMenu }: Props) {
       >
         <AnimatePresence
           initial={false}
-          onExitComplete={() => measure.current()}
+          onExitComplete={() => {
+            // Presence completion precedes the DOM removal commit. Measure once
+            // afterwards, not against the still-mounted retiring tab widths.
+            cancelAnimationFrame(exitFrame.current);
+            exitFrame.current = requestAnimationFrame(() => {
+              exitFrame.current = 0;
+              measure.current();
+            });
+          }}
         >
           {tabs.map((tab) => (
             <Tab
@@ -189,7 +199,7 @@ function Tab({
       exit={
         reduced
           ? { opacity: 0 }
-          : { opacity: 0, width: 0, minWidth: 0, margin: 0 }
+          : { opacity: 0, width: 0, flexBasis: 0, minWidth: 0, margin: 0 }
       }
       transition={lunarSpring(settings.animationSpeed, reduced)}
       aria-hidden={!present}

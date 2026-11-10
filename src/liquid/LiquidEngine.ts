@@ -151,6 +151,7 @@ export class LiquidEngine {
       const lost = (event: Event) => {
         event.preventDefault();
         this.lost = true;
+        this.renderFailed = false;
         this.composing = 0;
         this.generation++;
         this.hasTexture = false;
@@ -378,25 +379,26 @@ export class LiquidEngine {
   };
   private reason() {
     const o = this.options;
+    // The driver can report loss before its DOM event or an in-flight bitmap
+    // rejection. It is recoverable and takes precedence over submission errors.
+    if (this.lost || this.renderer?.gl.isContextLost()) return "context-lost";
     return this.renderFailed
       ? "render-unavailable"
-      : this.lost
-        ? "context-lost"
-        : !this.renderer
-          ? "webgl2-unavailable"
-          : !o.foreground || document.hidden
-            ? "inactive"
-            : o.reduced
-              ? "reduced-motion"
-              : o.transparency || o.forcedColors
-                ? "accessibility"
-                : !o.settings.enabled
-                  ? "disabled"
-                  : o.settings.performance !== "optical"
-                    ? "material-fallback"
-                    : o.settings.liquid.quality === "performance"
-                      ? "performance-quality"
-                      : "";
+      : !this.renderer
+        ? "webgl2-unavailable"
+        : !o.foreground || document.hidden
+          ? "inactive"
+          : o.reduced
+            ? "reduced-motion"
+            : o.transparency || o.forcedColors
+              ? "accessibility"
+              : !o.settings.enabled
+                ? "disabled"
+                : o.settings.performance !== "optical"
+                  ? "material-fallback"
+                  : o.settings.liquid.quality === "performance"
+                    ? "performance-quality"
+                    : "";
   }
   private fallback(reason: string) {
     this.background.setRunning(false);
@@ -470,6 +472,11 @@ export class LiquidEngine {
           : null;
       this.cached = metadata;
     } catch (error) {
+      if (generation !== this.generation || !this.alive) return;
+      if (this.lost || renderer.gl.isContextLost()) {
+        this.fallback("context-lost");
+        return;
+      }
       this.hasTexture = false;
       this.background.dirty = false;
       if (this.canvas)
@@ -760,8 +767,11 @@ export class LiquidEngine {
       }
       cpuMs += performance.now() - compositionStart;
     } catch {
-      if (!this.lost) this.renderFailed = true;
-      this.fallback(this.lost ? "context-lost" : "render-unavailable");
+      // A rejected old snapshot must not poison a newly restored context.
+      if (generation !== this.generation || !this.alive) return;
+      const contextLost = this.lost || renderer.gl.isContextLost();
+      if (!contextLost) this.renderFailed = true;
+      this.fallback(contextLost ? "context-lost" : "render-unavailable");
       return;
     } finally {
       snapshot?.close();

@@ -227,3 +227,40 @@ it("settles lost-GPU morphs immediately and does not replay already-open menus o
     0,
   );
 });
+
+it("prioritizes recoverable driver/context loss over a racing submission failure", async () => {
+  const { LiquidEngine } = await import("../src/liquid/LiquidEngine");
+  const { DEFAULT_GLASS } = await import("../shared/glass");
+  const engine = new LiquidEngine();
+  // White-box state-transition probe, not a shader mock presented as pixel proof.
+  // Real loss/restoration, pixels and retained native geometry are checked in GUI.
+  const renderer = {
+    gl: { isContextLost: vi.fn(() => true) },
+    dispose: vi.fn(),
+  };
+  Object.assign(engine, { renderer, renderFailed: true });
+  const options = {
+    settings: DEFAULT_GLASS,
+    identity: "",
+    reduced: false,
+    foreground: true,
+    transparency: false,
+    forcedColors: false,
+    finePointer: true,
+  };
+  try {
+    engine.update(options);
+    expect(document.documentElement.dataset.liquidReason).toBe("context-lost");
+    renderer.gl.isContextLost.mockReturnValue(false);
+    engine.update(options);
+    expect(document.documentElement.dataset.liquidReason).toBe(
+      "render-unavailable",
+    );
+    Object.assign(engine, { lost: true });
+    engine.update(options);
+    expect(document.documentElement.dataset.liquidReason).toBe("context-lost");
+  } finally {
+    engine.dispose();
+  }
+  expect(renderer.dispose).toHaveBeenCalledOnce();
+});
