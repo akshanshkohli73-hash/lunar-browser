@@ -207,34 +207,39 @@ it("reveals the selected tab after a same-length reorder without replacing the s
   expect(resize).toBe(observer);
 });
 
-it("retires the real DOM controls after a bounded close, rather than keeping invisible projection nodes", async () => {
-  const css = document.createElement("style");
-  css.textContent =
-    ".browser-tab {flex-basis:176px; min-width:112px; width:176px}";
-  document.head.append(css);
-  const rendered = render(view());
-  rendered.rerender(
-    <BrowserTabs
-      tabs={tabs.filter((tab) => tab.id !== "tab_1")}
-      activeId="tab_0"
-      api={api}
-      report={report}
-      onMenu={menu}
-    />,
-  );
-  const retiring = rendered.container.querySelector<HTMLButtonElement>(
-    '[data-tab-id="tab_1"]',
-  );
-  if (retiring) {
-    expect(retiring.disabled).toBe(true);
-    expect(retiring.parentElement?.getAttribute("aria-hidden")).toBe("true");
-  }
-  await waitFor(
-    () =>
-      expect(
-        rendered.container.querySelector('[data-tab-id="tab_1"]'),
-      ).toBeNull(),
-    { timeout: 2000 },
-  );
-  css.remove();
-});
+it.each(["tab_1", "tab_0"])(
+  "retires closed %s DOM controls after a bounded exit, without invisible projection nodes",
+  async (closedId) => {
+    const css = document.createElement("style");
+    css.textContent =
+      ".browser-tab {flex-basis:176px; min-width:112px; width:176px}";
+    document.head.append(css);
+    try {
+      const rendered = render(view());
+      rendered.rerender(
+        <BrowserTabs
+          tabs={tabs.filter((tab) => tab.id !== closedId)}
+          activeId={closedId === "tab_0" ? "tab_1" : "tab_0"}
+          api={api}
+          report={report}
+          onMenu={menu}
+        />,
+      );
+      const selector = `[data-tab-id="${closedId}"]`;
+      const retiring =
+        rendered.container.querySelector<HTMLButtonElement>(selector);
+      if (retiring) {
+        expect(retiring.disabled).toBe(true);
+        expect(retiring.parentElement?.getAttribute("aria-hidden")).toBe(
+          "true",
+        );
+      }
+      await waitFor(
+        () => expect(rendered.container.querySelector(selector)).toBeNull(),
+        { timeout: 2000 },
+      );
+    } finally {
+      css.remove();
+    }
+  },
+);

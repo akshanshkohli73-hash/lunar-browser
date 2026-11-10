@@ -39,7 +39,7 @@ The engine writes `data-material-variant="liquid-webgl"` only after actual pixel
 | Panel backings             |         10px | Deeper supporting material; nested text controls do not repeat its backdrop pass                            |
 | Nested forms / fieldsets   |          0px | Clear Surface, thin inner edge, no live sampling                                                            |
 
-These are maximum radii, not a filter at every maximum. User blur zero remains zero; theme chrome blur scaling still works within the role cap. Actual default dock blur is 11px (its Light depth scales the saved 14px), while the hard CSS cap is 12px. Inactive/Simple materials retain the same pearl vocabulary without a live backdrop. No-backdrop environments use a stronger readable pearl backing rather than transparency. Global glass off, reduced transparency and forced colors remain solid/high-contrast paths.
+These are maximum radii, not a filter at every maximum. User blur zero remains zero; theme chrome blur scaling still works within the role cap. A retained legacy 14px setting gives the dock 11px of blur; the clearer fresh Aqua Coquette 4px setting gives it 3px. The hard CSS cap remains 12px. Inactive/Simple materials retain the same pearl vocabulary without a live backdrop. No-backdrop environments use a stronger readable pearl backing rather than transparency. Global glass off, reduced transparency and forced colors remain solid/high-contrast paths.
 
 ## Detection, recovery and performance
 
