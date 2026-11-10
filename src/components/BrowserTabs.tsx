@@ -192,8 +192,9 @@ function Tab({
   return (
     <motion.div
       className={`browser-tab ${active ? "is-active" : ""}`}
+      // Explicit finite width/fade avoids projection-presence nodes retaining
+      // an already-closed native tab when layout updates arrive during exit.
       role="presentation"
-      layout={reduced ? false : "position"}
       initial={reduced ? false : { opacity: 0, y: -3 }}
       animate={{ opacity: 1, y: 0 }}
       exit={
@@ -267,7 +268,8 @@ function Tab({
         <motion.span
           className="browser-tab-light"
           aria-hidden="true"
-          layoutId={reduced ? undefined : "lunar-tab-light"}
+          initial={reduced ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
           transition={lunarSpring(settings.animationSpeed, reduced)}
         />
       )}

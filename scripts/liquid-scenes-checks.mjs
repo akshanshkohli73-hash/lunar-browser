@@ -41,6 +41,9 @@ export async function checkLiquidScenes(browser, url, evidence) {
       });
     });
     const dock = page.getByRole("navigation", { name: "Dock", exact: true });
+    // Begin the measured interaction from a painted, settled source, not the
+    // first WebGL-ready flag while the software adapter is still warming up.
+    await stableLiquidPixels(dock.locator(".lunar-dock-material"));
     await dock.getByRole("button", { name: "Appearance", exact: true }).click();
     await page
       .getByRole("heading", { name: "Theme Studio", exact: true })
@@ -57,11 +60,16 @@ export async function checkLiquidScenes(browser, url, evidence) {
       window.__liquidSceneObserver.disconnect();
       return window.__liquidSceneBoxes;
     });
+    fs.writeFileSync(
+      `${evidence}-dock-progress.json`,
+      JSON.stringify({ boxes, metrics: await liquidMetrics(page) }, null, 2) +
+        "\n",
+    );
     assert.ok(
       Math.max(...boxes.map((r) => r.width)) -
         Math.min(...boxes.map((r) => r.width)) >
         100,
-      "Dock material must expand into the corresponding panel heading",
+      `Dock material must expand into the corresponding panel heading: ${JSON.stringify({ first: boxes.slice(0, 4), last: boxes.slice(-4), metrics: await liquidMetrics(page) })}`,
     );
     await page.screenshot({ path: `${evidence}-dock-morph-scene.png` });
     await dock.getByRole("button", { name: "Home", exact: true }).click();
