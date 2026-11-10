@@ -46,10 +46,8 @@ export function GlassMaterialControls({
   const solid = preferences.transparency || preferences.forcedColors;
   const noOptics =
     !optical ||
-    !(
-      preferences.svg ||
-      (liquidStatus.supported && settings.liquid.quality !== "performance")
-    ) ||
+    !liquidStatus.active ||
+    settings.liquid.quality === "performance" ||
     reduced ||
     solid;
   return (
@@ -95,13 +93,22 @@ export function GlassMaterialControls({
       </label>
       {!preferences.blur && (
         <p className="muted-text">
-          Backdrop blur is unavailable. The readable CSS fallback is active.
+          Backdrop blur is unavailable. Pearl CSS keeps a stronger, readable
+          pearl-aqua backing without filters.
+        </p>
+      )}
+      {!liquidStatus.active && preferences.blur && !simple && !solid && (
+        <p className="muted-text">
+          Pearl CSS uses one controlled backdrop per surface, capped at 4–12px
+          by its role. Nested text controls use Clear Surface without another
+          blur pass. Reflections are decorative, not optical refraction.
         </p>
       )}
       {noOptics && (
         <p className="muted-text">
-          Refraction needs Optical quality, SVG backdrop support and normal
-          motion/transparency preferences. Your saved intensity is kept.
+          Refraction needs an active WebGL2 Liquid Engine and normal motion /
+          transparency preferences. Pearl CSS is a designed, non-refractive
+          alternative. Your saved intensity is kept.
         </p>
       )}
       {simple && (

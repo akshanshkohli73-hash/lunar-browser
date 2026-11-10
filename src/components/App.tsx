@@ -330,7 +330,11 @@ export default function App({
             data-glass-owner="true"
             onSubmit={submit}
           >
-            <GlassBacking level="light" />
+            <GlassBacking
+              level="light"
+              materialVariant="clear-surface"
+              materialRole="address"
+            />
             <Icon
               name={active?.url.startsWith("https:") ? "lock" : "globe"}
               size={14}

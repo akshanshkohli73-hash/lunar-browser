@@ -1,24 +1,30 @@
 @import "./organic-tokens.css";
 
-/* One live backdrop pass per surface. Shared depth tokens live in shared/glass.ts.
-   One optional SVG backdrop pass and one shared, settling pointer scheduler; no video render loop. */
+/* Pearl CSS is a material in its own right, not simulated optical refraction.
+   Paint stays below semantic content. No displacement, content filters, animated
+   noise or continuously running decorative animations. Each eligible surface
+   samples its backdrop at most once, with a role-specific 4–12px CSS blur cap. */
 .glass-surface {
   --glass-paper: #f1f7ea;
   --glass-ink: #102a20;
   --glass-muted: #152d21;
-  --glass-shine: #ffffff90;
-  --glass-diagonal: #ffffff1f;
-  --glass-pointer-light: #ffffff38;
   --glass-edge: #ffffff;
   --glass-depth: #173c2d;
   --glass-radius: var(--organic-radius-widget);
+  --pearl-aqua: #b9dcd4;
+  --pearl-highlight: #fffef6;
+  --pearl-rim: #edf9f3;
+  --pearl-light-cap: 1;
+  --pearl-sheen-x: 12%;
+  --pearl-sheen-y: -42%;
+  --pearl-sheen-width: 115%;
+  --pearl-sheen-height: 95%;
   position: relative;
   isolation: isolate;
   min-width: 0;
   min-height: 0;
   border-radius: var(--glass-radius);
   color: var(--glass-ink);
-  /* Conservative no-filter/Simple fallback; glass selectively reduces this below. */
   background-color: var(--glass-paper);
   background-color: color-mix(
     in srgb,
@@ -27,38 +33,47 @@
         var(--glass-paper) 94%,
         color-mix(in srgb, var(--glass-tint) 60%, var(--glass-adaptive-tint))
       )
-      calc((0.5 + var(--glass-opacity) * 0.5) * 100%),
+      calc(var(--pearl-alpha, 0.86) * 100%),
     transparent
+  );
+  background-image: linear-gradient(
+    152deg,
+    color-mix(in srgb, var(--glass-paper) var(--glass-wash-start), transparent),
+    color-mix(in srgb, var(--glass-paper) var(--glass-wash-end), transparent)
+      72%
   );
   border: 1px solid var(--lunar-border);
   border-color: color-mix(
     in srgb,
-    var(--glass-edge) calc(var(--glass-border) * 72%),
+    var(--pearl-rim) calc(var(--glass-border) * var(--pearl-edge, 1) * 74%),
     transparent
   );
   box-shadow:
     inset 0 1px 0
       color-mix(
         in srgb,
-        var(--glass-edge) calc(var(--glass-border) * 82%),
+        var(--glass-edge) calc(var(--glass-border) * 70%),
         transparent
       ),
-    0 var(--glass-elevation) 32px var(--glass-spread)
+    0 var(--glass-elevation) 28px var(--glass-spread)
       color-mix(
         in srgb,
-        var(--glass-depth) calc(var(--glass-shadow) * 44%),
+        var(--glass-depth)
+          calc(var(--glass-shadow) * var(--pearl-shadow, 1) * 40%),
         transparent
       ),
-    0 3px 8px -4px
+    0 3px 9px -5px
       color-mix(
         in srgb,
-        var(--glass-depth) calc(var(--glass-shadow) * 36%),
+        var(--glass-depth)
+          calc(var(--glass-shadow) * var(--pearl-shadow, 1) * 32%),
         transparent
       );
-  transition:
-    border-color var(--organic-duration) ease,
-    background-color var(--organic-duration) ease;
-  --glass-refraction-filter: ;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  /* Never fade from a lost GPU's transparent background: CSS must be legible
+     in the very first fallback frame. Interaction borders may still settle. */
+  transition: border-color var(--organic-duration) ease;
 }
 .glass-surface[data-glass-tone="dark"] {
   --glass-paper: #162e27;
@@ -66,39 +81,19 @@
   --glass-muted: #eaf1e4;
   --glass-edge: #d8edda;
   --glass-depth: #020b07;
-  /* Combined highlights remain below 3% white, even at maximum reflection. */
-  --glass-shine: #ffffff02;
-  --glass-diagonal: #ffffff01;
-  --glass-pointer-light: #ffffff04;
+  --pearl-aqua: #28574e;
+  --pearl-highlight: #83afa0;
+  --pearl-rim: #b3d7c8;
+  /* Even a 100% reflection preference must not wash out light glyphs. */
+  --pearl-light-cap: 0.12;
 }
 @supports (
   (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))
 ) {
-  .glass-surface[data-glass-mode="glass"] {
-    background-color: color-mix(
-      in srgb,
-      color-mix(
-          in srgb,
-          var(--glass-paper) 94%,
-          color-mix(in srgb, var(--glass-tint) 60%, var(--glass-adaptive-tint))
-        )
-        calc(var(--glass-alpha) * 100%),
-      transparent
-    );
-    background-image: linear-gradient(
-      152deg,
-      color-mix(
-        in srgb,
-        var(--glass-paper) var(--glass-wash-start),
-        transparent
-      ),
-      color-mix(in srgb, var(--glass-paper) var(--glass-wash-end), transparent)
-        68%
-    );
-    -webkit-backdrop-filter: blur(var(--glass-effective-blur))
-      saturate(var(--glass-saturation)) var(--glass-refraction-filter);
-    backdrop-filter: blur(var(--glass-effective-blur))
-      saturate(var(--glass-saturation)) var(--glass-refraction-filter);
+  .glass-surface[data-glass-mode="glass"][data-glass-backdrop="true"] {
+    -webkit-backdrop-filter: blur(var(--pearl-blur))
+      saturate(var(--glass-saturation));
+    backdrop-filter: blur(var(--pearl-blur)) saturate(var(--glass-saturation));
   }
 }
 .glass-surface::before,
@@ -111,25 +106,31 @@
   z-index: -1;
 }
 .glass-surface::before {
-  opacity: var(--glass-reflection);
+  opacity: calc(
+    var(--glass-reflection) * var(--pearl-sheen, 0.5) * var(--pearl-light-cap)
+  );
   background:
     radial-gradient(
-      ellipse 180px 140px at var(--glass-pointer-x, 50%)
+      ellipse 160px 100px at var(--glass-pointer-x, 50%)
         var(--glass-pointer-y, 35%),
       color-mix(
         in srgb,
-        var(--glass-pointer-light) calc(var(--glass-pointer-presence, 0) * 100%),
+        var(--pearl-highlight) calc(var(--glass-pointer-presence, 0) * 26%),
         transparent
       ),
       transparent 80%
     ),
-    radial-gradient(ellipse at 4% -38%, var(--glass-shine), transparent 64%),
+    radial-gradient(
+      ellipse var(--pearl-sheen-width) var(--pearl-sheen-height) at
+        var(--pearl-sheen-x) var(--pearl-sheen-y),
+      color-mix(in srgb, var(--pearl-highlight) 70%, transparent),
+      transparent 76%
+    ),
     linear-gradient(
-      122deg,
-      var(--glass-diagonal),
-      transparent 25%,
-      transparent 79%,
-      var(--glass-diagonal)
+      116deg,
+      transparent 26%,
+      color-mix(in srgb, var(--pearl-highlight) 24%, transparent) 43%,
+      transparent 61%
     );
 }
 .glass-surface::after {
@@ -138,18 +139,87 @@
     inset 1px 0 0
       color-mix(
         in srgb,
-        var(--glass-edge) calc(var(--glass-border) * 35%),
+        var(--pearl-rim) calc(var(--glass-border) * 28%),
         transparent
       ),
     inset 0 -1px 0
       color-mix(
         in srgb,
-        var(--glass-edge) calc(var(--glass-border) * 22%),
+        var(--pearl-aqua) calc(var(--glass-border) * 46%),
         transparent
       );
 }
-.glass-surface[data-glass-mode="solid"],
+/* The dock is a floating pearl, not the same rectangular frosting as a widget. */
+.glass-surface[data-material-role="dock"] {
+  --pearl-sheen-x: 28%;
+  --pearl-sheen-y: -65%;
+  --pearl-sheen-width: 135%;
+  --pearl-sheen-height: 170%;
+  background-image: linear-gradient(
+    173deg,
+    color-mix(in srgb, var(--glass-paper) 42%, transparent),
+    color-mix(in srgb, var(--glass-paper) 22%, transparent) 54%,
+    color-mix(
+      in srgb,
+      color-mix(in srgb, var(--glass-paper) 75%, var(--pearl-aqua)) 27%,
+      transparent
+    )
+  );
+}
+/* Search is a quiet, illuminated shelf; dense reading widgets are matte pearl. */
+.glass-surface[data-material-role="search"] {
+  --pearl-sheen-x: 50%;
+  --pearl-sheen-y: -70%;
+  --pearl-sheen-width: 85%;
+  --pearl-sheen-height: 120%;
+}
+.glass-surface[data-material-role="clock"] {
+  --pearl-sheen-x: -22%;
+  --pearl-sheen-height: 130%;
+}
+.glass-surface:is(
+  [data-material-role="toolbar"],
+  [data-material-role="menubar"]
+) {
+  border-color: transparent;
+  border-bottom-color: color-mix(
+    in srgb,
+    var(--pearl-rim) calc(var(--glass-border) * 45%),
+    transparent
+  );
+}
+.glass-surface[data-material-role="menu"] {
+  --pearl-sheen-width: 90%;
+  --pearl-sheen-height: 65%;
+  --pearl-sheen-y: -12%;
+}
+/* Shared text-control variant: deliberately no additional backdrop or GPU layer.
+   The owner's material supplies depth; a thin pearl wash keeps glyphs crisp. */
+.glass-surface[data-material-request="clear-surface"] {
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--glass-paper) 20%, transparent),
+    transparent
+  );
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: inset 0 1px 0
+    color-mix(
+      in srgb,
+      var(--glass-edge) calc(var(--glass-border) * 38%),
+      transparent
+    );
+}
+.glass-surface[data-material-request="clear-surface"]::before {
+  display: none;
+}
 .glass-surface[data-glass-mode="simple"] {
+  /* Inactive/Simple uses the same pearl vocabulary without live sampling. */
+  background-color: color-mix(
+    in srgb,
+    var(--glass-paper) calc((0.6 + var(--glass-opacity) * 0.4) * 100%),
+    transparent
+  );
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
@@ -168,7 +238,7 @@
 .glass-surface[data-glass-active="true"]:hover {
   border-color: color-mix(
     in srgb,
-    var(--glass-edge) calc(var(--glass-border) * 90%),
+    var(--pearl-rim) calc(var(--glass-border) * 90%),
     transparent
   );
 }
@@ -189,18 +259,21 @@
     transform: none !important;
   }
 }
-html[data-reduced-motion="true"] .glass-surface,
-html[data-reduced-motion="true"] .glass-surface button {
+html:is([data-reduced-motion="true"], [data-material-motion="reduced"])
+  .glass-surface,
+html:is([data-reduced-motion="true"], [data-material-motion="reduced"])
+  .glass-surface
+  button {
   transition: none !important;
   transform: none !important;
 }
-/* Last in the cascade: accessibility must also win over Simple-mode fallbacks. */
+/* Accessibility also wins during the frame in which a GPU context is changing. */
 @media (prefers-reduced-transparency: reduce), (forced-colors: active) {
   .glass-surface[data-glass-mode] {
-    background: var(--glass-paper);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-    box-shadow: none;
+    background: var(--glass-paper) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    box-shadow: none !important;
   }
   .glass-surface::before {
     opacity: 0;
@@ -208,19 +281,12 @@ html[data-reduced-motion="true"] .glass-surface button {
 }
 @media (forced-colors: active) {
   .glass-surface[data-glass-mode] {
-    background: Canvas;
+    background: Canvas !important;
     color: CanvasText;
     border: 1px solid CanvasText;
   }
 }
 
-.glass-optical-defs {
-  position: fixed;
-  width: 0;
-  height: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
 .glass-backing {
   position: absolute;
   inset: 0;
@@ -266,8 +332,7 @@ html[data-glass-hover-motion="true"]
 html[data-glass-hover-motion="true"] .dashboard-widget > .glass-surface {
   transition:
     transform var(--organic-duration),
-    border-color var(--organic-duration),
-    background-color var(--organic-duration);
+    border-color var(--organic-duration);
 }
 .dashboard-widget.is-dragging > .glass-surface {
   transform: translateY(-3px) scale(1.01);
@@ -279,6 +344,7 @@ html[data-glass-hover-motion="true"] .dashboard-widget > .glass-surface {
     --glass-pointer-presence: 0 !important;
   }
 }
-html[data-reduced-motion="true"] .glass-surface::before {
+html:is([data-reduced-motion="true"], [data-material-motion="reduced"])
+  .glass-surface::before {
   --glass-pointer-presence: 0 !important;
 }

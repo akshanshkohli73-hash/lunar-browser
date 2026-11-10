@@ -343,7 +343,7 @@ export function DesktopMenuBar({
       data-glass-owner="true"
       aria-label="Lunar desktop menu"
     >
-      <GlassToolbar />
+      <GlassToolbar materialRole="menubar" />
       <span className="lunar-mark">
         <Icon name="moon" size={16} />
       </span>

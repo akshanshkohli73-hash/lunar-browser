@@ -1,10 +1,5 @@
 import { chromeGlassMaterial } from "../../../shared/glass";
-import {
-  forwardRef,
-  type ButtonHTMLAttributes,
-  type HTMLAttributes,
-  type ReactNode,
-} from "react";
+import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { useGlassMaterial } from "../../state/GlassMaterialProvider";
 import { lunarSpring } from "../../../shared/motion";
 import { motion } from "framer-motion";
@@ -33,6 +28,7 @@ export function GlassBacking({ className = "", ...props }: GlassSurfaceProps) {
     <GlassSurface
       {...props}
       material={material}
+      materialRole={props.materialRole ?? "panel"}
       aria-hidden="true"
       className={`glass-backing ${className}`}
     />
@@ -40,7 +36,11 @@ export function GlassBacking({ className = "", ...props }: GlassSurfaceProps) {
 }
 export function GlassToolbar({ children, ...props }: GlassSurfaceProps) {
   return (
-    <GlassBacking {...props} level={props.level ?? "light"}>
+    <GlassBacking
+      {...props}
+      level={props.level ?? "light"}
+      materialRole={props.materialRole ?? "toolbar"}
+    >
       {children}
     </GlassBacking>
   );
@@ -49,13 +49,18 @@ export function GlassPanel({
   children,
   className = "",
   ...props
-}: HTMLAttributes<HTMLDivElement>) {
+}: GlassSurfaceProps) {
   const context = useGlassMaterial();
   return (
     <GlassSurface
       {...props}
-      material={chromeGlassMaterial(context.settings, context.chromeBlur)}
-      level="deep"
+      material={chromeGlassMaterial(
+        props.material ?? context.settings,
+        context.chromeBlur,
+      )}
+      materialVariant={props.materialVariant ?? "clear-surface"}
+      materialRole={props.materialRole ?? "control"}
+      level={props.level ?? "deep"}
       className={`glass-panel ${className}`}
     >
       {children}
@@ -108,7 +113,11 @@ export function GlassFieldset({
   disabled?: boolean;
 }) {
   const { settings, reduced, foreground } = useGlassMaterial();
-  const { style } = useGlassSurface({ level: "deep" });
+  const { style } = useGlassSurface({
+    level: "deep",
+    materialVariant: "clear-surface",
+    materialRole: "control",
+  });
   return (
     <motion.fieldset
       disabled={disabled}
@@ -119,7 +128,11 @@ export function GlassFieldset({
       animate={{ opacity: 1, y: 0 }}
       transition={lunarSpring(settings.animationSpeed, reduced || !foreground)}
     >
-      <GlassBacking level="deep" />
+      <GlassBacking
+        level="deep"
+        materialVariant="clear-surface"
+        materialRole="control"
+      />
       {children}
     </motion.fieldset>
   );

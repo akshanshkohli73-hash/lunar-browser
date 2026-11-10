@@ -163,6 +163,7 @@ export default function LunarDesktop({
         <GlassSurface
           aria-hidden="true"
           className="glass-backing lunar-dock-material"
+          materialRole="dock"
           level="light"
           material={{
             ...presentationDashboard.glass,

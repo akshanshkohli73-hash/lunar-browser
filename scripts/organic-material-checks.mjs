@@ -23,7 +23,6 @@ export async function checkOrganicMaterial(page, editor, evidence) {
     "Glass opacity",
     "Blur intensity",
     "Reflection intensity",
-    "Refraction intensity",
   ]) {
     await global(name).focus();
     await global(name).press("Home");
@@ -48,32 +47,37 @@ export async function checkOrganicMaterial(page, editor, evidence) {
   });
   await page.mouse.move(2, 2);
   await expect(sample).toHaveAttribute("data-glass-backend", "css-backdrop");
+  await expect(sample).toHaveAttribute("data-material-variant", "pearl-css");
+  await expect(global("Refraction intensity")).toBeDisabled();
+  await expect(
+    page.locator("filter, feTurbulence, feDisplacementMap"),
+  ).toHaveCount(0);
   const plain = await sample.screenshot({
-    path: `${evidence}-optics-off.png`,
+    path: `${evidence}-pearl-matte.png`,
     animations: "disabled",
   });
-  await global("Refraction intensity").focus();
-  await global("Refraction intensity").press("End");
-  await expect(sample).toHaveAttribute("data-glass-backend", "svg-backdrop");
-  assert.match(
+  await global("Reflection intensity").focus();
+  await global("Reflection intensity").press("End");
+  await expect(sample).toHaveAttribute("data-material-variant", "pearl-css");
+  assert.doesNotMatch(
     await sample.evaluate((node) => getComputedStyle(node).backdropFilter),
-    /url\("?#lunar-optic-/u,
+    /url\(/u,
   );
   await page.mouse.move(2, 2);
   const optical = await sample.screenshot({
-    path: `${evidence}-optics-on.png`,
+    path: `${evidence}-pearl-reflection.png`,
     animations: "disabled",
   });
   const stable = await sample.screenshot({ animations: "disabled" });
   assert.equal(
     optical.equals(stable),
     true,
-    "Fixed SVG optics must be deterministic, not an animated noise/render loop",
+    "Pearl reflections must be static and deterministic, not an animated noise/render loop",
   );
   assert.equal(
     plain.equals(optical),
     false,
-    "Changing supported refraction must change actually painted wallpaper pixels, not just a CSS token",
+    "Changing CSS reflection must change actually painted material pixels, without distorting the backdrop or content",
   );
   const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
   const observed = {
@@ -82,9 +86,11 @@ export async function checkOrganicMaterial(page, editor, evidence) {
     onSha256: sha(optical),
     stable: optical.equals(stable),
     webglRequired: false,
+    material: "pearl-css",
+    physicallyRefractive: false,
   };
   fs.writeFileSync(
-    `${evidence}-optics.json`,
+    `${evidence}-pearl.json`,
     JSON.stringify(observed, null, 2) + "\n",
   );
   // Every added numeric token reaches real rendering, not only persisted JSON.
@@ -176,11 +182,6 @@ export async function checkUnsupportedOptics(browser, url, evidence) {
   });
   try {
     await page.addInitScript(() => {
-      const supports = CSS.supports.bind(CSS);
-      CSS.supports = (...args) =>
-        args.some((value) => String(value).includes("url("))
-          ? false
-          : supports(...args);
       // Renderer has no WebGL context; the CSS fallback must still be functional.
       const getContext = HTMLCanvasElement.prototype.getContext;
       HTMLCanvasElement.prototype.getContext = function (type, ...args) {
@@ -194,7 +195,7 @@ export async function checkUnsupportedOptics(browser, url, evidence) {
     await expect(notes).toHaveAttribute("data-glass-backend", "css-backdrop");
     await expect(notes).toHaveCSS(
       "backdrop-filter",
-      "blur(16px) saturate(1.12)",
+      "blur(6px) saturate(1.12)",
     );
     await expect(page.locator("feDisplacementMap")).toHaveCount(0);
     await page
@@ -232,7 +233,7 @@ export async function checkUnsupportedOptics(browser, url, evidence) {
     await blur.press("End");
     await expect(chrome).toHaveCSS(
       "backdrop-filter",
-      "blur(18px) saturate(1.22)",
+      "blur(6px) saturate(1.22)",
     );
     await page.locator(".browser-tabs").evaluate((node) => {
       const probe = document.createElement("div");

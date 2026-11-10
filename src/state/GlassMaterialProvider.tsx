@@ -4,7 +4,6 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -46,7 +45,6 @@ export type MaterialPreferences = {
   transparency: boolean;
   forcedColors: boolean;
   finePointer: boolean;
-  svg: boolean;
   blur: boolean;
 };
 function useMaterialCapabilities(): MaterialPreferences {
@@ -55,7 +53,6 @@ function useMaterialCapabilities(): MaterialPreferences {
     transparency: false,
     forcedColors: false,
     finePointer: false,
-    svg: false,
     blur: true,
   });
   useEffect(() => {
@@ -71,13 +68,11 @@ function useMaterialCapabilities(): MaterialPreferences {
         transparency: !!queries[1]?.matches,
         forcedColors: !!queries[2]?.matches,
         finePointer: !!queries[3]?.matches,
-        svg:
-          typeof CSS !== "undefined" &&
-          !!CSS.supports?.("backdrop-filter", 'url("#lunar-optical-probe")'),
         blur:
           typeof CSS === "undefined" ||
           !CSS.supports ||
-          CSS.supports("backdrop-filter", "blur(1px)"),
+          CSS.supports("backdrop-filter", "blur(1px)") ||
+          CSS.supports("-webkit-backdrop-filter", "blur(1px)"),
       });
     update();
     for (const query of queries) query?.addEventListener("change", update);
@@ -93,7 +88,6 @@ const defaultPreferences: MaterialPreferences = {
   transparency: false,
   forcedColors: false,
   finePointer: false,
-  svg: false,
   blur: true,
 };
 const Material = createContext({
@@ -114,49 +108,12 @@ const Material = createContext({
   reduced: false,
   foreground: true,
   preferences: defaultPreferences,
-  filterPrefix: "",
   overlayCount: 0,
   reportAppearance: (_key: string, _value: WallpaperAppearance) => {},
   registerOverlay: (): (() => void) => noop,
 });
 export const useGlassMaterial = () => useContext(Material);
 
-/** Single opt-in, deterministic SVG filter bank. SourceGraphic is Chromium's backdrop
- * texture, including the existing video element; no frame copies or render loops. */
-function OpticalFilters({ prefix }: { prefix: string }) {
-  return (
-    <svg aria-hidden="true" focusable="false" className="glass-optical-defs">
-      <defs>
-        {Array.from({ length: 10 }, (_, i) => (
-          <filter
-            key={i}
-            id={`${prefix}-${i + 1}`}
-            x="0%"
-            y="0%"
-            width="100%"
-            height="100%"
-            colorInterpolationFilters="sRGB"
-          >
-            <feTurbulence
-              type="fractalNoise"
-              baseFrequency="0.014 0.02"
-              numOctaves={1}
-              seed={23}
-              result="organic-map"
-            />
-            <feDisplacementMap
-              in="SourceGraphic"
-              in2="organic-map"
-              scale={(i + 1) * 0.8}
-              xChannelSelector="R"
-              yChannelSelector="G"
-            />
-          </filter>
-        ))}
-      </defs>
-    </svg>
-  );
-}
 export function GlassMaterialProvider({
   children,
   settings,
@@ -190,7 +147,6 @@ export function GlassMaterialProvider({
   }, [engine]);
   const preferences = useMaterialCapabilities();
   const foreground = useWorkspaceActivity();
-  const prefix = `lunar-optic-${useId().replace(/[^a-z0-9_-]/giu, "")}`;
   const key = wallpaperIdentity(wallpaper),
     latestKey = useRef(key);
   latestKey.current = key;
@@ -256,6 +212,7 @@ export function GlassMaterialProvider({
   useEffect(() => {
     const root = document.documentElement;
     root.dataset.effectsQuality = settings.performance;
+    root.dataset.materialMotion = reduced ? "reduced" : "full";
     root.style.setProperty(
       "--organic-press-scale",
       String(LUNAR_MOTION.pressScale),
@@ -317,7 +274,6 @@ export function GlassMaterialProvider({
       reduced,
       foreground,
       preferences,
-      filterPrefix: prefix,
       overlayCount,
       reportAppearance,
       registerOverlay,
@@ -332,16 +288,10 @@ export function GlassMaterialProvider({
       reduced,
       foreground,
       preferences,
-      prefix,
       overlayCount,
       reportAppearance,
       registerOverlay,
     ],
   );
-  return (
-    <Material.Provider value={value}>
-      {preferences.svg && <OpticalFilters prefix={prefix} />}
-      {children}
-    </Material.Provider>
-  );
+  return <Material.Provider value={value}>{children}</Material.Provider>;
 }

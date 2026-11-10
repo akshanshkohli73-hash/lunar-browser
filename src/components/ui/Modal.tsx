@@ -102,7 +102,7 @@ export function Modal({
         className="lunar-modal"
         ref={ref}
       >
-        <GlassBacking level="deep" scope="overlay" />
+        <GlassBacking level="deep" scope="overlay" materialRole="panel" />
         <header>
           <h2>{title}</h2>
           <GlassButton onClick={onClose} aria-label={`Close ${title}`}>

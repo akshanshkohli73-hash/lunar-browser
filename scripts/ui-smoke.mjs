@@ -1,3 +1,4 @@
+import { checkPearlMaterials } from "./pearl-material-checks.mjs";
 import { checkLiquidScenes } from "./liquid-scenes-checks.mjs";
 import { checkLiquidEngine } from "./liquid-engine-checks.mjs";
 import assert from "node:assert/strict";
@@ -26,7 +27,7 @@ try {
   const page = await browser.newPage({
     viewport: { width: 1280, height: 840 },
   });
-  // This existing suite retains strict CSS/SVG fallback coverage. The separate
+  // This existing suite retains strict Pearl CSS coverage. The separate
   // Liquid Engine suite below requires an actual WebGL2 renderer and pixels.
   await page.addInitScript(() => {
     const original = HTMLCanvasElement.prototype.getContext;
@@ -155,7 +156,7 @@ try {
   const glass = page.locator('[data-widget-id="notes"] > .glass-surface');
   assert.match(
     await glass.evaluate((node) => getComputedStyle(node).backdropFilter),
-    /blur\(16px\)/u,
+    /blur\(6px\)/u,
   );
   assert.equal(
     await glass.evaluate(
@@ -186,7 +187,7 @@ try {
   await blur.focus();
   await blur.press("Home");
   for (let n = 0; n < 20; n++) await blur.press("ArrowRight");
-  await expect(glass).toHaveCSS("backdrop-filter", "blur(23px) saturate(1.12)");
+  await expect(glass).toHaveCSS("backdrop-filter", "blur(6px) saturate(1.12)");
   await editor
     .getByRole("combobox", { name: "Glass rendering mode", exact: true })
     .selectOption("simple");
@@ -229,9 +230,9 @@ try {
     9,
   );
   for (const [id, level, filter] of [
-    ["clock", "light", "blur(15px) saturate(1.22)"],
-    ["search", "standard", "blur(20px) saturate(1.18)"],
-    ["notes", "deep", "blur(23px) saturate(1.12)"],
+    ["clock", "light", "blur(8px) saturate(1.22)"],
+    ["search", "standard", "blur(8px) saturate(1.18)"],
+    ["notes", "deep", "blur(6px) saturate(1.12)"],
   ]) {
     const surface = page.locator(`[data-widget-id="${id}"] > .glass-surface`);
     await expect(surface).toHaveAttribute("data-glass-level", level);
@@ -626,13 +627,18 @@ try {
     server.resolvedUrls.local[0],
     ".artifacts/ui/liquid",
   );
+  await checkPearlMaterials(
+    browser,
+    server.resolvedUrls.local[0],
+    ".artifacts/ui/pearl",
+  );
   await checkLiquidScenes(
     browser,
     server.resolvedUrls.local[0],
     ".artifacts/ui/liquid",
   );
   console.log(
-    "PASS: actual shared WebGL2 image lensing / all optical controls / moving specular with zero elasticity / finite press recovery and fixed hit boxes / idle stop / quality-resolution budgets / context-loss repaint / toolbar-menu and dock-panel material morphs / dark material readability, plus Organic SVG painted-pixel / deterministic repeated capture, unsupported-SVG/no-WebGL CSS fallback, real added Studio tokens, shared pointer proximity with same hovered hit box and stable neighboring responses; Chromium renderer preview — single workspace, real layout/hit targets, all nine Lunar shortcuts and launcher routes, eight keyboard menus, dock restore, Theme Studio, wallpaper/widget/dock preview/cancel, real glass controls / modes, bright/dark draft previews, forced-color fallback, twenty actually visible static materials, three shared depths, fixed-wallpaper scrolling, independently scrolling customization with fixed actions at four sizes and real animated entry, animated-menu keyboard replacement, dock pointer/keyboard/motion settings and responsive stacking; no console errors.",
+    "PASS: actual shared WebGL2 image lensing / all optical controls / moving specular with zero elasticity / finite press recovery and fixed hit boxes / idle stop / quality-resolution budgets / context-loss repaint / toolbar-menu and dock-panel material morphs / dark material readability, plus Pearl CSS painted-reflection pixels / deterministic repeated capture, no-SVG/no-WebGL premium materials, dock/search/menu bar/toolbar/address/widgets/floating-menu geometry and identity comparisons across actual context loss/restoration, cold no-WebGL/no-backdrop and reduced motion, real added Studio tokens, shared pointer proximity with same hovered hit box and stable neighboring responses; Chromium renderer preview — single workspace, real layout/hit targets, all nine Lunar shortcuts and launcher routes, eight keyboard menus, dock restore, Theme Studio, wallpaper/widget/dock preview/cancel, real glass controls / modes, bright/dark draft previews, forced-color fallback, twenty actually visible static materials, three shared depths, fixed-wallpaper scrolling, independently scrolling customization with fixed actions at four sizes and real animated entry, animated-menu keyboard replacement, dock pointer/keyboard/motion settings and responsive stacking; no console errors.",
   );
   console.log(
     "This test is not a native Electron or Windows runtime test. Screenshots: .artifacts/ui/",

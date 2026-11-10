@@ -1,4 +1,5 @@
 import { DEFAULT_GLASS, type GlassSettings } from "../../shared/glass";
+import { cssMaterialVariant, wantsLiquid } from "../../shared/materials";
 import {
   LIQUID_QUALITY,
   objectFitRect,
@@ -162,6 +163,7 @@ export class LiquidEngine {
         // handles after restoration would poison the new context's error state.
         this.renderer = null;
         create();
+        this.scan(root);
       };
       this.canvas.addEventListener("webglcontextlost", lost);
       this.canvas.addEventListener("webglcontextrestored", restored);
@@ -174,18 +176,7 @@ export class LiquidEngine {
     this.interaction.mount(root);
     if (typeof ResizeObserver !== "undefined")
       this.resize = new ResizeObserver(() => this.invalidate(true));
-    const rescan = (parent: ParentNode) => {
-      if (
-        parent instanceof HTMLElement &&
-        parent.matches(".glass-surface[data-glass-mode],[data-liquid-view]")
-      )
-        this.add(parent);
-      for (const node of parent.querySelectorAll<HTMLElement>(
-        ".glass-surface[data-glass-mode],[data-liquid-view]",
-      ))
-        this.add(node);
-    };
-    rescan(root);
+    this.scan(root);
     this.observer = new MutationObserver((mutations) => {
       let layout = false,
         material = false;
@@ -196,13 +187,18 @@ export class LiquidEngine {
               node instanceof HTMLElement &&
               !node.matches("canvas,[data-liquid-proxy]")
             )
-              rescan(node);
+              this.scan(node);
           layout = true;
           continue;
         }
         const target = mutation.target;
         if (!(target instanceof HTMLElement) || target.matches("canvas"))
           continue;
+        if (mutation.attributeName === "data-material-request") {
+          const surface = this.surfaces.get(target);
+          if (wantsLiquid(target.dataset.materialRequest)) this.add(target);
+          else if (surface) this.remove(surface);
+        }
         // Theme Studio geometry/palette live on :root, outside the body observer.
         // They must invalidate shader radii/tone even if DOM bounds did not change.
         if (target === document.documentElement) {
@@ -257,6 +253,7 @@ export class LiquidEngine {
         "data-glass-tone",
         "data-glass-active",
         "data-glass-fallback",
+        "data-material-request",
         "data-liquid-exiting",
         "data-liquid-morph",
       ],
@@ -302,6 +299,8 @@ export class LiquidEngine {
       this.background.setRunning(false);
     this.interaction.fine = options.finePointer;
     this.materialDirty = true;
+    const reason = this.reason();
+    if (reason) this.fallback(reason);
     this.invalidate(true);
   }
   private materialSignature(node: HTMLElement) {
@@ -326,8 +325,21 @@ export class LiquidEngine {
       .map((key) => node.style.getPropertyValue(key))
       .join("|");
   }
+  private scan(parent: ParentNode) {
+    const selector = ".glass-surface[data-glass-mode],[data-liquid-view]";
+    if (parent instanceof HTMLElement && parent.matches(selector))
+      this.add(parent);
+    for (const node of parent.querySelectorAll<HTMLElement>(selector))
+      this.add(node);
+  }
   private add(node: HTMLElement) {
-    if (!this.renderer || this.surfaces.has(node)) return;
+    if (
+      !this.renderer ||
+      this.surfaces.has(node) ||
+      (!node.hasAttribute("data-liquid-view") &&
+        !wantsLiquid(node.dataset.materialRequest))
+    )
+      return;
     const canvas = document.createElement("canvas");
     canvas.className = "liquid-surface-canvas";
     canvas.dataset.liquidOutput = "true";
@@ -350,6 +362,7 @@ export class LiquidEngine {
     this.invalidate(true);
   }
   private remove(surface: Surface) {
+    this.fallbackSurface(surface);
     this.resize?.unobserve(surface.node);
     surface.canvas.width = surface.canvas.height = 1;
     surface.canvas.remove();
@@ -386,11 +399,16 @@ export class LiquidEngine {
   }
   private fallback(reason: string) {
     this.background.setRunning(false);
-    this.motion.dispose();
+    this.motion.suspend(
+      document.querySelectorAll<HTMLElement>("[data-liquid-morph]"),
+    );
     for (const surface of this.surfaces.values()) this.fallbackSurface(surface);
     this.publish(false, reason);
   }
   private fallbackSurface(surface: Surface) {
+    surface.node.dataset.materialVariant = cssMaterialVariant(
+      surface.node.dataset.materialRequest,
+    );
     if (surface.node.dataset.liquidBackend !== "css")
       surface.node.dataset.liquidBackend = "css";
     if (surface.node.dataset.glassFallback)
@@ -461,7 +479,7 @@ export class LiquidEngine {
         error instanceof DOMException && error.name === "SecurityError"
           ? "background-origin"
           : "texture-unavailable";
-      this.publish(false, this.uploadError);
+      this.fallback(this.uploadError);
     } finally {
       this.uploadPending = false;
       if (image) this.invalidate();
@@ -538,7 +556,9 @@ export class LiquidEngine {
         r.x + r.width > 0 &&
         r.y + r.height > 0;
       const eligible =
-        surface.view || surface.node.dataset.glassMode === "glass";
+        surface.view ||
+        (surface.node.dataset.glassMode === "glass" &&
+          wantsLiquid(surface.node.dataset.materialRequest));
       if (visible && eligible) selected.push(surface);
       else this.fallbackSurface(surface);
     }
@@ -673,6 +693,14 @@ export class LiquidEngine {
         const output = outputs[tile.index],
           surface = surfaces[tile.index];
         if (!output.canvas.isConnected || !surface.node.isConnected) continue;
+        if (
+          !surface.view &&
+          (surface.node.dataset.glassMode !== "glass" ||
+            !wantsLiquid(surface.node.dataset.materialRequest))
+        ) {
+          this.fallbackSurface(surface);
+          continue;
+        }
         if (output.canvas.width !== tile.width)
           output.canvas.width = tile.width;
         if (output.canvas.height !== tile.height)
@@ -692,6 +720,7 @@ export class LiquidEngine {
         surface.canvas.hidden = output.canvas !== surface.canvas;
         surface.node.dataset.liquidBackend = "webgl2";
         surface.node.dataset.glassBackend = "webgl2";
+        surface.node.dataset.materialVariant = "liquid-webgl";
         surface.canvas.dataset.liquidTone = entries[tile.index].material.dark
           ? "dark"
           : "light";

@@ -32,7 +32,7 @@ export function LiquidControls({
         "canvas[data-liquid-renderer]",
       )?.dataset.metrics;
       if (!raw) {
-        setMetrics("No GPU frame measured. CSS fallback remains functional.");
+        setMetrics("No GPU frame measured. Pearl CSS remains functional.");
         return;
       }
       try {
@@ -84,7 +84,7 @@ export function LiquidControls({
             })
           }
         >
-          <option value="performance">Performance · CSS / SVG fallback</option>
+          <option value="performance">Performance · Pearl CSS</option>
           <option value="balanced">
             Balanced · shared GPU, scaled / 30 Hz cap
           </option>
@@ -97,7 +97,7 @@ export function LiquidControls({
       <p className="liquid-engine-status" role="status">
         {liquidStatus.active
           ? "WebGL2 · one shared wallpaper texture and renderer. Shader lensing is active."
-          : `CSS fallback · ${liquidStatus.reason.replaceAll("-", " ")}. Shader-only controls are retained but disabled when unavailable.`}{" "}
+          : `Pearl CSS · ${liquidStatus.reason.replaceAll("-", " ")}. A non-refractive pearl-aqua material; shader-only controls are retained but disabled when unavailable.`}{" "}
         Wallpaper pixels only; native webpages are not captured. Refraction,
         tint, blur and animation speed use the shared controls below.
       </p>

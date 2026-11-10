@@ -1,5 +1,6 @@
 import { LiquidControls } from "./LiquidControls";
 import { DEFAULT_GLASS, GLASS_LEVELS } from "../../../shared/glass";
+import { widgetMaterialRole } from "../../../shared/materials";
 import { GlassSlider } from "../ui/GlassControls";
 import { GlassSurface } from "../ui/GlassSurface";
 import { GlassMaterialControls, WidgetGlassControls } from "./GlassControls";
@@ -480,6 +481,7 @@ export default function DashboardStudio({
             }
             active={active}
             className="glass-preview-sample"
+            materialRole={widgetMaterialRole(current?.kind)}
           >
             <span className="eyebrow">
               {
@@ -776,9 +778,9 @@ export default function DashboardStudio({
               }
             >
               <option value="optical">
-                Optical · Liquid Engine / SVG fallback
+                Optical · Liquid Engine / Pearl CSS
               </option>
-              <option value="balanced">Balanced · softly blurred glass</option>
+              <option value="balanced">Balanced · Pearl CSS</option>
               <option value="simple">Simple · low power / no blur</option>
             </select>
           </label>

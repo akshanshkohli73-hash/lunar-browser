@@ -34,7 +34,7 @@ export const GlassMenu = forwardRef<
       exit={{ opacity: 0, y: -3 }}
       transition={lunarSpring(settings.animationSpeed, reduced, true)}
     >
-      <GlassBacking scope="overlay" level="standard" />
+      <GlassBacking scope="overlay" level="standard" materialRole="menu" />
       {children}
     </motion.div>
   );

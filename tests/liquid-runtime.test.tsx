@@ -1,4 +1,5 @@
 import { readMaterial } from "../src/liquid/LiquidMaterial";
+import { LiquidMotionController } from "../src/liquid/LiquidMotionController";
 // @vitest-environment jsdom
 // Lifecycle/control tests only. Painted shader/image/video proof is in actual Chromium/Electron scripts.
 import React from "react";
@@ -165,4 +166,64 @@ it("retains manual background tint contribution even while adaptive environment 
   const next = readMaterial(node, { x: 0, y: 0, width: 300, height: 200 });
   expect(next.tint).not.toEqual(first.tint);
   expect(next.tint[0]).toBeCloseTo((225 / 255) * 0.65 + (32 / 255) * 0.35);
+});
+
+it("settles lost-GPU morphs immediately and does not replay already-open menus on restoration", () => {
+  // Unit lifecycle/resource test only; the browser matrix verifies actual pixels.
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+    {} as CanvasRenderingContext2D,
+  );
+  const makeOwner = (id: string) => {
+    const owner = document.createElement("div"),
+      backing = document.createElement("div"),
+      trigger = document.createElement("button");
+    owner.dataset.liquidMorph = id;
+    trigger.dataset.liquidTrigger = id;
+    vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue({
+      x: 10,
+      y: 10,
+      width: 40,
+      height: 40,
+    } as DOMRect);
+    owner.append(backing);
+    document.body.append(owner, trigger);
+    return { owner, backing };
+  };
+  const first = makeOwner("menu-first"),
+    openedInCss = makeOwner("menu-css"),
+    box = { x: 10, y: 50, width: 280, height: 240 };
+  const motion = new LiquidMotionController(() => {});
+  motion.maybeStart(first.backing, box, 1);
+  motion.frame(
+    first.backing,
+    box,
+    readMaterial(first.backing, box),
+    performance.now() + 50,
+  );
+  expect(document.querySelectorAll("canvas[data-liquid-proxy]")).toHaveLength(
+    1,
+  );
+  expect(first.owner.dataset.liquidMorphing).toBe("true");
+  motion.suspend([first.owner, openedInCss.owner]);
+  expect(document.querySelectorAll("canvas[data-liquid-proxy]")).toHaveLength(
+    0,
+  );
+  expect(first.owner.dataset.liquidMorphing).toBeUndefined();
+  expect(first.owner.style.getPropertyValue("--liquid-content-opacity")).toBe(
+    "",
+  );
+  for (const surface of [first, openedInCss])
+    motion.maybeStart(surface.backing, box, 1);
+  expect(document.querySelectorAll("canvas[data-liquid-proxy]")).toHaveLength(
+    0,
+  );
+  const fresh = makeOwner("menu-fresh");
+  motion.maybeStart(fresh.backing, box, 1);
+  expect(document.querySelectorAll("canvas[data-liquid-proxy]")).toHaveLength(
+    1,
+  );
+  motion.dispose();
+  expect(document.querySelectorAll("canvas[data-liquid-proxy]")).toHaveLength(
+    0,
+  );
 });

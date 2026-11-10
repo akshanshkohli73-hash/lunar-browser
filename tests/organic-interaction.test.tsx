@@ -180,7 +180,7 @@ describe("one delegated, settling pointer / dock scheduler", () => {
   });
 });
 describe("actual surface backend, strict overrides and overlay lifecycle", () => {
-  it("shares a single filter bank and binds actual SVG URLs only at optical quality", () => {
+  it("uses Pearl CSS without allocating any SVG filters, even when URL filters are syntactically supported", () => {
     const view = render(
       <Provider>
         <GlassSurface data-testid="pane" />
@@ -189,14 +189,18 @@ describe("actual surface backend, strict overrides and overlay lifecycle", () =>
     );
     const surface = screen.getByTestId("pane");
     expect(
-      view.container.querySelectorAll("svg.glass-optical-defs"),
-    ).toHaveLength(1);
-    expect(view.container.querySelectorAll("feDisplacementMap")).toHaveLength(
-      10,
+      view.container.querySelectorAll(
+        "filter, feTurbulence, feDisplacementMap",
+      ),
+    ).toHaveLength(0);
+    expect(surface.dataset.materialRequest).toBe("liquid-webgl");
+    expect(surface.dataset.materialVariant).toBe("pearl-css");
+    expect(surface.dataset.glassBackend).toBe("css-backdrop");
+    expect(surface.style.getPropertyValue("--glass-refraction-filter")).toBe(
+      "",
     );
-    expect(surface.dataset.glassBackend).toBe("svg-backdrop");
-    expect(surface.style.getPropertyValue("--glass-refraction-filter")).toMatch(
-      /url\("#lunar-optic-/u,
+    expect(surface.style.getPropertyValue("--glass-refraction-strength")).toBe(
+      "0.2",
     );
     view.rerender(
       <Provider settings={{ ...DEFAULT_GLASS, performance: "balanced" }}>
@@ -205,15 +209,14 @@ describe("actual surface backend, strict overrides and overlay lifecycle", () =>
       </Provider>,
     );
     expect(surface.dataset.glassBackend).toBe("css-backdrop");
-    expect(surface.style.getPropertyValue("--glass-refraction-filter")).toBe(
-      "",
-    );
+    expect(surface.dataset.materialVariant).toBe("pearl-css");
+    expect(view.container.querySelector("svg.glass-optical-defs")).toBeNull();
   });
-  it("renders the CSS fallback when SVG/WebGL are unavailable and disables the unsupported optical control", () => {
+  it("renders Pearl CSS when WebGL2 is unavailable and disables the unsupported optical control", () => {
     vi.stubGlobal("CSS", {
       supports: (_key: string, value: string) => value === "blur(1px)",
     });
-    vi.stubGlobal("WebGLRenderingContext", undefined);
+    vi.stubGlobal("WebGL2RenderingContext", undefined);
     render(
       <Provider>
         <GlassSurface data-testid="pane" />
@@ -248,9 +251,14 @@ describe("actual surface backend, strict overrides and overlay lifecycle", () =>
           <GlassSurface data-testid="pane" />
         </Provider>,
       );
-      expect(screen.getByTestId("pane").dataset.glassBackend).not.toBe(
-        "svg-backdrop",
+      expect(screen.getByTestId("pane").dataset.materialVariant).toBe(
+        "pearl-css",
       );
+      expect(
+        screen
+          .getByTestId("pane")
+          .style.getPropertyValue("--glass-refraction-filter"),
+      ).toBe("");
       expect(document.documentElement.dataset.glassPointer).toBe("false");
     },
   );

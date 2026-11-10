@@ -20,10 +20,12 @@
 .liquid-surface-canvas[hidden] {
   display: none !important;
 }
-.glass-surface[data-liquid-backend="webgl2"] {
+.glass-surface[data-glass-mode="glass"][data-liquid-backend="webgl2"]:not(
+    [data-material-request="clear-surface"]
+  ):not([data-material-request="pearl-css"]) {
   background: transparent !important;
-  backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
   border-color: transparent !important;
   box-shadow:
     0 var(--glass-elevation) 32px var(--glass-spread)
@@ -34,14 +36,23 @@
       ),
     0 3px 8px -4px #173c2d16;
 }
-.glass-surface[data-liquid-backend="webgl2"]::before,
-.glass-surface[data-liquid-backend="webgl2"]::after {
+.glass-surface[data-glass-mode="glass"][data-liquid-backend="webgl2"]:not(
+    [data-material-request="clear-surface"]
+  ):not([data-material-request="pearl-css"])::before,
+.glass-surface[data-glass-mode="glass"][data-liquid-backend="webgl2"]:not(
+    [data-material-request="clear-surface"]
+  ):not([data-material-request="pearl-css"])::after {
   display: none;
 }
 html[data-glass-hover-motion]
   .dashboard-widget
-  > .glass-surface[data-liquid-backend="webgl2"],
-.glass-surface[data-liquid-backend="webgl2"] button:active {
+  > .glass-surface[data-glass-mode="glass"][data-liquid-backend="webgl2"]:not(
+    [data-material-request="clear-surface"]
+  ):not([data-material-request="pearl-css"]),
+.glass-surface[data-glass-mode="glass"][data-liquid-backend="webgl2"]:not(
+    [data-material-request="clear-surface"]
+  ):not([data-material-request="pearl-css"])
+  button:active {
   transform: none !important;
 }
 .liquid-morph-proxy {

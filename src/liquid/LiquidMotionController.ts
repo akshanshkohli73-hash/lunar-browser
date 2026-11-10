@@ -141,8 +141,17 @@ export class LiquidMotionController {
     for (const owner of this.morphs.keys())
       if (!owner.isConnected) this.stop(owner);
   }
-  dispose() {
+  /** Settle an unavailable backend without replaying already-open panels when
+   * the GPU returns. Content/focus belong to the DOM, never to a lost proxy. */
+  suspend(owners: Iterable<HTMLElement>) {
     for (const owner of [...this.morphs.keys()]) this.stop(owner);
+    for (const owner of owners) {
+      this.seen.add(owner);
+      if (owner.dataset.liquidExiting === "true") this.exiting.add(owner);
+    }
+  }
+  dispose() {
+    this.suspend([]);
     this.seen = new WeakSet();
     this.exiting = new WeakSet();
   }

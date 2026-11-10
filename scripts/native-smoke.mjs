@@ -1,3 +1,4 @@
+import { checkNativeMaterialSwitch } from "./pearl-material-checks.mjs";
 import {
   checkNativeLiquidVideo,
   liquidMetrics,
@@ -422,6 +423,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
     );
     await checkDashboardScroll(ui);
     await ui.screenshot({ path: `${evidence}-selected-image.png` });
+    await checkNativeMaterialSwitch(ui, evidence);
     // Real local video probe: transport/decoder/playback evidence, not DOM media mocks.
     for (const format of ["webm", "mp4"]) {
       const clip = path.join(
@@ -678,7 +680,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       });
       await expect(material).toHaveCSS(
         "backdrop-filter",
-        "blur(24px) saturate(1.12)",
+        "blur(6px) saturate(1.12)",
       );
       await settleBackdrop();
       await material.evaluate(async (node) => {
@@ -724,27 +726,46 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
         },
       });
       await expect(material).toHaveAttribute(
-        "data-glass-backend",
-        "svg-backdrop",
+        "data-material-variant",
+        "pearl-css",
       );
+      await expect(
+        ui.locator("filter, feTurbulence, feDisplacementMap"),
+      ).toHaveCount(0);
+      await settleBackdrop();
+      const retainedRefraction = await sampleGlass();
+      assert.equal(
+        opticalOff.hash,
+        retainedRefraction.hash,
+        `${format}: CSS must not fake refraction when a saved shader-only value changes`,
+      );
+      await api("updateDashboard", {
+        glass: {
+          ...cssGlass,
+          performance: "optical",
+          blur: 0,
+          refraction: 1,
+          reflection: 1,
+        },
+      });
       await settleBackdrop();
       await expect
         .poll(async () => (await sampleGlass()).hash, {
           timeout: 3000,
-          message: `${format}: wait for the native compositor to paint optical displacement`,
+          message: `${format}: wait for the native compositor to paint Pearl CSS highlights`,
         })
         .not.toBe(opticalOff.hash);
-      const opticalOn = await sampleGlass(),
-        opticalStable = await sampleGlass();
+      const reflectionOn = await sampleGlass(),
+        reflectionStable = await sampleGlass();
       assert.notEqual(
         opticalOff.hash,
-        opticalOn.hash,
-        `${format}: SVG refraction must displace actual painted native video pixels`,
+        reflectionOn.hash,
+        `${format}: CSS highlights must paint real material pixels`,
       );
       assert.equal(
-        opticalOn.hash,
-        opticalStable.hash,
-        `${format}: seeded optical displacement must be stable, with no noise / video-copy animation loop`,
+        reflectionOn.hash,
+        reflectionStable.hash,
+        `${format}: static pearl reflections must settle without a decorative animation loop`,
       );
       await api("updateDashboard", { glass: savedGlass });
       await expect(material).toHaveCSS("--glass-blur", `${savedGlass.blur}px`);
@@ -818,10 +839,12 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
         gpuCompositing: gpu.gpu_compositing,
         liquid: liquidObservation,
       };
-      observation.optics = {
-        off: opticalOff,
-        on: opticalOn,
-        stable: opticalOn.hash === opticalStable.hash,
+      observation.pearl = {
+        matte: opticalOff,
+        retainedRefraction,
+        reflection: reflectionOn,
+        physicallyRefractive: false,
+        stable: reflectionOn.hash === reflectionStable.hash,
       };
       videoMeasurements.push(observation);
       fs.writeFileSync(
@@ -1857,7 +1880,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       JSON.stringify(videoMeasurements, null, 2) + "\n",
     );
     console.log(
-      `PASS: ${packaged ? "Packaged" : "Development"} native Electron on ${process.platform}: isolated Chromium tabs, navigation/loading/stop, background focus and native Ctrl+L, geometry/resize, overlay detachment, real Shield request interception on/off, profile-owned patterned image/video decoding/scope, painted glass response / blur smoothing / deterministic SVG optical displacement, mounted-exit native occlusion, multi-widget video frame observations, independent modal scrolling at native minimum bounds, fixed-wallpaper/dashboard safe space, dashboard preview/cancel/layout and restart, scoped cookie/storage clearing and permission reset, content zoom geometry, real extension content script/unload, download bytes, sender rejection, malformed IPC, restart/persistence and explicit repeated-close webContents cleanup.`,
+      `PASS: ${packaged ? "Packaged" : "Development"} native Electron on ${process.platform}: isolated Chromium tabs, navigation/loading/stop, background focus and native Ctrl+L, geometry/resize, overlay detachment, real Shield request interception on/off, profile-owned patterned image/video decoding/scope, painted glass response / role-capped blur smoothing / deterministic Pearl CSS highlights without simulated refraction / real context-loss CSS recovery with retained native address draft, focus, selection and geometry, mounted-exit native occlusion, multi-widget video frame observations, independent modal scrolling at native minimum bounds, fixed-wallpaper/dashboard safe space, dashboard preview/cancel/layout and restart, scoped cookie/storage clearing and permission reset, content zoom geometry, real extension content script/unload, download bytes, sender rejection, malformed IPC, restart/persistence and explicit repeated-close webContents cleanup.`,
     );
     console.log(
       "Installed NSIS launch/upgrade/uninstall, multi-monitor Windows DPI, additional video codecs and OS device consent still need manual verification. Known H.264 MP4 / VP8 WebM decoding, painted frames, seeking, persistence and controls executed above. No signing service is required.",
