@@ -185,6 +185,46 @@ async function noDistortedContent(page) {
     ),
   ).toHaveCount(0);
 }
+async function preferencePaintGuard(page, opaque = false) {
+  // Simulate an in-flight previous GPU frame's attributes in one main-thread
+  // operation, then restore them. CSS media protection must work even before
+  // the JS preference subscriber can commit its new backend/mode attributes.
+  const paint = await page.locator(".glass-surface").evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const previous = {
+        mode: node.dataset.glassMode,
+        backend: node.dataset.liquidBackend,
+      };
+      node.dataset.glassMode = "glass";
+      node.dataset.liquidBackend = "webgl2";
+      const css = getComputedStyle(node),
+        canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 1;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      context.fillStyle = css.backgroundColor;
+      context.fillRect(0, 0, 1, 1);
+      const result = {
+        role: node.dataset.materialRole,
+        background: css.backgroundColor,
+        alpha: context.getImageData(0, 0, 1, 1).data[3] / 255,
+        backdrop: css.backdropFilter,
+      };
+      node.dataset.glassMode = previous.mode;
+      if (previous.backend === undefined) delete node.dataset.liquidBackend;
+      else node.dataset.liquidBackend = previous.backend;
+      return result;
+    }),
+  );
+  for (const p of paint) {
+    assert.ok(
+      p.alpha >= (opaque ? 1 : 0.25),
+      `${p.role}: OS preference handoff must have immediate readable CSS paint: ${JSON.stringify(p)}`,
+    );
+    if (opaque) assert.equal(p.backdrop, "none");
+  }
+  return paint;
+}
+
 /** Uses the real Electron shell (enabled native address field), not a preview bridge. */
 export async function checkNativeMaterialSwitch(page, evidence) {
   const address = page.getByRole("textbox", {
@@ -425,6 +465,48 @@ export async function checkPearlMaterials(browser, url, evidence) {
     observations.contextLost = css;
     observations.menu = { webgl: menuGl, css: menuCss };
     observations.reducedMotion = reduced;
+    observations.reducedMotionPaintGuard = await preferencePaintGuard(page);
+    await page.emulateMedia({
+      reducedMotion: "no-preference",
+      forcedColors: "active",
+    });
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-liquid-reason",
+      "accessibility",
+    );
+    observations.forcedColorsPaintGuard = await preferencePaintGuard(
+      page,
+      true,
+    );
+    await page.screenshot({
+      path: `${evidence}-forced-colors.png`,
+      caret: "hide",
+    });
+    const media = await page.context().newCDPSession(page);
+    await media.send("Emulation.setEmulatedMedia", {
+      features: [
+        { name: "prefers-reduced-motion", value: "no-preference" },
+        { name: "forced-colors", value: "none" },
+        { name: "prefers-reduced-transparency", value: "reduce" },
+      ],
+    });
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => matchMedia("(prefers-reduced-transparency: reduce)").matches,
+        ),
+      )
+      .toBe(true);
+    await expect(notes).toHaveAttribute("data-glass-mode", "solid");
+    observations.reducedTransparencyPaintGuard = await preferencePaintGuard(
+      page,
+      true,
+    );
+    await page.screenshot({
+      path: `${evidence}-reduced-transparency.png`,
+      caret: "hide",
+    });
+    await media.detach();
     assert.deepEqual(errors, []);
   } finally {
     await page.close();
