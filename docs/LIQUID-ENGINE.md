@@ -26,7 +26,7 @@
 - Actual production Chromium 153 with test-only software ANGLE/SwiftShader passed real wallpaper/optical-control pixels, specular movement with elasticity zero, press/release recovery with unchanged DOM hit boxes, idle-stop, quality/resolution budgets, resizing, context-loss fallback and actual restored pixels, toolbar-to-menu morph and keyboard roving. Existing broad CSS/SVG unsupported-WebGL, reduced-motion/forced-color, widget/theme/layout, dock/proximity/hit-target and portal/focus regressions also passed.
 - Additional actual production-browser scenes verified Dock Appearance → Theme Studio heading expansion and a dark Midnight wallpaper with real WebGL output and light readable ink. These are app-owned wallpaper pixels, not a fake graphics backend.
 - **Actual Windows source Electron and packaged `win-unpacked/Lunar Browser.exe` passed**: private image/MP4/WebM decode, exact-50-MB image-to-WebGL and 50-MB-plus-one-byte rejection, moving video texture/pixel advance at equal rendered resolution, native-window off/on lensing and stable paused repeats, no texture reupload for uniform-only changes, one existing video element, new Studio preview/apply/restart preferences, actual widget resize/native DND with shaders active, navigation/tabs/permissions/security, native occlusion through mounted exits and restart/profile persistence.
-- New unsigned x64 NSIS packaging completed; this is packaged-app execution, **not a human-installed NSIS upgrade/uninstall test**. No public release/update feed was created for 2.5.0. Back up a profile before trying the candidate; older versions do not understand dashboard v4.
+- New unsigned x64 NSIS packaging completed; this is packaged-app execution, **not a human-installed NSIS upgrade/uninstall test**. The later separately requested manual unsigned prerelease is recorded below; no automatic publisher/update feed was enabled. Back up a profile before trying the candidate; older versions do not understand dashboard v4.
 
 ### Implemented details / current limits
 
@@ -97,15 +97,15 @@ All four source/packaged optical probes required a moving, uploaded video frame 
 | Packaged webm    | 241256656 → 1010718360           | True          |
 | Packaged mp4     | 2876393206 → 1853053304          | True          |
 
-## Candidate artifacts — unreleased / unsigned
+## Original verified CI artifacts — unsigned
 
-The **newly built** `Lunar-Browser-2.5.0-win-x64.exe` is `NotSigned`, CI-computed SHA-256 **`ECC0D6DEC4033B9764DA97358D644D1183B4DAD61D0A3EA63306FBF5EFFA6A76`**. It is not the previous 2.4.1 EXE renamed. The actual packaged app was executed before hashing/upload. GitHub artifact authentication/retention applies; this is not a public release or an auto-update feed.
+The **newly built** `Lunar-Browser-2.5.0-win-x64.exe` is `NotSigned`, CI-computed SHA-256 **`ECC0D6DEC4033B9764DA97358D644D1183B4DAD61D0A3EA63306FBF5EFFA6A76`**. It is not the previous 2.4.1 EXE renamed. The actual packaged app was executed before hashing/upload. GitHub artifact authentication/retention applies to these original CI archives; the separately requested public installer is linked below and is not an auto-update feed.
 
 - [chromium-renderer-evidence · 13680730815](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42629657311/artifacts/13680730815): ZIP **8,412,621 bytes**, `sha256:94412702d97ba682775d2b6491db2dac326ad82ccc70eb00e603d79637114d71`.
 - [windows-material-evidence · 13679494639](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42629657311/artifacts/13679494639): ZIP **5,091,767 bytes**, `sha256:dd350c9e68368bd56549cd0f57ab1746924b83a2b773ad20c7e7c61886a8b4f4`.
 - [lunar-windows-x64-unsigned · 13679369612](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42629657311/artifacts/13679369612): ZIP **113,752,625 bytes**, `sha256:d986b5ea24d706d25450c2cffced89af5154f52304a9cfff55a403e5bd300b1d`.
 
-Local evidence is under `.artifacts/liquid-engine/` and `.artifacts/ui/liquid*`; CI uploads the actual graphics/native screenshot/JSON folders. Manual installed-NSIS upgrade/uninstall, physical file/color dialogs, touch, multi-monitor/DPI, user media and sustained hardware performance remain distinct unverified checks. The package remains `UNLICENSED`. Do not disable Windows/antivirus protections or describe this unsigned candidate as a trusted/signed public release.
+Local evidence is under `.artifacts/liquid-engine/` and `.artifacts/ui/liquid*`; CI uploads the actual graphics/native screenshot/JSON folders. Manual installed-NSIS upgrade/uninstall, physical file/color dialogs, touch, multi-monitor/DPI, user media and sustained hardware performance remain distinct unverified checks. The package remains `UNLICENSED`. Do not disable Windows/antivirus protections or describe this unsigned build as a trusted/signed public release.
 
 ### Retained-control and scene regressions
 
@@ -119,4 +119,18 @@ Actual dark-scene screenshots exposed a light-theme hover background being paire
 
 ### Final code / evidence status
 
-The final code run above includes shader tone-only and retained theme-radius assertions, actual Dock/Theme Studio and dark-hover contrast scenes, all legacy regressions, Windows source execution, NSIS packaging, packaged execution and hashes. Only this new candidate is covered; manual hardware/installed-NSIS limits remain. The 2.5.0 implementation was not publicly released. Subsequent report-only edits do not change the tested runtime bytes.
+The final code run above includes shader tone-only and retained theme-radius assertions, actual Dock/Theme Studio and dark-hover contrast scenes, all legacy regressions, Windows source execution, NSIS packaging, packaged execution and hashes. Only this new candidate is covered; manual hardware/installed-NSIS limits remain. The subsequent manual 2.5.0 publication is recorded below. Subsequent report-only edits do not change the tested runtime bytes.
+
+## User-requested manual publication — unsigned prerelease
+
+After the user requested release/signing, signing availability was checked. No configured signing identity/service was accessible; local signing material was absent, the existing workflow only built unsigned, and the current GitHub integration could not list Actions secrets (permission denied, not proof that no secrets exist). The user then explicitly selected **publish unsigned now**. No private key/password was requested in chat, no fake/self-signed publisher trust was created, and no signing service was purchased or standing publisher enabled.
+
+[**Public 2.5.0 release**](https://github.com/akshanshkohli73-hash/lunar-browser/releases/tag/v2.5.0) · [**Windows x64 installer**](https://github.com/akshanshkohli73-hash/lunar-browser/releases/download/v2.5.0/Lunar-Browser-2.5.0-win-x64.exe) · [**SHA256SUMS.txt**](https://github.com/akshanshkohli73-hash/lunar-browser/releases/download/v2.5.0/SHA256SUMS.txt)
+
+- Manually published `2026-11-10T06:37:59Z` as a prerelease, not marked as latest; Authenticode remains **NotSigned**.
+- Exact tested source/tag: **`a7e3b2b17991ab11bb12555fd49a125b9651fae0`**, successful run **42629657311**, original installer artifact **13679369612**. No old installer was substituted and no later documentation/staging rebuild was used.
+- [One-time draft-staging job 129674139393](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42769635200/job/129674139393) verified source/jobs/artifact metadata, the full archive SHA-256, extracted EXE and both uploaded assets downloaded and rehashed again before explicit promotion. That draft-only job was removed afterward; verification-only workflow remains.
+- Public installer: **113,748,642 bytes**, SHA-256 **`ecc0d6dec4033b9764da97358d644d1183b4dad61d0a3ea63306fbf5effa6a76`**. Checksums prove byte identity, **not** signature trust/safety.
+- Anonymous release page/API, exact source tag and installer/checksum download endpoints were verified. Prior **2.2.0, 2.4.0 and 2.4.1** asset IDs/sizes/digests, source targets and release notes were checked unchanged.
+
+[2.5.0 release notes](RELEASE-2.5.0.md) contain download/integrity instructions and migration/performance/manual/unsigned/UNLICENSED limits. Do not disable Windows or antivirus protections. Hardware/manual-installed NSIS checks and consistently smooth 60 FPS remain unverified, regardless of publication.

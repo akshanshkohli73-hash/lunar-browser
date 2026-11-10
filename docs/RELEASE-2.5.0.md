@@ -37,7 +37,11 @@ PowerShell byte/signature inspection:
 (Get-AuthenticodeSignature .\Lunar-Browser-2.5.0-win-x64.exe).Status # Expected: NotSigned
 ```
 
-Original CI ZIP: **113,752,625 bytes**, SHA-256 **`d986b5ea24d706d25450c2cffced89af5154f52304a9cfff55a403e5bd300b1d`**. This is distinct from the installer checksum above. Archive/extracted-file/release-upload/download checks must complete before public promotion; they do not add an Authenticode signature.
+Original CI ZIP: **113,752,625 bytes**, SHA-256 **`d986b5ea24d706d25450c2cffced89af5154f52304a9cfff55a403e5bd300b1d`**. This is distinct from the installer checksum above. The [one-time draft-staging job 129674139393](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42769635200/job/129674139393) passed pinned source/job/artifact provenance checks, verified the full ZIP and extracted EXE hashes, then uploaded both assets and downloaded/rehashed them again. Installer size: **113,748,642 bytes**. These checks do not add an Authenticode signature.
+
+## Publication record
+
+Manually published `2026-11-10T06:37:59Z` as a public unsigned prerelease, not marked as latest, after [draft-staging job 129674139393](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/42769635200/job/129674139393) passed the archive/installer/upload/download checks. Anonymous release page/API, the exact source tag and both public download endpoints were then verified. Previous 2.2.0, 2.4.0 and 2.4.1 asset IDs, bytes/digests, source targets and release notes remain unchanged. The temporary draft-only stager was removed after use; the regular workflow remains verification-only with explicit no-publish packaging. No signature or auto-updater was added.
 
 ## Important limitations
 
