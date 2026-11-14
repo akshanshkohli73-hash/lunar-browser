@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { expect } from "@playwright/test";
+import { waitForPearlPreview } from "./pearl-capture-checks.mjs";
 export async function checkOrganicMaterial(page, editor, evidence) {
   await page.emulateMedia({
     reducedMotion: "no-preference",
@@ -52,9 +53,10 @@ export async function checkOrganicMaterial(page, editor, evidence) {
   await expect(
     page.locator("filter, feTurbulence, feDisplacementMap"),
   ).toHaveCount(0);
+  await waitForPearlPreview(sample, 0);
   const plain = await sample.screenshot({
     path: `${evidence}-pearl-matte.png`,
-    animations: "disabled",
+    animations: "allow",
   });
   await global("Reflection intensity").focus();
   await global("Reflection intensity").press("End");
@@ -64,27 +66,25 @@ export async function checkOrganicMaterial(page, editor, evidence) {
     /url\(/u,
   );
   await page.mouse.move(2, 2);
+  await waitForPearlPreview(sample, 1);
   const optical = await sample.screenshot({
     path: `${evidence}-pearl-reflection.png`,
-    animations: "disabled",
+    animations: "allow",
   });
-  const stable = await sample.screenshot({ animations: "disabled" });
-  assert.equal(
-    optical.equals(stable),
-    true,
-    "Pearl reflections must be static and deterministic, not an animated noise/render loop",
-  );
-  assert.equal(
-    plain.equals(optical),
-    false,
-    "Changing CSS reflection must change actually painted material pixels, without distorting the backdrop or content",
-  );
+  const stable = await sample.screenshot({
+    path: `${evidence}-pearl-stable.png`,
+    animations: "allow",
+  });
   const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
+  // Keep both captures and their hashes even when the strict assertion fails.
+  // Never poll/retry screenshots until two happen to match.
   const observed = {
     backend: await sample.getAttribute("data-glass-backend"),
     offSha256: sha(plain),
     onSha256: sha(optical),
+    stableSha256: sha(stable),
     stable: optical.equals(stable),
+    reflectionChangesPixels: !plain.equals(optical),
     webglRequired: false,
     material: "pearl-css",
     physicallyRefractive: false,
@@ -92,6 +92,16 @@ export async function checkOrganicMaterial(page, editor, evidence) {
   fs.writeFileSync(
     `${evidence}-pearl.json`,
     JSON.stringify(observed, null, 2) + "\n",
+  );
+  assert.equal(
+    observed.stable,
+    true,
+    "Pearl reflections must be static and deterministic, not an animated noise/render loop",
+  );
+  assert.equal(
+    observed.reflectionChangesPixels,
+    true,
+    "Changing CSS reflection must change actually painted material pixels, without distorting the backdrop or content",
   );
   // Every added numeric token reaches real rendering, not only persisted JSON.
   await global("Glass saturation").focus();

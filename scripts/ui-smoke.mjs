@@ -1,5 +1,6 @@
 import { checkAquaCoquette } from "./aqua-coquette-checks.mjs";
 import { checkPearlMaterials } from "./pearl-material-checks.mjs";
+import { checkPearlCaptureReadiness } from "./pearl-capture-checks.mjs";
 import { checkLiquidScenes } from "./liquid-scenes-checks.mjs";
 import { checkLiquidEngine } from "./liquid-engine-checks.mjs";
 import assert from "node:assert/strict";
@@ -625,6 +626,11 @@ try {
     failures,
     [],
     "No renderer exceptions, duplicate keys or console errors",
+  );
+  await checkPearlCaptureReadiness(
+    browser,
+    server.resolvedUrls.local[0],
+    ".artifacts/ui/organic",
   );
   await checkUnsupportedOptics(
     browser,
