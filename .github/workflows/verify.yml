@@ -109,6 +109,9 @@ jobs:
             Write-Output "::notice title=Windows installer SHA256::$name $($entry.Hash)"
             $signature = Get-AuthenticodeSignature $entry.Path
             Write-Output "::notice title=Windows installer Authenticode::$name $($signature.Status)"
+            $installer = Get-Item $entry.Path
+            $metadata = @{ name = $name; size = $installer.Length; fileVersion = $installer.VersionInfo.FileVersion; productVersion = $installer.VersionInfo.ProductVersion } | ConvertTo-Json -Compress
+            Write-Output "::notice title=Windows installer metadata::$metadata"
           }
       - uses: actions/upload-artifact@v7.0.2
         with:

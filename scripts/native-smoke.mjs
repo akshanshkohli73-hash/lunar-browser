@@ -120,6 +120,26 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
     );
     await ui.waitForFunction(() => !!window.lunarAPI);
     await ui.getByRole("main", { name: "Lunar browser workspace" }).waitFor();
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(repo, "package.json"), "utf8"),
+    );
+    const runtime = await ui.evaluate(() => window.lunarAPI.getAppInfo());
+    assert.equal(
+      runtime.version,
+      manifest.version,
+      "The actual application must report the candidate version, not a renamed older build",
+    );
+    assert.equal(runtime.electron, manifest.devDependencies.electron);
+    assert.equal(runtime.platform, process.platform);
+    assert.equal(runtime.packaged, !!packaged);
+    fs.writeFileSync(
+      `${evidence}-runtime.json`,
+      JSON.stringify(runtime, null, 2) + "\n",
+    );
+    if (process.env.GITHUB_ACTIONS === "true")
+      console.log(
+        `::notice title=Verified native runtime::${JSON.stringify(runtime)}`,
+      );
     await ui.emulateMedia({ reducedMotion: "no-preference" });
     // Explicit material test environment; separate forced-color/system fallback coverage
     // remains in renderer smoke. Production never overrides accessibility preferences.
