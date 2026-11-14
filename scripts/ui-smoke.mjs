@@ -627,11 +627,7 @@ try {
     [],
     "No renderer exceptions, duplicate keys or console errors",
   );
-  await checkPearlCaptureReadiness(
-    browser,
-    server.resolvedUrls.local[0],
-    ".artifacts/ui/organic",
-  );
+  await checkPearlCaptureReadiness(browser, ".artifacts/ui/organic");
   await checkUnsupportedOptics(
     browser,
     server.resolvedUrls.local[0],

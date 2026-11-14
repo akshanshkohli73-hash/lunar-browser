@@ -9,12 +9,20 @@ import { expect } from "@playwright/test";
 export async function waitForPearlPreview(
   sample,
   reflection,
-  { timeout = 5000 } = {},
+  { timeout = 5000, settleTimeout = timeout } = {},
 ) {
   await expect(sample).toHaveCSS("--glass-reflection", String(reflection), {
     timeout,
   });
-  await sample.scrollIntoViewIfNeeded({ timeout });
+  // Scroll without first requiring stable geometry: the motion guard below must
+  // be able to diagnose an endless moving animation instead of blocking here.
+  await sample.evaluate((node) =>
+    node.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+      behavior: "instant",
+    }),
+  );
   await expect
     .poll(
       () =>
@@ -57,7 +65,10 @@ export async function waitForPearlPreview(
         }),
       {
         message: "Pearl preview inputs and finite scene motion must settle",
-        timeout,
+        timeout: settleTimeout,
+        // The predicate is already RAF-paced; do not add Node's polling backoff
+        // while waiting for the browser's animation timeline to advance.
+        intervals: [0],
       },
     )
     .toEqual({
@@ -80,56 +91,68 @@ export async function waitForPearlPreview(
   );
 }
 
-/** Exercise the readiness guard against actual browser animations, independently
- * of the application pixel comparison (which must never retry until it passes). */
-export async function checkPearlCaptureReadiness(browser, url, evidence) {
+/** A small browser fixture tests the guard's finite/infinite animation semantics,
+ * not application appearance. Real Pearl pixels and controls remain covered by
+ * checkOrganicMaterial on the production app, without retries or paint masks. */
+export async function checkPearlCaptureReadiness(browser, evidence) {
   const page = await browser.newPage({
-    viewport: { width: 1280, height: 840 },
+    viewport: { width: 400, height: 260 },
     reducedMotion: "no-preference",
   });
   try {
-    await page.addInitScript(() => {
-      const original = HTMLCanvasElement.prototype.getContext;
-      HTMLCanvasElement.prototype.getContext = function (kind, ...args) {
-        return kind === "webgl2" ? null : original.call(this, kind, ...args);
-      };
+    // Isolate guard semantics from software-GPU backdrop compositing throughput.
+    // This fixture never substitutes for the actual app's pixel comparisons.
+    await page.setContent(`<!doctype html>
+      <title>Pearl capture-readiness guard fixture</title>
+      <style>
+        .dashboard-preview { position: relative; width: 320px; height: 200px; }
+        img { position: absolute; width: 100%; height: 100%; }
+        .glass-preview-sample {
+          --glass-reflection: 0;
+          position: absolute; inset: 16px; padding: 16px;
+          background: #bdeae2; border-radius: 14px;
+        }
+      </style>
+      <div class="dashboard-preview">
+        <img alt="Decoded PNG readiness fixture">
+        <div class="glass-preview-sample">Capture-readiness guard fixture</div>
+      </div>`);
+    await page.locator("img").evaluate(async (node) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 16;
+      const context = canvas.getContext("2d");
+      context.fillStyle = "#244e37";
+      context.fillRect(0, 0, 16, 16);
+      node.src = canvas.toDataURL("image/png");
+      await node.decode();
     });
-    await page.goto(url);
-    // The main smoke-test page remains open. Keep this animation regression in
-    // the foreground so background-tab timeline throttling cannot freeze it.
+    // The main smoke-test page remains open; this animation fixture must be
+    // visible and use the actual rendering timeline, not a background timer.
     await page.bringToFront();
-    await expect
-      .poll(() => page.evaluate(() => document.visibilityState))
-      .toBe("visible");
-    await page
-      .getByRole("button", { name: "Customize dashboard", exact: true })
-      .click();
-    const editor = page.getByRole("dialog", {
-      name: "Customize dashboard",
-      exact: true,
-    });
-    const sample = editor.locator(".glass-preview-sample");
-    const slider = editor.getByRole("slider", {
-      name: "Reflection intensity",
-      exact: true,
-    });
-    await slider.focus();
-    await slider.press("Home");
+    const sample = page.locator(".glass-preview-sample");
     await waitForPearlPreview(sample, 0);
-    // A test-owned finite entry on the real preview must finish naturally;
-    // readiness must not force-finish it or mistake it for decorative noise.
     const finite = await sample.evaluate((node) => {
-      node.__captureAnimation = node.animate(
-        [{ opacity: 0.6 }, { opacity: 1 }],
-        { duration: 600, fill: "both" },
-      );
-      return node.__captureAnimation.playState;
+      const animation = node.animate([{ opacity: 0.6 }, { opacity: 1 }], {
+        duration: 600,
+        fill: "both",
+      });
+      node.__captureAnimation = animation;
+      node.__captureForcedFinish = false;
+      const finish = animation.finish.bind(animation);
+      animation.finish = () => {
+        node.__captureForcedFinish = true;
+        finish();
+      };
+      return animation.playState;
     });
     assert.equal(finite, "running");
     await waitForPearlPreview(sample, 0);
-    assert.equal(
-      await sample.evaluate((node) => node.__captureAnimation.playState),
-      "finished",
+    assert.deepEqual(
+      await sample.evaluate((node) => ({
+        state: node.__captureAnimation.playState,
+        forceFinished: node.__captureForcedFinish,
+      })),
+      { state: "finished", forceFinished: false },
       "Readiness must await the finite animation, not finish/cancel it",
     );
     await sample.evaluate((node) => {
@@ -140,7 +163,7 @@ export async function checkPearlCaptureReadiness(browser, url, evidence) {
       );
     });
     await assert.rejects(
-      () => waitForPearlPreview(sample, 0, { timeout: 300 }),
+      () => waitForPearlPreview(sample, 0, { settleTimeout: 300 }),
       /Pearl preview inputs and finite scene motion must settle/u,
       "An infinite paint animation must fail, not be hidden by a screenshot",
     );
@@ -152,13 +175,16 @@ export async function checkPearlCaptureReadiness(browser, url, evidence) {
     await sample.evaluate((node) => {
       node.__captureAnimation.cancel();
       delete node.__captureAnimation;
+      delete node.__captureForcedFinish;
     });
     await waitForPearlPreview(sample, 0);
     fs.writeFileSync(
       `${evidence}-capture-readiness.json`,
       JSON.stringify(
         {
+          scope: "browser fixture for capture-readiness guard semantics",
           finiteAnimationAwaited: true,
+          finiteAnimationForceFinished: false,
           infiniteAnimationRejected: true,
         },
         null,
