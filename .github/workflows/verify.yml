@@ -120,3 +120,182 @@ jobs:
             release/*.exe
             release/SHA256.txt
           if-no-files-found: error
+
+  stage-verified-2-6-release:
+    name: Stage verified 2.6.0 draft and verify requested manual publication
+    # One-time, fixed-byte, draft-only staging. This job never publishes.
+    # Remove after the authorized release; normal builds retain --publish never.
+    if: >-
+      github.event_name == 'push' &&
+      github.repository == 'akshanshkohli73-hash/lunar-browser' &&
+      github.ref == 'refs/heads/arena/8b00471f-lunar-browser' &&
+      contains(github.event.head_commit.message, '[stage-release-v2.6.0]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Verify fixed provenance and draft asset round-trip
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .artifacts/release-stage-2.6.0 .artifacts/release-roundtrip-2.6.0
+          exec > >(tee .artifacts/release-stage-2.6.0/stage.log) 2>&1
+          fail() {
+            code=$?
+            trap - ERR
+            python3 - <<'PY'
+          from pathlib import Path
+          text = '\n'.join(Path('.artifacts/release-stage-2.6.0/stage.log').read_text(errors='replace').splitlines()[-65:])
+          text = text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print('::error title=Fixed 2.6.0 draft staging failed::' + text)
+          PY
+            exit "$code"
+          }
+          trap fail ERR
+          source=9bc0e9dd29136c6c4ec8bf0fdb7a80cb9926164b
+          source_run=43603502085
+          artifact_id=14118130231
+          archive_hash=89bc07075949bba3c8275a4494de2d41186360cfec6b624731253af0b0c94c44
+          expected=075435822e2eb7ea8c3b1eb212bf01efd0a47285cbae174b0ae3f74e33e181e5
+          release_id=445346245
+          installer=Lunar-Browser-2.6.0-win-x64.exe
+
+          run_json=$(gh api "repos/$GH_REPO/actions/runs/$source_run")
+          jq -e --arg source "$source" --arg repo "$GH_REPO" '
+            .status == "completed" and .conclusion == "success" and
+            .head_sha == $source and .head_repository.full_name == $repo and
+            .head_branch == "arena/8b00471f-lunar-browser" and
+            .event == "push" and .path == ".github/workflows/verify.yml"
+          ' <<< "$run_json"
+          jobs=$(gh api "repos/$GH_REPO/actions/runs/$source_run/jobs?per_page=100")
+          jq -e '
+            ([.jobs[] | select(.name == "Renderer, types and regression tests" and .conclusion == "success")] | length) == 1 and
+            ([.jobs[] | select(.name == "Windows native browser and NSIS" and .conclusion == "success") |
+              .steps[] | select(.conclusion == "success" and
+                (.name == "Real Electron integration (no fake bridge or iframe)" or
+                 .name == "Package unsigned Windows x64 installer" or
+                 .name == "Verify packaged Windows application and video wallpaper" or
+                 .name == "Hash produced installers"))] | length) == 4
+          ' <<< "$jobs"
+          native_job=$(jq -r '.jobs[] | select(.name == "Windows native browser and NSIS") | .id' <<< "$jobs")
+          annotations=$(gh api "repos/$GH_REPO/check-runs/$native_job/annotations?per_page=100")
+          jq -e --arg installer "$installer" --arg hash "$expected" '
+            any(.[]; .title == "Verified native runtime" and
+              ((.message | fromjson) | .version == "2.6.0" and .electron == "44.7.2" and .platform == "win32" and .packaged == true)) and
+            any(.[]; .title == "Verified native runtime" and
+              ((.message | fromjson) | .version == "2.6.0" and .electron == "44.7.2" and .platform == "win32" and .packaged == false)) and
+            any(.[]; .title == "Windows installer Authenticode" and .message == ($installer + " NotSigned")) and
+            any(.[]; .title == "Windows installer SHA256" and ((.message | ascii_downcase) == ($installer | ascii_downcase) + " " + $hash)) and
+            any(.[]; .title == "Windows installer metadata" and
+              ((.message | fromjson) | .name == $installer and .size == 113755077 and
+                (.fileVersion == "2.6.0.0" or .fileVersion == "2.6.0") and
+                (.productVersion == "2.6.0.0" or .productVersion == "2.6.0")))
+          ' <<< "$annotations"
+          artifact=$(gh api "repos/$GH_REPO/actions/artifacts/$artifact_id")
+          jq -e --arg digest "sha256:$archive_hash" --arg source "$source" --argjson run "$source_run" '
+            .expired == false and .name == "lunar-windows-x64-unsigned" and
+            .digest == $digest and .workflow_run.id == $run and
+            .workflow_run.head_sha == $source and .size_in_bytes == 113758967
+          ' <<< "$artifact"
+          release=$(gh api "repos/$GH_REPO/releases/$release_id")
+          jq -e --arg source "$source" '
+            .id == 445346245 and .tag_name == "v2.6.0" and .draft == true and
+            .prerelease == true and .target_commitish == $source and (.assets | length) == 0
+          ' <<< "$release"
+
+          archive=.artifacts/release-stage-2.6.0/verified-artifact.zip
+          gh api "repos/$GH_REPO/actions/artifacts/$artifact_id/zip" > "$archive"
+          printf '%s  %s\n' "$archive_hash" "$archive" | sha256sum --check --strict
+          python3 - <<'PY'
+          import zipfile
+          from pathlib import Path
+          stage = Path('.artifacts/release-stage-2.6.0')
+          with zipfile.ZipFile(stage / 'verified-artifact.zip') as archive:
+              assert sorted(archive.namelist()) == ['Lunar-Browser-2.6.0-win-x64.exe', 'SHA256.txt']
+              entries = {entry.filename: entry for entry in archive.infolist()}
+              assert entries['Lunar-Browser-2.6.0-win-x64.exe'].file_size == 113755077
+              assert 64 < entries['SHA256.txt'].file_size < 8192
+              assert all(not entry.is_dir() and not entry.flag_bits & 1 for entry in entries.values())
+              assert all((entry.external_attr >> 16) & 0o170000 != 0o120000 for entry in entries.values())
+              archive.extractall(stage)
+          PY
+          staged=".artifacts/release-stage-2.6.0/$installer"
+          printf '%s  %s\n' "$expected" "$staged" | sha256sum --check --strict
+          printf '%s  %s\n' "$expected" "$installer" > .artifacts/release-stage-2.6.0/SHA256SUMS.txt
+          gh release upload v2.6.0 "$staged" .artifacts/release-stage-2.6.0/SHA256SUMS.txt
+          gh release download v2.6.0 --pattern "$installer" --pattern SHA256SUMS.txt --dir .artifacts/release-roundtrip-2.6.0
+          cmp .artifacts/release-stage-2.6.0/SHA256SUMS.txt .artifacts/release-roundtrip-2.6.0/SHA256SUMS.txt
+          (cd .artifacts/release-roundtrip-2.6.0 && sha256sum --check --strict SHA256SUMS.txt)
+          release=$(gh api "repos/$GH_REPO/releases/$release_id")
+          jq -e --arg source "$source" --arg installer "$installer" --arg digest "sha256:$expected" '
+            .draft == true and .prerelease == true and .target_commitish == $source and
+            (.assets | length) == 2 and
+            any(.assets[]; .name == $installer and .size == 113755077 and .state == "uploaded" and .digest == $digest) and
+            any(.assets[]; .name == "SHA256SUMS.txt" and .size == 98 and .state == "uploaded")
+          ' <<< "$release"
+          echo '::notice title=2.6.0 draft assets verified::Pinned successful source/native/package run, installer version/NotSigned, full ZIP and extracted EXE hashes, and both uploaded/downloaded assets passed. Still a draft; separate manual publication is required.'
+          {
+            echo '## Verified 2.6.0 assets staged — still a draft'
+            echo "Source: $source · verification: $source_run · artifact: $artifact_id"
+            echo "Archive SHA-256: $archive_hash"
+            echo "Installer SHA-256: $expected"
+            echo 'No old installer was renamed or rebuilt for upload. Draft round-trip checks passed.'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Wait for requested manual publication and verify anonymous public bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_id=445346245
+          source=9bc0e9dd29136c6c4ec8bf0fdb7a80cb9926164b
+          installer=Lunar-Browser-2.6.0-win-x64.exe
+          expected=075435822e2eb7ea8c3b1eb212bf01efd0a47285cbae174b0ae3f74e33e181e5
+          published=false
+          # Bounded external-state wait inside this one-time CI job. This step
+          # has no publication command: the agent must separately promote it.
+          for attempt in $(seq 1 40); do
+            release=$(gh api "repos/$GH_REPO/releases/$release_id")
+            if jq -e '.draft == false and .published_at != null' <<< "$release" >/dev/null; then
+              published=true
+              break
+            fi
+            sleep 15
+          done
+          if [ "$published" != true ]; then
+            echo '::error::Manual publication was not observed within ten minutes; no public-success claim.'
+            exit 1
+          fi
+          mkdir -p .artifacts/release-public-2.6.0
+          public=.artifacts/release-public-2.6.0
+          # curl does not use GH_TOKEN; -q ignores curlrc. These are anonymous
+          # official public endpoints, not authenticated asset API downloads.
+          curl -q --fail --location --proto '=https' --proto-redir '=https' --retry 3 --max-time 300 \
+            "https://api.github.com/repos/$GH_REPO/releases/tags/v2.6.0" -o "$public/release.json"
+          jq -e --arg source "$source" --arg installer "$installer" --arg digest "sha256:$expected" '
+            .id == 445346245 and .tag_name == "v2.6.0" and .draft == false and .prerelease == true and
+            .published_at != null and .target_commitish == $source and (.assets | length) == 2 and
+            any(.assets[]; .name == $installer and .size == 113755077 and .state == "uploaded" and .digest == $digest) and
+            any(.assets[]; .name == "SHA256SUMS.txt" and .size == 98 and .state == "uploaded")
+          ' "$public/release.json"
+          curl -q --fail --location --proto '=https' --proto-redir '=https' --retry 3 --max-time 120 \
+            "https://api.github.com/repos/$GH_REPO/git/ref/tags/v2.6.0" -o "$public/tag.json"
+          jq -e --arg source "$source" '.object.type == "commit" and .object.sha == $source' "$public/tag.json"
+          curl -q --fail --location --proto '=https' --proto-redir '=https' --retry 3 --max-time 300 \
+            "https://github.com/$GH_REPO/releases/download/v2.6.0/$installer" -o "$public/$installer"
+          curl -q --fail --location --proto '=https' --proto-redir '=https' --retry 3 --max-time 120 \
+            "https://github.com/$GH_REPO/releases/download/v2.6.0/SHA256SUMS.txt" -o "$public/SHA256SUMS.txt"
+          cmp .artifacts/release-stage-2.6.0/SHA256SUMS.txt "$public/SHA256SUMS.txt"
+          (cd "$public" && sha256sum --check --strict SHA256SUMS.txt)
+          curl -q --fail --location --proto '=https' --proto-redir '=https' --retry 3 --max-time 120 \
+            "https://github.com/$GH_REPO/releases/tag/v2.6.0" -o "$public/release-page.html"
+          echo "::notice title=Public 2.6.0 integrity verified::Source $source; release $release_id; EXE SHA256 $expected; 113755077 bytes; anonymous release API/page/tag, installer and checksum downloads passed. Authenticode remains NotSigned."
+          {
+            echo '## Requested manual 2.6.0 publication verified'
+            echo 'Anonymous public release page/API, exact source tag, full installer and checksum bytes passed.'
+            echo "Installer SHA-256: $expected"
+            echo 'Unsigned prerelease; no trusted-publisher, warning-bypass or automatic updater claim.'
+          } >> "$GITHUB_STEP_SUMMARY"
