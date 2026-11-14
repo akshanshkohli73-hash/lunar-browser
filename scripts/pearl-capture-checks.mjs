@@ -18,7 +18,11 @@ export async function waitForPearlPreview(
   await expect
     .poll(
       () =>
-        sample.evaluate((node) => {
+        sample.evaluate(async (node) => {
+          // Observe the browser's rendering timeline, not only Node's polling
+          // clock; a headless compositor may otherwise defer a pending entry.
+          if (document.visibilityState === "visible")
+            await new Promise((resolve) => requestAnimationFrame(resolve));
           const scene = node.closest(".dashboard-preview");
           if (!scene) throw new Error("Missing Pearl wallpaper preview");
           const relevant = new Set(scene.getAnimations({ subtree: true }));
@@ -34,6 +38,7 @@ export async function waitForPearlPreview(
               animation.pending || animation.playState === "running",
           );
           return {
+            visibility: document.visibilityState,
             fonts: document.fonts.status,
             imagesDecoded: [...scene.querySelectorAll("img")].every(
               (image) => image.complete && image.naturalWidth > 0,
@@ -43,6 +48,9 @@ export async function waitForPearlPreview(
             animations: animations.map((animation) => ({
               target: animation.effect?.target?.className ?? "pseudo-element",
               state: animation.playState,
+              pending: animation.pending,
+              currentTime: String(animation.currentTime),
+              playbackRate: animation.playbackRate,
               endTime: String(animation.effect?.getComputedTiming().endTime),
             })),
           };
@@ -53,6 +61,7 @@ export async function waitForPearlPreview(
       },
     )
     .toEqual({
+      visibility: "visible",
       fonts: "loaded",
       imagesDecoded: true,
       outgoingImages: 0,
@@ -76,7 +85,7 @@ export async function waitForPearlPreview(
 export async function checkPearlCaptureReadiness(browser, url, evidence) {
   const page = await browser.newPage({
     viewport: { width: 1280, height: 840 },
-    reducedMotion: "reduce",
+    reducedMotion: "no-preference",
   });
   try {
     await page.addInitScript(() => {
@@ -86,6 +95,12 @@ export async function checkPearlCaptureReadiness(browser, url, evidence) {
       };
     });
     await page.goto(url);
+    // The main smoke-test page remains open. Keep this animation regression in
+    // the foreground so background-tab timeline throttling cannot freeze it.
+    await page.bringToFront();
+    await expect
+      .poll(() => page.evaluate(() => document.visibilityState))
+      .toBe("visible");
     await page
       .getByRole("button", { name: "Customize dashboard", exact: true })
       .click();

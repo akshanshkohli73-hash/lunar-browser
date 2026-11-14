@@ -179,6 +179,9 @@ describe("profile-owned wallpapers", () => {
         fs.rmSync(dir, { recursive: true, force: true });
       }
     },
+    // These real copies fsync up to 150 MB. Allow slow Windows/AV-backed disks;
+    // this verifies byte limits and intact contents, not a five-second I/O SLA.
+    30_000,
   );
   it.each([
     {
