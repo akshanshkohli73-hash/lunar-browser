@@ -1,6 +1,6 @@
 # Aqua Coquette — implementation and verification
 
-**Status:** implemented and verified in production Chromium, real Windows Electron and the packaged Windows application; unreleased. The existing public 2.5.0 installer and source tag are not replaced by this work.
+**Status:** implemented and verified in production Chromium, real Windows Electron and the packaged Windows application. The user has authorized a new unsigned **2.6.0 prerelease**; fresh versioned-build verification/publication is in progress. The existing public 2.5.0 installer and source tag will not be replaced. [Release preparation](RELEASE-2.6.0.md).
 
 ## Phase 0: actual repository audit
 
