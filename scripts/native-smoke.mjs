@@ -1,3 +1,4 @@
+import { observeLiveYouTube } from "./youtube-live-checks.mjs";
 import { checkNativeShield } from "./shield-native-checks.mjs";
 import { checkNativeAquaCoquette } from "./aqua-coquette-checks.mjs";
 import { checkNativeAquaTabs } from "./aqua-tabs-checks.mjs";
@@ -280,6 +281,10 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       profile,
       evidence,
     });
+    if (process.env.LUNAR_OBSERVE_LIVE_YOUTUBE === "1" && !packaged) {
+      await observeLiveYouTube({ electron, api, evidence });
+      await waitNative(1);
+    }
     await api("closeTab", shieldEntry.id);
     await waitNative(0);
     const dashboard = await api("getDashboard");

@@ -97,20 +97,23 @@ removal, anti-adblock bypass, fingerprinting prevention and anonymity are not
 promised. No player rewriting, scriptlet injection, login automation or credentials
 are involved.
 
-## Executed evidence (in progress)
+## Executed evidence
 
 Evidence logs are local ignored `.artifacts/shield2-audit/`, not production assets.
 No build, jsdom fixture or session adapter is presented as native Chromium proof.
 
 | Check | Actual result at this checkpoint |
 | --- | --- |
-| Full `npm run check` | **PASS**: types, lint, 358 tests / 46 files, build and package policy; before the final primary/backup rollback and callback-hardening tests |
-| Final backend transaction subset + types/lint | **PASS**: 38 tests / four files, including those final fixes |
+| Full `npm run check` | **PASS**: types, lint, **361 tests / 46 files**, build and package policy; includes final backup rollback, callback and secure delegated-fullscreen regressions. Local log: `full-check-final.log` |
+| Final permission subset + types/lint | **PASS**: 12 tests / two files; secure delegated fullscreen remains available while sensitive iframe grants remain denied |
 | Actual worker on downloaded HaGeZi mini | **PASS**: 3,906,230 input bytes, 185,809 rules, 7,784,909 compiled bytes, 2,257 ms in this run, 256 MiB old-generation limit; caller timer ran. Not a general performance guarantee |
-| Local full real Chromium UI suite | **NOT PASS**: initial common UI checks ran, then the serverless Chromium single-process runtime closed at a new-page gate; multiprocess rerun pending |
+| Real Chromium UI/material suite | **PASS** on implementation `4fd8ae5` locally, and exact `f9826f1` in CI. Existing strict pixel, material-switching, shortcuts, layout, keyboard, scrolling and navigation checks retained. Scratch-runtime failures and investigation are described below |
+| Pearl capture-readiness browser regression | **PASS**: finite CSS animations and JS pointer retirement awaited; infinite CSS/non-retiring JS lighting rejected, without forcing completion, screenshot retries or paint masks |
+| Real-feed cache and warm recovery | **PASS**: 185,809 HaGeZi rules, 14,472,299-byte validated JSON cache (below 16 MiB), warm load with **one** fixture transport fetch total; 4,149 ms for update + reload in this run. Production worker/manager/file paths with a controlled transport Response, not native HTTPS |
 | Electron binary install in sandbox | **BLOCKED**: installer fetch failed and GitHub release-asset redirect returned EOF; no local Electron execution claimed |
-| Windows source/packaged native/NSIS integration | **PENDING** on the exact working-branch commit; existing verification-only workflow, no publishing |
-| Live public YouTube | **UNVERIFIED**: direct preflight failed before TLS; sandbox outbound hosts exclude YouTube |
+| Windows source + packaged native/NSIS integration | **PASS** on exact `f9826f1`: renderer job `132733126948`; Windows job `132733126765`, run [`43688235705`](https://github.com/akshanshkohli73-hash/lunar-browser/actions/runs/43688235705). Ten new native Shield groups in **both** source and packaged app, existing native regressions, unsigned NSIS build, packaged runtime and hash checks. No publishing |
+| Native remote-source update | **PASS in packaged app:** actual HTTPS EasyPrivacy subset download, worker compilation and saved cache, **7,207 rules / six rejected rules with feedback**. The preceding source-app attempt received HTTP 403 and truthfully reported external-source-unreachable, not success |
+| Live public YouTube | **UNVERIFIED** in the sandbox: preflight failed before TLS; outbound hosts exclude YouTube. An optional disposable signed-out Windows-native observation probe is added; inspect its actual result below before claiming any live page/player result |
 
 New tests: `tests/shield2-{engine,service,permissions,data,statistics,profile,races,worker,renderer}.test.*`
 and typed helpers; existing Shield/network/security fixtures were adapted to the
@@ -119,26 +122,63 @@ coverage. `scripts/shield-native-checks.mjs` extends the real native smoke suite
 with production IPC, actual server delivery/cancellation, redirects, inactive tabs,
 compact popup/site isolation, rule compilation and toggling, export, permissions,
 selected deletion, source-update attempt, statistics clearing and restart checks.
-Those native assertions are authored, not yet a passing execution at this checkpoint.
+The source and packaged native assertions passed on `f9826f1` in run
+`43688235705`. All network assertions use actual native requests and
+server delivery, not jsdom or a substituted website bridge.
+
+Verification iterations are recorded honestly: the initial serverless
+single-process Chromium closed on creating another page. A full multiprocess run
+passed; a subsequent differently configured scratch run timed out taking the
+20-material screenshot. A final full local run using the scratch binary's
+in-process software GPU (not single-process browser) passed, including the
+unchanged 20-visible-material gate; `chromium-ui-final-inprocessgpu.log`. None
+of these scratch-only flags are added to the shipped app. CI on `f4181af` caught the unchanged strict Pearl pixel
+comparison; its readiness guard now also waits for genuine finite JS pointer
+retirement, which is not represented by the Web Animations API. Equality remains
+strict and non-retrying; original screenshots, hashes, style state and pixel-diff
+diagnostics are retained on failure. The exact `f9826f1` CI renderer job passed.
+Initial native attempts also exposed localhost resolution and an ambiguous
+identity locator. The fixture now uses explicit local DNS and requires a committed,
+non-error native document. Its identity assertion targets the actual exact-origin
+heading, not duplicate request-diagnostic text. Neither failure was called a pass.
+
+`scripts/youtube-live-checks.mjs` is a test-only, two-minute-budget observation
+probe, enabled explicitly in the Windows source-native verification step. It first
+records real TLS/HTTP reachability; if reachable it opens actual native homepage,
+search, genuine-result watch/embed, Shorts and live-directory pages. It records
+only observed renderer/player states, media-element time progression, player-button
+fullscreen and caption-control responses. Consent gates are not silently accepted.
+No credentials or account are supplied. A live directory is not a playing live
+stream; a media element progressing is not proof of content versus an ad, audible
+speakers, correct captions or all quality/keyboard behavior. Unreachable, gated or
+failed cases remain unverified in its JSON/CI annotation, not fake passing tests.
 
 ## Completion categories and remaining acceptance gates
 
-### Implemented and tested at unit/worker/controlled-renderer level
+### Implemented and tested (scope-specific evidence above)
 
 Indexed matching/precedence, exact-site policies, custom rule CRUD/import/export
 payloads, bounded caches, five-event ownership/redirect/terminal accounting,
 statistic categories/periods/clear/recovery, update/reset/remove/persistence races,
 permission confirmation/policy scoping and selected-data API mappings. Loading,
 error/cancellation and stale-origin feedback, dashboard sections and YouTube
-independence have controlled React tests. See executed gates above for scope.
+independence have controlled React tests. The new suites contain 78 tests in nine
+files; existing 283 tests are retained. Actual Windows source-native tests also
+exercise request cancellation/server receipt, redirect identity, inactive-site
+attribution, cookie headers, exact-origin controls, eight-section minimum-bound
+hit targets, custom worker/rules/export, notifications and delegated iframe
+fullscreen, selected data removal, source updates, statistics clear and restart.
+See executed gates above: source-native success is not automatically packaged or
+live-YouTube certification.
 
-### Implemented, not fully verified end-to-end yet
+### Implemented, not fully verified across real services/devices
 
-Native network outcomes and permission decisions, actual deletion and persistent
-worker/list integration, popup/dashboard hit targets and packaged app/installer
-regressions await the new exact-commit native job. Camera/microphone/location/
-clipboard OS/device behavior requires appropriate interactive hardware/platform
-checks even after native notification tests. Physical GPU, battery/60 FPS/4K,
+Source and packaged app integration/NSIS packaging passed on `f9826f1`.
+Installed NSIS launch/upgrade/uninstall remain manual checks, not proved by
+packaging or unpacked-app tests. Live external YouTube observations
+must be read individually, not inferred from fixture success. Camera/microphone/
+location/clipboard OS/device behavior requires appropriate interactive hardware/
+platform checks even after actual native notification/fullscreen tests. Physical GPU, battery/60 FPS/4K,
 manual accessibility and multi-monitor Windows certification are not inferred.
 
 ### Not implemented / deliberately outside the supported API
@@ -154,8 +194,21 @@ requires reload/close.
 
 ### Still required before a production-complete claim
 
-Finish the exact-commit real renderer/native/package gates; investigate any actual
-failures rather than relaxing assertions. Perform or explicitly leave unverified
+Keep the real renderer/native/package gates green on the final test/report
+commit; investigate failures rather than relaxing assertions. Perform or
+explicitly leave unverified
 real reachable YouTube homepage/search/watch/embed/Shorts/live/captions/fullscreen/
 audio/account flows; fixture media and network counters do not certify them.
 No new release authorization has been requested or inferred.
+
+## Verification-only Windows artifact (not a release)
+
+Run `43688235705`, implementation `f9826f1`, produced an unsigned
+`Lunar-Browser-2.6.0-win-x64.exe`: 114,253,104 bytes,
+SHA-256 `bf5dbe2d88e4576481dbd984d289c5d341d7e8dafb097fc5af29e0830ff39e8a`.
+The check confirmed `NotSigned`, app 2.6.0, Electron 44.11.3 and Chromium
+152.0.7977.169. This is a temporary verification artifact, not a new release,
+not a signed installer, and not an instruction to overwrite the existing
+published installer. Packaging uses `--publish never`. Existing public releases
+and their hashes remain unchanged; this branch's improvements are not silently
+backported into those old bytes.

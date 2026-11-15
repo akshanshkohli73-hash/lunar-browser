@@ -59,6 +59,10 @@ jobs:
       - run: npm run check
       - name: Real Electron integration (no fake bridge or iframe)
         shell: pwsh
+        env:
+          # Disposable signed-out native observations, not an ad-removal or
+          # account/device certification. Unreachable/consent cases are recorded.
+          LUNAR_OBSERVE_LIVE_YOUTUBE: "1"
         run: |
           $PSNativeCommandUseErrorActionPreference = $false
           npm run test:native 2>&1 | Tee-Object -Variable nativeOutput
