@@ -121,7 +121,7 @@ describe("real filter decisions", () => {
         "fetch",
         { ...DEFAULT_SHIELD, filterLists: ["stevenblack"] },
       ),
-    ).toBe("trackers");
+    ).toBe("other");
     expect(() => parseHostsList("<html>an error page</html>")).toThrow();
   });
 });

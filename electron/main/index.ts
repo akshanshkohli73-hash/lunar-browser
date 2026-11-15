@@ -10,6 +10,10 @@ import {
   type IpcMainInvokeEvent,
 } from "electron";
 import path from "node:path";
+import fs from "node:fs";
+import { DEFAULT_SHIELD } from "../../shared/defaults";
+import { youtubeHost } from "../../shared/shield";
+import { privacyOverview, clearSelectedData } from "../services/privacy-data";
 import {
   WallpaperStore,
   wallpaperTextureOrigin,
@@ -38,7 +42,7 @@ import { isWebUrl, externalDestination } from "../../shared/navigation";
 import {
   requestSchemas,
   type Channel,
-  type Args,
+  type ParsedArgs,
   type Outputs,
   type Reply,
   type Shortcut,
@@ -116,7 +120,7 @@ function handle<K extends Channel>(
   channel: K,
   handler: (
     ctx: BrowserContext,
-    ...args: Args<K>
+    ...args: ParsedArgs<K>
   ) => Outputs[K] | Promise<Outputs[K]>,
 ) {
   ipcMain.handle(
@@ -129,7 +133,7 @@ function handle<K extends Channel>(
         if (!context || context.window.isDestroyed())
           throw new Error("The browser is not ready.");
         assertSender(event, context);
-        const validated = requestSchemas[channel].parse(args) as Args<K>;
+        const validated = requestSchemas[channel].parse(args) as ParsedArgs<K>;
         return { ok: true, value: await handler(context, ...validated) };
       } catch (error) {
         return {
@@ -212,13 +216,200 @@ handle("weather:get", (_ctx, input) =>
 );
 handle("settings:get", (ctx) => ctx.storage.getSettings());
 handle("settings:update", (ctx, partial) => {
+  if (partial.shield) {
+    const known = new Set(
+      ctx.shield.getState(undefined, false).lists.map((list) => list.id),
+    );
+    if (partial.shield.filterLists.some((id) => !known.has(id)))
+      throw new Error(
+        "One selected subscription no longer exists. Reload the Shield dashboard.",
+      );
+  }
+  const previous = ctx.storage.getSettings().shield.filterLists;
   const settings = ctx.storage.updateSettings(partial, ctx.tabs.sessionState());
   send("settings:updated", settings);
   ctx.shield.notify();
+  if (settings.shield.filterLists.some((id) => !previous.includes(id)))
+    void ctx.shield
+      .updateDueLists()
+      .catch((error) =>
+        send(
+          "browser:error",
+          error instanceof Error ? error.message : "Filter update failed.",
+        ),
+      );
   return settings;
 });
 handle("shield:get", (ctx, url) => ctx.shield.getState(url));
-handle("shield:refresh", (ctx) => ctx.shield.refresh());
+handle("shield:refresh", (ctx, id) => ctx.shield.refresh(id));
+handle("shield:site", (ctx, origin, patch) =>
+  ctx.shield.setSite(origin, patch),
+);
+handle("shield:saveRule", (ctx, id, rule) => ctx.shield.saveRule(id, rule));
+handle("shield:deleteRule", (ctx, id) => ctx.shield.deleteRule(id));
+handle("shield:importRules", (ctx, text) => ctx.shield.importRules(text));
+handle("shield:exportRules", async (ctx) => {
+  const result = await dialog.showSaveDialog(ctx.window, {
+    title: "Export custom network rules",
+    defaultPath: "lunar-shield-rules.json",
+    filters: [{ name: "Lunar Shield rules", extensions: ["json"] }],
+  });
+  if (result.canceled || !result.filePath) return false;
+  if (ctx.window.isDestroyed()) throw new Error("The browser is closing.");
+  await fs.promises.writeFile(result.filePath, ctx.shield.exportRules(), {
+    encoding: "utf8",
+    mode: 0o600,
+  });
+  return true;
+});
+handle("shield:addSubscription", (ctx, input) =>
+  ctx.shield.addSubscription(input),
+);
+handle("shield:removeSubscription", async (ctx, id) => {
+  const result = await ctx.shield.removeSubscription(id);
+  const current = ctx.storage.getSettings();
+  const settings = ctx.storage.updateSettings({
+    shield: {
+      ...current.shield,
+      filterLists: current.shield.filterLists.filter((value) => value !== id),
+    },
+  });
+  send("settings:updated", settings);
+  ctx.shield.notify();
+  return { ...result, settings: settings.shield };
+});
+handle("shield:resetList", (ctx, id) => ctx.shield.resetList(id));
+async function confirmPrivacy(
+  ctx: BrowserContext,
+  title: string,
+  message: string,
+  detail: string,
+  button: string,
+) {
+  const result = await dialog.showMessageBox(ctx.window, {
+    type: "warning",
+    title,
+    message,
+    detail,
+    buttons: ["Cancel", button],
+    defaultId: 0,
+    cancelId: 0,
+    noLink: true,
+  });
+  if (result.response !== 1 || ctx.window.isDestroyed())
+    throw new Error("The operation was cancelled.");
+}
+handle("shield:clearHistory", async (ctx) => {
+  await confirmPrivacy(
+    ctx,
+    "Clear protection history?",
+    "Delete local Shield counters and aggregate history?",
+    "This clears Shield's recovery copies too. Browsing history, website data, saved rules and permissions are not changed. Requests already in flight are not re-counted after the reset.",
+    "Clear protection history",
+  );
+  return ctx.shield.clearHistory();
+});
+handle("shield:resetConfig", async (ctx) => {
+  await confirmPrivacy(
+    ctx,
+    "Reset Lunar Shield?",
+    "Restore default protection preferences?",
+    "Removes custom rules/subscriptions, site overrides and saved permission policies. Keeps bookmarks, wallpapers, browsing data and protection statistics. Existing capture requires a page reload or close to stop.",
+    "Reset protection",
+  );
+  await ctx.shield.resetConfig();
+  await ctx.permissions.reset();
+  const settings = ctx.storage.updateSettings({
+    shield: structuredClone(DEFAULT_SHIELD),
+  });
+  send("settings:updated", settings);
+  ctx.shield.notify();
+  return ctx.shield.getState();
+});
+handle("permissions:set", (ctx, origin, permission, mode) =>
+  ctx.permissions.setSitePolicy(origin, permission, mode),
+);
+handle("privacy:overview", (ctx) =>
+  privacyOverview(
+    session.fromPartition("persist:lunar-web"),
+    ctx.shield.knownOrigins(),
+    ctx.shield.getPermissionPolicies(),
+  ),
+);
+handle("privacy:clearSelected", async (ctx, request) => {
+  await confirmPrivacy(
+    ctx,
+    "Clear selected browsing data?",
+    `Clear ${request.types.join(", ")} · ${request.range === "all" ? "all time" : `last ${request.range}`}?`,
+    `${request.origin || "All website tabs in this profile"}\nCookies are shared at the registrable-domain level; related subdomains and ports may be signed out. Running pages can recreate data. History ranges apply to recorded visits only. Bookmarks, wallpapers, notes and Shield rules are kept.`,
+    "Clear selected data",
+  );
+  for (const tab of ctx.tabs.getAllTabs())
+    if (
+      !request.origin ||
+      (isWebUrl(tab.url) && new URL(tab.url).origin === request.origin)
+    )
+      ctx.tabs.stopLoading(tab.id);
+  await clearSelectedData(session.fromPartition("persist:lunar-web"), request, {
+    clear: (since) => {
+      if (since === 0) ctx.storage.clearHistory();
+      else
+        ctx.storage.deleteHistoryItems(
+          ctx.storage
+            .getHistory()
+            .filter((item) => item.visitTime >= since)
+            .map((item) => item.id),
+        );
+    },
+  });
+});
+handle("shield:youtube", async (ctx, action) => {
+  if (action.type === "set") return ctx.shield.setYoutube(action.enabled);
+  if (action.type === "reset") return ctx.shield.resetYoutube();
+  if (action.type === "resetPermissions") {
+    await ctx.permissions.resetMatching(youtubeHost);
+    return ctx.shield.getState();
+  }
+  const web = session.fromPartition("persist:lunar-web");
+  const cookies = await web.cookies.get({});
+  const origins = [
+    ...new Set([
+      "https://www.youtube.com",
+      "https://youtube.com",
+      "https://m.youtube.com",
+      "https://www.youtube-nocookie.com",
+      "https://youtube-nocookie.com",
+      "https://youtu.be",
+      ...ctx.shield.knownOrigins().filter(youtubeHost),
+      ...cookies
+        .map((cookie) =>
+          cookie.domain ? `https://${cookie.domain.replace(/^\./u, "")}` : "",
+        )
+        .filter(youtubeHost),
+    ]),
+  ];
+  await confirmPrivacy(
+    ctx,
+    "Clear YouTube site data?",
+    "Clear YouTube cookies and known-origin storage?",
+    "This signs you out of YouTube and may affect related YouTube subdomains. Google-account storage outside these domains is not selected. Electron does not expose a complete origin-storage inventory; unknown origins cannot be enumerated. Running pages can recreate data.",
+    "Clear YouTube data",
+  );
+  await web.clearData({
+    origins,
+    originMatchingMode: "origin-in-all-contexts",
+    dataTypes: [
+      "cookies",
+      "cache",
+      "localStorage",
+      "indexedDB",
+      "serviceWorkers",
+      "fileSystems",
+    ],
+  });
+  for (const origin of origins) ctx.shield.clearSiteDiagnostics(origin);
+  return ctx.shield.getState();
+});
 handle("bookmarks:get", (ctx) => ctx.storage.getBookmarks());
 handle("bookmarks:add", (ctx, input) => {
   const bookmark = ctx.storage.addBookmark(input);
@@ -264,7 +455,7 @@ handle("privacy:site", async (ctx, url) => ({
 }));
 handle("permissions:resetSite", (ctx, url) => ctx.permissions.resetSite(url));
 handle("permissions:denySite", (ctx, url, permission, deny) =>
-  ctx.permissions.denySite(url, permission, deny),
+  ctx.permissions.setSitePolicy(url, permission, deny ? "block" : "ask"),
 );
 handle("privacy:clearOrigin", async (ctx, url) => {
   const origin = new URL(url).origin;
@@ -282,7 +473,7 @@ handle("privacy:clearOrigin", async (ctx, url) => {
   if (response !== 1)
     throw new Error("Clearing this site's data was cancelled.");
   await clearOriginSiteData(session.fromPartition("persist:lunar-web"), origin);
-  ctx.permissions.resetSite(url);
+  await ctx.permissions.resetSite(url);
   ctx.shield.clearSiteDiagnostics(url);
 });
 handle("permissions:reset", (ctx) => ctx.permissions.reset());
@@ -304,7 +495,7 @@ handle("privacy:clearSiteData", async (ctx) => {
   for (const tab of ctx.tabs.getAllTabs()) ctx.tabs.stopLoading(tab.id);
   const webSession = session.fromPartition("persist:lunar-web");
   await clearWebSessionData(webSession);
-  ctx.permissions.reset();
+  await ctx.permissions.reset();
   ctx.shield.clearSiteDiagnostics();
 });
 handle(
@@ -408,7 +599,7 @@ async function createWindow() {
   let restoring = true;
   const sessions = new SessionSaver(storage, reportOwned);
   const shortcut = (action: Shortcut) => sendOwned("browser:shortcut", action);
-  const tabs = new TabManager(window, {
+  const tabs: TabManager = new TabManager(window, {
     session: webSession,
     settings: () => storage.getSettings(),
     onNavigate: (item) => storage.addHistory(item),
@@ -418,10 +609,11 @@ async function createWindow() {
     },
     onError: reportOwned,
     onExternal: (url) => openExternalConfirmed(window, url),
-    onPopupBlocked: () => shield.recordPopup(),
+    onPopupBlocked: (url) => shield.recordPopup(url),
+    shouldBlockPopup: (url) => shield.shouldBlockPopup(url),
     onShortcut: shortcut,
   });
-  const shield = new LunarShield(
+  const shield: LunarShield = new LunarShield(
     webSession,
     profile(),
     () => storage.getSettings().shield,
@@ -429,8 +621,17 @@ async function createWindow() {
     (state) => sendOwned("shield:updated", state),
     () => tabs.getActiveTab()?.info.url ?? "",
   );
-  const permissions = new PermissionManager(webSession, window, (id) =>
-    tabs.isActiveWebContents(id),
+  await shield.ready;
+  const permissions = new PermissionManager(
+    webSession,
+    window,
+    (id) => tabs.isActiveWebContents(id),
+    {
+      get: () => shield.getPermissionPolicies(),
+      set: (origin, permission, mode) =>
+        shield.setPermission(origin, permission, mode),
+      reset: (origin) => shield.resetPermissionPolicies(origin),
+    },
   );
   const downloads = new DownloadManager(webSession, storage, {
     owns: (id) => tabs.ownsWebContents(id),
@@ -531,20 +732,44 @@ async function createWindow() {
   window.on("show", reportActivity);
   window.on("hide", reportActivity);
   window.once("ready-to-show", () => window.show());
-  window.on("close", () => {
+  let closing = false,
+    shutdownReady = false;
+  window.on("close", (event) => {
+    if (shutdownReady) return;
+    event.preventDefault();
+    if (closing) return;
+    closing = true;
     sessions.dispose(tabs.sessionState());
-    // Detach/destroy native children before their owning BrowserWindow goes away.
     ai.dispose();
     tabs.dispose();
     downloads.dispose();
     extensions.dispose();
-    shield.dispose();
     permissions.dispose();
+    void shield
+      .dispose()
+      .catch((error) => {
+        console.warn(
+          error instanceof Error
+            ? error.message
+            : "Protection statistics could not be flushed on exit.",
+        );
+      })
+      .finally(() => {
+        shutdownReady = true;
+        if (!window.isDestroyed()) window.close();
+      });
   });
   window.once("closed", () => {
     if (context?.window === window) context = null;
   });
   await loadShellWindow(window, entryUrl);
+  void shield
+    .updateDueLists()
+    .catch((error) =>
+      reportOwned(
+        error instanceof Error ? error.message : "Filter update failed.",
+      ),
+    );
 }
 const lock = app.requestSingleInstanceLock();
 if (!lock) app.quit();

@@ -45,6 +45,14 @@ export interface FilterListStatus {
   source?: string;
   license?: string;
   error?: string;
+  description?: string;
+  category?: import("../shared/shield").SourceCategory;
+  format?: import("../shared/shield").SourceFormat;
+  rejected?: number;
+  ignored?: number;
+  checkedAt?: number | null;
+  updating?: boolean;
+  custom?: boolean;
 }
 export interface BlockDiagnostic {
   hostname: string;
@@ -56,6 +64,7 @@ export interface BlockDiagnostic {
 }
 export interface ShieldSiteState {
   hostname: string;
+  origin?: string;
   enabled: boolean;
   blocked: number;
   cookies: number;
@@ -69,6 +78,9 @@ export interface SitePrivacy {
   denials: string[];
 }
 export interface ShieldState {
+  customRulesEnabled?: number;
+  /** Present on Shield 2.0 native snapshots; absent in an unconnected renderer preview. */
+  protection?: import("../shared/shield").ShieldProtectionState;
   settings: import("../shared/schemas").ShieldSettings;
   stats: ShieldStats;
   lists: FilterListStatus[];

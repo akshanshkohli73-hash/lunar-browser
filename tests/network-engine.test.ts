@@ -121,7 +121,7 @@ describe("Ghostery network-only ABP integration", () => {
         "https://metrics.example.co.uk/beacon",
         "https://shop.example.co.uk",
         "xhr",
-        { ...strict, allowlist: ["example.co.uk"] },
+        { ...strict, allowlist: ["shop.example.co.uk"] },
       ),
     ).toBeNull();
     expect(

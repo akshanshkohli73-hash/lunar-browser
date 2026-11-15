@@ -42,7 +42,8 @@ interface TabOptions {
   onChanged?: (state: SessionState) => void;
   onError: (message: string) => void;
   onExternal: (url: string) => Promise<void>;
-  onPopupBlocked: () => void;
+  onPopupBlocked: (url: string) => void;
+  shouldBlockPopup?: (url: string) => boolean;
   onShortcut: (shortcut: Shortcut) => void;
 }
 export class TabManager {
@@ -108,11 +109,12 @@ export class TabManager {
     };
     wc.setWindowOpenHandler((details) => {
       if (
-        this.options.settings().shield.enabled &&
-        this.options.settings().shield.popups &&
+        (this.options.shouldBlockPopup?.(info.url) ??
+          (this.options.settings().shield.enabled &&
+            this.options.settings().shield.popups)) &&
         details.disposition === "new-window"
       ) {
-        this.options.onPopupBlocked();
+        this.options.onPopupBlocked(info.url);
       } else if (isWebUrl(details.url)) {
         try {
           this.createTab(details.url);

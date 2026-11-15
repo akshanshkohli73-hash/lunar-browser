@@ -4,7 +4,7 @@ import type { AppInfo } from "../../shared/api";
 import { useBrowser } from "../state/BrowserContext";
 import { KEYBOARD_SHORTCUTS } from "../state/control-center";
 import NotesView from "./NotesView";
-import ShieldPanel from "./ShieldPanel";
+const ShieldDashboard = lazy(() => import("./shield/ShieldDashboard"));
 import { Icon } from "./ui/Icon";
 const DashboardStudio = lazy(() => import("./dashboard/DashboardStudio"));
 export function WidgetsPage() {
@@ -36,26 +36,10 @@ export function WidgetsPage() {
   );
 }
 export function ShieldPage() {
-  const { siteForControls: site } = useBrowser();
   return (
-    <section className="internal-page control-page">
-      <header className="page-heading">
-        <div>
-          <span className="eyebrow">
-            Privacy, without promises we cannot keep
-          </span>
-          <h1>Lunar Shield</h1>
-          <p>
-            Network protection and real site controls.
-            {site
-              ? ` Site controls below apply to ${new URL(site).hostname}.`
-              : " Open a website for per-site controls."}
-          </p>
-        </div>
-        <Icon name="shield" size={28} />
-      </header>
-      <ShieldPanel url={site} />
-    </section>
+    <Suspense fallback={<p role="status">Opening privacy dashboard…</p>}>
+      <ShieldDashboard />
+    </Suspense>
   );
 }
 export function InformationPage({

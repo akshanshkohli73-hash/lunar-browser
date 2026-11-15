@@ -1,3 +1,4 @@
+import { checkNativeShield } from "./shield-native-checks.mjs";
 import { checkNativeAquaCoquette } from "./aqua-coquette-checks.mjs";
 import { checkNativeAquaTabs } from "./aqua-tabs-checks.mjs";
 import { checkNativeMaterialSwitch } from "./pearl-material-checks.mjs";
@@ -90,7 +91,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       executablePath: executable,
       args: [
         ...(packaged ? ["--lunar-native-test"] : [repo]),
-        "--host-resolver-rules=MAP ads.lunar-shield.test 127.0.0.1",
+        "--host-resolver-rules=MAP *.lunar-shield.test 127.0.0.1",
         // Deterministic software WebGL2 for CI only; never production launch flags.
         "--use-gl=angle",
         "--use-angle=swiftshader",
@@ -1474,6 +1475,15 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
     assert.equal(await fetchPixel(), "allowed");
     assert.equal(adHits, before + 1);
     await api("updateSettings", { shield: settings.shield });
+    await checkNativeShield({
+      electron,
+      ui,
+      api,
+      waitTab,
+      waitNative,
+      profile,
+      evidence,
+    });
     const fixture = await electron.evaluate(
       async ({ dialog, BrowserWindow }, folder) => {
         const oldOpen = dialog.showOpenDialog,
@@ -1954,6 +1964,16 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
     electron = undefined;
     await launch();
     const restored = await api("bootstrap");
+    assert.deepEqual(
+      restored.shield.protection.config,
+      saved.shield.protection.config,
+      "Shield rules, site overrides, subscriptions and permission choices survive native shutdown/restart",
+    );
+    assert.ok(
+      restored.shield.protection.statistics.periods.all.totals.blocked >=
+        saved.shield.protection.statistics.periods.all.totals.blocked,
+      "Only genuine persisted protection aggregates survive restart",
+    );
     assert.equal(restored.settings.themeId, "pastel-forest");
     assert.equal(restored.dashboard.version, 4);
     assert.equal(restored.dashboard.glass.opacity, 0.66);

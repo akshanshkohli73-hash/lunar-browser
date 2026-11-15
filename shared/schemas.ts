@@ -13,7 +13,7 @@ export const destinationSchema = z
     (value) => isWebUrl(value) || isInternalUrl(value),
     "Use a supported HTTP, HTTPS or Lunar destination.",
   );
-const hostname = z
+export const hostnameSchema = z
   .string()
   .max(253)
   .refine((value) => {
@@ -33,6 +33,16 @@ const hostname = z
       return false;
     }
   }, "Use a hostname or bracketed IPv6 address, without a scheme or port.");
+export const shieldListIdSchema = z.union([
+  z.enum([
+    "lunar-core",
+    "stevenblack",
+    "easyprivacy",
+    "easylist",
+    "threat-intelligence",
+  ]),
+  z.string().regex(/^custom_[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/u),
+]);
 export const shieldSettingsSchema = z
   .object({
     enabled: z.boolean(),
@@ -41,15 +51,15 @@ export const shieldSettingsSchema = z
     telemetry: z.boolean(),
     social: z.boolean(),
     cryptomining: z.boolean(),
+    malware: z.boolean().default(false),
     popups: z.boolean(),
     mode: z.enum(["balanced", "strict"]),
     blockThirdPartyCookies: z.boolean(),
     httpsUpgrades: z.boolean(),
-    allowlist: z.array(hostname).max(500),
+    allowlist: z.array(hostnameSchema).max(500),
     filterLists: z
-      .array(z.enum(["lunar-core", "stevenblack", "easyprivacy"]))
-      .min(1)
-      .max(3)
+      .array(shieldListIdSchema)
+      .max(11)
       .refine(
         (ids) => new Set(ids).size === ids.length,
         "Choose each filter source only once.",

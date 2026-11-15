@@ -253,7 +253,7 @@ export default function NewTabDashboard({
             <Icon name="shield" size={14} />
             {api
               ? settings.shield.enabled
-                ? `Lunar Shield · ${shield?.stats.totalBlocked ?? 0} requests / popups blocked this session`
+                ? `Lunar Shield · ${shield?.stats.totalBlocked ?? 0} network requests blocked this session`
                 : "Lunar Shield is paused"
               : "Your Coquette desktop, made for the web."}
           </button>

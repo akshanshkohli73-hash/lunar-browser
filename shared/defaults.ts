@@ -6,6 +6,7 @@ export const DEFAULT_SHIELD: ShieldSettings = {
   telemetry: false,
   social: false,
   cryptomining: true,
+  malware: false,
   popups: true,
   mode: "balanced",
   blockThirdPartyCookies: true,

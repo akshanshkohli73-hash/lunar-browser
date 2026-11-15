@@ -4,13 +4,16 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Session } from "electron";
 import { DEFAULT_SHIELD } from "../shared/defaults";
+import { compileSource } from "../electron/blocker/filter-engine";
 import type { ShieldSettings } from "../electron/types";
 const network = vi.hoisted(() => ({
   fetch: vi.fn<(url: string, options: RequestInit) => Promise<Response>>(),
 }));
 vi.mock("electron", () => ({ net: { fetch: network.fetch } }));
 const { LunarShield } = await import("../electron/blocker/shield");
-type Details = { url: string; webContentsId: number; resourceType: string };
+type Details = { id: number; url: string; webContentsId: number; resourceType: string };
+let sequence = 0;
+let completed: ((details: { id: number }) => void) | null, failed: ((details: { id: number; error: string }) => void) | null;
 type Decision = { cancel?: boolean; redirectURL?: string };
 type HeaderDetails = Details & {
   requestHeaders: Record<string, string>;
@@ -39,6 +42,8 @@ let callback:
 const session = () =>
   ({
     webRequest: {
+      onCompleted: (filter: unknown, handler: typeof completed) => { completed = filter === null ? null : handler; },
+      onErrorOccurred: (filter: unknown, handler: typeof failed) => { failed = filter === null ? null : handler; },
       onBeforeSendHeaders: (filter: unknown, handler: typeof beforeHeaders) => {
         beforeHeaders = filter === null ? null : handler;
       },
@@ -59,6 +64,7 @@ const create = () =>
     () => "https://example.com",
     () => {},
     () => "https://example.com",
+    { compile: async (text, format) => compileSource(text, format) },
   );
 const fixtures = async (url: string) =>
   new Response(
@@ -68,28 +74,33 @@ const fixtures = async (url: string) =>
         ? "@@||privacy-tracker.net/allowed.js$script"
         : "||privacy-tracker.net^$script,third-party",
   );
-beforeEach(() => {
+beforeEach(async () => {
+  sequence = 0;
   profile = fs.mkdtempSync(path.join(os.tmpdir(), "lunar-shield-"));
   settings = structuredClone(DEFAULT_SHIELD);
   network.fetch.mockReset().mockImplementation(fixtures);
   shield = create();
+  await shield.ready;
 });
-afterEach(() => {
-  shield.dispose();
+afterEach(async () => {
+  await shield.dispose();
   vi.restoreAllMocks();
   fs.rmSync(profile, { recursive: true, force: true });
 });
 const intercept = (url: string, resourceType = "script"): Decision => {
   let decision: Decision | undefined;
-  callback!({ url, webContentsId: 7, resourceType }, (result) => {
+  const id = ++sequence;
+  callback!({ id, url, webContentsId: 7, resourceType }, (result) => {
     decision = result;
   });
   if (!decision)
     throw new Error("Electron's completion callback was not invoked.");
+  if (decision.cancel) failed!({ id, error: "net::ERR_BLOCKED_BY_CLIENT" }); else completed!({ id });
   return decision;
 };
 const request = (url: string) => intercept(url).cancel ?? false;
 const headers = (url = "https://remote.example.net/pixel", type = "image") => ({
+  id: ++sequence,
   url,
   resourceType: type,
   webContentsId: 7,
@@ -163,7 +174,7 @@ describe("Shield interception and real cache state", () => {
     await shield.refresh();
     expect(shield.getState().lists[1].error).toContain("503");
     expect(request("https://remote-tracker.test/y")).toBe(true);
-    expect(fs.existsSync(path.join(profile, "filter-cache.json"))).toBe(true);
+    expect(fs.existsSync(path.join(profile, "shield-list-stevenblack.json"))).toBe(true);
   });
   it("uses the disclosed EasyPrivacy subset, respects its exceptions, reuses its cache after restart and retains it after invalid/oversized updates", async () => {
     settings.filterLists = ["easyprivacy"];
@@ -183,18 +194,19 @@ describe("Shield interception and real cache state", () => {
     expect(request("https://privacy-tracker.net/a.js")).toBe(true);
     expect(request("https://privacy-tracker.net/allowed.js")).toBe(false);
     const cached = fs.readFileSync(
-      path.join(profile, "privacy-filter-cache.json"),
+      path.join(profile, "shield-list-easyprivacy.json"),
       "utf8",
     );
-    shield.dispose();
+    await shield.dispose();
     shield = create();
+    await shield.ready;
     expect(request("https://privacy-tracker.net/another.js")).toBe(true);
     expect(network.fetch).toHaveBeenCalledTimes(4);
     network.fetch.mockImplementation(
       async () => new Response("<html>not a list</html>"),
     );
     await shield.refresh();
-    expect(shield.getState().lists[2].error).toContain("Invalid");
+    expect(shield.getState().lists[2].error).toContain("valid raw filter text");
     expect(request("https://privacy-tracker.net/a.js")).toBe(true);
     network.fetch.mockResolvedValueOnce(
       new Response(
@@ -202,7 +214,7 @@ describe("Shield interception and real cache state", () => {
       ),
     );
     await shield.refresh();
-    expect(shield.getState().lists[2].error).toContain("Invalid");
+    expect(shield.getState().lists[2].error).toContain("valid raw filter text");
     expect(request("https://privacy-tracker.net/a.js")).toBe(true);
     network.fetch.mockImplementation(
       async () =>
@@ -211,16 +223,15 @@ describe("Shield interception and real cache state", () => {
     await shield.refresh();
     expect(shield.getState().lists[2].error).toContain("size limit");
     expect(
-      fs.readFileSync(path.join(profile, "privacy-filter-cache.json"), "utf8"),
+      fs.readFileSync(path.join(profile, "shield-list-easyprivacy.json"), "utf8"),
     ).toBe(cached);
   });
   it("does not replace active rules if saving an update fails", async () => {
     settings.filterLists = ["easyprivacy"];
     await shield.refresh();
-    const rename = fs.renameSync;
-    vi.spyOn(fs, "renameSync").mockImplementation((from, to) => {
-      if (String(to).endsWith("privacy-filter-cache.json"))
-        throw new Error("EACCES");
+    const rename = fs.promises.rename;
+    vi.spyOn(fs.promises, "rename").mockImplementation(async (from, to) => {
+      if (String(to).endsWith("shield-list-easyprivacy.json")) throw new Error("EACCES");
       return rename(from, to);
     });
     network.fetch.mockImplementation(
@@ -231,7 +242,7 @@ describe("Shield interception and real cache state", () => {
     expect(request("https://privacy-tracker.net/a.js")).toBe(true);
     expect(request("https://new-tracker.net/a.js")).toBe(false);
   });
-  it("never downloads automatically and shares one explicit concurrent refresh operation", async () => {
+  it("does not download before explicit source opt-in and shares one concurrent refresh operation", async () => {
     expect(network.fetch).not.toHaveBeenCalled();
     await expect(shield.refresh()).rejects.toThrow(
       "Select a maintained source",
@@ -286,7 +297,7 @@ describe("scoped network privacy policies", () => {
       expect(responseHeaders["sEt-CoOkIe"]).toBeDefined(),
     );
   });
-  it("upgrades only an opted-in eligible navigation and releases all three listeners on disposal", () => {
+  it("upgrades only an opted-in eligible navigation and releases all five listeners on disposal", async () => {
     expect(intercept("http://public.example.org/", "mainFrame")).toEqual({
       cancel: false,
     });
@@ -297,11 +308,13 @@ describe("scoped network privacy policies", () => {
     expect(intercept("http://127.0.0.1/path", "mainFrame")).toEqual({
       cancel: false,
     });
-    settings.allowlist = ["example.org"];
+    settings.allowlist = ["public.example.org"];
     expect(intercept("http://public.example.org/", "mainFrame")).toEqual({
       cancel: false,
     });
-    shield.dispose();
+    await shield.dispose();
+    expect(completed).toBeNull();
+    expect(failed).toBeNull();
     expect(callback).toBeNull();
     expect(beforeHeaders).toBeNull();
     expect(afterHeaders).toBeNull();

@@ -2828,3 +2828,739 @@ html[data-reduced-motion="true"] .lunar-dock .lunar-dock-art {
     background: Highlight;
   }
 }
+
+/* Shield 2.0: the retained Aqua material system, stable geometry and readable ink.
+   These are controls/data surfaces, never a new optical renderer or SVG filter. */
+.shield-dashboard {
+  max-width: 1220px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--lunar-text);
+  user-select: text;
+}
+.shield-dashboard .page-heading {
+  margin-bottom: 22px;
+}
+.shield-emblem {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  color: var(--lunar-text);
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--lunar-secondary) 40%, var(--lunar-surface)),
+    var(--lunar-surface)
+  );
+  border: 1px solid var(--lunar-border);
+  border-radius: 18px;
+  box-shadow: inset 0 1px 0 #ffffff66;
+}
+.shield-hero.glass-panel {
+  padding: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  margin-bottom: 24px;
+  border-radius: 22px;
+}
+.shield-hero h2 {
+  margin: 8px 0 10px;
+  font-size: clamp(24px, 2.6vw, 34px);
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+}
+.shield-hero p,
+.shield-hero small {
+  color: var(--lunar-text-muted);
+}
+.shield-hero-status {
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+  text-align: right;
+}
+.shield-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 13px;
+  border-radius: 100px;
+  border: 1px solid var(--lunar-border);
+  color: var(--lunar-text);
+  background: color-mix(
+    in srgb,
+    var(--lunar-secondary) 30%,
+    var(--lunar-surface)
+  );
+  font-weight: 600;
+  white-space: nowrap;
+}
+.shield-status-pill::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--lunar-primary);
+}
+.shield-status-pill[data-state="off"]::before {
+  background: var(--lunar-text-muted);
+}
+.shield-workspace {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+.shield-navigation {
+  display: grid;
+  gap: 5px;
+  position: sticky;
+  top: 0;
+}
+.shield-navigation button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: var(--lunar-text-muted);
+  transition:
+    background-color 0.14s,
+    border-color 0.14s;
+}
+.shield-navigation button[aria-current="page"] {
+  color: var(--lunar-text);
+  background: var(--lunar-surface);
+  border-color: var(--lunar-border);
+  font-weight: 600;
+  box-shadow: 0 3px 12px
+    color-mix(in srgb, var(--lunar-primary) 5%, transparent);
+}
+.shield-navigation button:hover {
+  background: var(--lunar-surface-hover);
+  color: var(--lunar-text);
+}
+.shield-content {
+  min-width: 0;
+}
+.shield-content h2 {
+  font-size: 21px;
+  font-weight: 500;
+  line-height: 1.35;
+  margin: 4px 0 13px;
+  letter-spacing: -0.015em;
+}
+.shield-content h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 24px 0 10px;
+}
+.shield-content p {
+  margin: 10px 0 15px;
+}
+.shield-fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.shield-fieldset:disabled {
+  opacity: 0.8;
+}
+.shield-dashboard button,
+.shield-compact button {
+  min-height: 40px;
+}
+.shield-dashboard button:focus-visible,
+.shield-compact button:focus-visible,
+.shield-dashboard input:focus-visible,
+.shield-compact input:focus-visible,
+.shield-dashboard select:focus-visible,
+.shield-compact summary:focus-visible,
+.shield-dashboard textarea:focus-visible,
+.shield-dashboard summary:focus-visible {
+  outline: 2px solid var(--lunar-primary);
+  outline-offset: 3px;
+}
+.shield-period {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin: 0 0 18px;
+  color: var(--lunar-text-muted);
+  font-size: 12px;
+}
+.shield-period select {
+  min-height: 38px;
+}
+.shield-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.shield-section-title > div {
+  flex: 1;
+  min-width: 180px;
+}
+.shield-section-title h2,
+.shield-section-title h3 {
+  margin-bottom: 6px;
+}
+.shield-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+}
+.shield-metric {
+  min-width: 0;
+  margin: 0;
+  padding: 17px 18px;
+  border: 1px solid var(--lunar-border);
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--lunar-surface) 92%, transparent);
+}
+.shield-metric dt {
+  font-size: 11px;
+  color: var(--lunar-text-muted);
+}
+.shield-metric dd {
+  font-size: 28px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  margin: 4px 0 0;
+  line-height: 1.3;
+  color: var(--lunar-text);
+  overflow-wrap: anywhere;
+}
+.shield-metric small {
+  display: block;
+  margin-top: 6px;
+  color: var(--lunar-text-muted);
+  font-size: 10px;
+}
+.shield-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 58px;
+  gap: 22px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--lunar-border);
+}
+.shield-switch > span {
+  min-width: 0;
+}
+.shield-switch strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+}
+.shield-switch small {
+  display: block;
+  font-size: 11px;
+  color: var(--lunar-text-muted);
+  max-width: 520px;
+  line-height: 1.6;
+  margin-top: 4px;
+}
+.shield-switch input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  accent-color: var(--lunar-primary);
+}
+.shield-switch select {
+  min-width: 96px;
+  max-width: 220px;
+}
+.shield-fineprint {
+  font-size: 11px;
+  color: var(--lunar-text-muted);
+  line-height: 1.75;
+}
+.shield-notice,
+.shield-error,
+.shield-empty {
+  padding: 13px 15px;
+  border: 1px solid var(--lunar-border);
+  border-radius: 12px;
+  font-size: 12px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+.shield-notice {
+  background: color-mix(
+    in srgb,
+    var(--lunar-secondary) 12%,
+    var(--lunar-surface)
+  );
+}
+.shield-error {
+  background: var(--lunar-surface);
+  border-color: currentColor;
+  font-weight: 500;
+}
+.shield-empty {
+  color: var(--lunar-text-muted);
+  border-style: dashed;
+  background: transparent;
+}
+.shield-origin {
+  display: grid;
+  gap: 5px;
+  overflow-wrap: anywhere;
+}
+.shield-origin strong {
+  font-weight: 500;
+}
+.shield-origin-picker {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 25px;
+  padding: 14px;
+  border: 1px solid var(--lunar-border);
+  border-radius: 14px;
+}
+.shield-origin-picker > label {
+  display: grid;
+  gap: 6px;
+  flex: 1;
+  min-width: 180px;
+  font-size: 11px;
+  color: var(--lunar-text-muted);
+}
+.shield-origin-picker input {
+  width: 100%;
+  color: var(--lunar-text);
+}
+.shield-origin-picker > p {
+  flex-basis: 100%;
+  margin: 0;
+}
+.shield-site-controls > button {
+  margin: 13px 0;
+}
+.shield-activity,
+.shield-rule-list,
+.shield-allowances,
+.shield-cookie-list,
+.shield-plain-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+}
+.shield-activity > li,
+.shield-rule-list > li {
+  padding: 13px 15px;
+  margin-bottom: 9px;
+  border: 1px solid var(--lunar-border);
+  border-radius: 13px;
+  background: var(--lunar-surface);
+  min-width: 0;
+}
+.shield-activity summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 16px;
+  cursor: pointer;
+  min-height: 34px;
+}
+.shield-activity summary strong {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.shield-activity summary span,
+.shield-activity p {
+  font-size: 11px;
+  color: var(--lunar-text-muted);
+}
+.shield-activity details[open] summary {
+  border-bottom: 1px solid var(--lunar-border);
+  padding-bottom: 10px;
+}
+.shield-activity details > button {
+  margin-top: 12px;
+}
+.shield-rule {
+  display: block;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font:
+    11px/1.8 ui-monospace,
+    monospace;
+  user-select: text;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--lunar-bg-secondary);
+  color: var(--lunar-text);
+}
+.shield-allowances > li,
+.shield-cookie-list > li,
+.shield-plain-list > li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  border-bottom: 1px solid var(--lunar-border);
+  padding: 11px 0;
+  overflow-wrap: anywhere;
+}
+.shield-allowances code,
+.shield-cookie-list code {
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.shield-list-stack {
+  display: grid;
+  gap: 14px;
+  margin: 20px 0;
+}
+.shield-source-card {
+  border: 1px solid var(--lunar-border);
+  border-radius: 16px;
+  background: var(--lunar-surface);
+  padding: 5px 18px 17px;
+}
+.shield-source-card .shield-switch {
+  border-bottom: 0;
+}
+.shield-source-card p {
+  margin: 8px 0;
+}
+.shield-source-facts {
+  display: flex;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--lunar-text-muted);
+}
+.shield-source-facts > span + span {
+  border-left: 1px solid var(--lunar-border);
+  padding-left: 16px;
+}
+.shield-source-url {
+  font:
+    10px/1.7 ui-monospace,
+    monospace;
+  overflow-wrap: anywhere;
+  color: var(--lunar-text-muted);
+}
+.shield-editor {
+  display: grid;
+  gap: 12px;
+  margin: 24px 0;
+  padding: 18px;
+  border: 1px solid var(--lunar-border);
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--lunar-surface) 88%, transparent);
+}
+.shield-editor h3 {
+  margin: 0 0 5px;
+}
+.shield-editor > label:not(.shield-switch):not(.shield-data-choice) {
+  display: grid;
+  gap: 7px;
+  font-size: 12px;
+}
+.shield-editor input:not([type="checkbox"]),
+.shield-editor textarea,
+.shield-editor select {
+  width: 100%;
+  min-width: 0;
+}
+.shield-editor textarea {
+  min-height: 80px;
+  resize: vertical;
+  font:
+    12px/1.7 ui-monospace,
+    monospace;
+}
+.shield-editor .shield-switch {
+  padding-block: 4px;
+  border-bottom: 0;
+  min-height: 36px;
+}
+.shield-editor .shield-fineprint,
+.shield-editor .shield-notice {
+  margin: 0;
+}
+.shield-rule-list .shield-switch {
+  border-bottom: 0;
+  padding-block: 0;
+  min-height: 35px;
+  margin-bottom: 10px;
+}
+.shield-rule-list .button-row {
+  margin-top: 10px;
+}
+.shield-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+}
+.shield-search input {
+  min-width: 80px;
+  max-width: 180px;
+}
+.shield-data-choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+}
+.shield-data-choice input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--lunar-primary);
+}
+.shield-table-scroll {
+  overflow-x: auto;
+}
+.shield-statistics-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  margin-block: 18px;
+}
+.shield-statistics-table caption {
+  text-align: left;
+  color: var(--lunar-text-muted);
+  font-size: 11px;
+  padding-bottom: 12px;
+}
+.shield-statistics-table th,
+.shield-statistics-table td {
+  text-align: right;
+  padding: 13px 12px;
+  border-bottom: 1px solid var(--lunar-border);
+  font-weight: 400;
+}
+.shield-statistics-table th:first-child {
+  text-align: left;
+}
+.shield-statistics-table thead th {
+  color: var(--lunar-text-muted);
+  font-size: 11px;
+}
+.shield-count-bar {
+  display: inline-block;
+  min-width: 65px;
+  padding: 3px 7px;
+  background: linear-gradient(
+    to right,
+    var(--lunar-surface-hover) var(--shield-fraction),
+    transparent var(--shield-fraction)
+  );
+  border-radius: 4px;
+}
+.shield-compact {
+  max-width: 470px;
+  color: var(--lunar-text);
+  font-size: 12px;
+  line-height: 1.65;
+  user-select: text;
+}
+.shield-compact-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 14px;
+}
+.shield-compact-heading h3 {
+  font-size: 17px;
+  font-weight: 500;
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+}
+.shield-compact-heading p {
+  color: var(--lunar-text-muted);
+  font-size: 11px;
+  margin: 0;
+}
+.shield-compact .eyebrow {
+  font-size: 9px;
+}
+.shield-compact .shield-origin {
+  font-size: 10px;
+  margin-top: 10px;
+}
+.shield-compact .shield-origin .eyebrow {
+  display: none;
+}
+.shield-compact .shield-switch {
+  padding-block: 10px;
+  min-height: 48px;
+}
+.shield-compact .shield-switch small {
+  font-size: 10px;
+}
+.shield-metrics-compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-block: 12px;
+}
+.shield-metrics-compact .shield-metric {
+  padding: 12px;
+}
+.shield-metrics-compact dd {
+  font-size: 24px;
+}
+.shield-compact .shield-site-controls > button {
+  font-size: 10px;
+  padding: 4px 9px;
+  min-height: 32px;
+  margin: 8px 0;
+}
+.shield-compact-activity {
+  margin: 15px 0;
+}
+.shield-compact-activity > summary {
+  cursor: pointer;
+  min-height: 40px;
+  padding-block: 8px;
+}
+.shield-youtube-note {
+  margin-top: 10px;
+  padding: 0 12px 10px;
+  border: 1px solid var(--lunar-border);
+  border-radius: 12px;
+  background: var(--lunar-surface);
+}
+.shield-youtube-note p {
+  font-size: 10px;
+  color: var(--lunar-text-muted);
+}
+.shield-primary-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  margin: 16px 0 12px;
+  font-weight: 500;
+}
+.shield-primary-button svg:last-child {
+  margin-left: auto;
+}
+.lunar-modal:has(.shield-compact) {
+  width: min(500px, 100%);
+}
+[data-shield-state="paused"] .shield-counter {
+  color: var(--lunar-text-muted);
+}
+[data-shield-state="on"] .shield-counter {
+  color: var(--lunar-primary);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 900px) {
+  .shield-dashboard {
+    padding: 22px;
+  }
+  .shield-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+  .shield-navigation {
+    position: static;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  .shield-navigation button {
+    padding: 8px 11px;
+    min-height: 40px;
+  }
+}
+@media (max-width: 560px) {
+  .shield-dashboard {
+    padding: 16px;
+  }
+  .shield-hero.glass-panel {
+    padding: 19px;
+    flex-wrap: wrap;
+  }
+  .shield-hero-status {
+    justify-items: start;
+    text-align: left;
+  }
+  .shield-switch {
+    gap: 10px;
+  }
+  .shield-switch select {
+    max-width: 150px;
+  }
+  .shield-metric {
+    padding: 13px;
+  }
+  .shield-metric dd {
+    font-size: 24px;
+  }
+  .shield-source-card {
+    padding-inline: 13px;
+  }
+}
+@media (pointer: coarse) {
+  .shield-dashboard button,
+  .shield-compact button,
+  .shield-compact .shield-site-controls > button,
+  .shield-navigation button,
+  .shield-dashboard summary,
+  .shield-compact summary {
+    min-height: 44px;
+  }
+  .shield-switch input[type="checkbox"] {
+    width: 24px;
+    height: 24px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shield-navigation button {
+    transition: none;
+  }
+}
+html[data-reduced-motion="true"] .shield-navigation button {
+  transition: none;
+}
+@media (forced-colors: active) {
+  .shield-emblem,
+  .shield-status-pill,
+  .shield-metric,
+  .shield-source-card,
+  .shield-notice,
+  .shield-error,
+  .shield-activity > li,
+  .shield-rule-list > li,
+  .shield-editor {
+    border-color: CanvasText;
+    background: Canvas;
+    color: CanvasText;
+    box-shadow: none;
+  }
+  .shield-navigation button[aria-current="page"] {
+    outline: 2px solid Highlight;
+  }
+  .shield-status-pill::before {
+    background: CanvasText;
+  }
+}

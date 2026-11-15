@@ -73,20 +73,20 @@ export default function App({
       ? active.url.slice(8)
       : "browser";
   const loadedRuleCount =
-    shield?.lists
-      .filter((list) =>
-        settings.shield.filterLists.includes(
-          list.id as "lunar-core" | "stevenblack" | "easyprivacy",
-        ),
-      )
-      .reduce((sum, list) => sum + list.ruleCount, 0) ?? 0;
+    (shield?.lists
+      .filter((list) => settings.shield.filterLists.includes(list.id))
+      .reduce((sum, list) => sum + list.ruleCount, 0) ?? 0) +
+    (shield?.customRulesEnabled ?? 0);
   const activeHostname =
     active && isWebUrl(active.url) ? new URL(active.url).hostname : "";
+  const activeOrigin =
+    active && isWebUrl(active.url) ? new URL(active.url).origin : "";
+  const shieldSiteKnown =
+    !!activeOrigin && shield?.site?.origin === activeOrigin;
   const shieldPaused =
     !settings.shield.enabled ||
-    settings.shield.allowlist.some(
-      (host) => activeHostname === host || activeHostname.endsWith(`.${host}`),
-    );
+    settings.shield.allowlist.includes(activeHostname) ||
+    (shieldSiteKnown && shield?.site?.enabled === false);
   const onboarding = !!api && ready && settings.isFirstRun;
   const showNative =
     isVisible &&
@@ -323,11 +323,16 @@ export default function App({
           <button
             className="icon-button"
             aria-label="Lunar Shield"
+            data-shield-state={
+              shieldPaused ? "paused" : !loadedRuleCount ? "no-rules" : "on"
+            }
             data-liquid-trigger="modal-Lunar Shield"
             title={
               shieldPaused
                 ? "Lunar Shield is paused for this site"
-                : "Show actual network-filter decisions"
+                : !loadedRuleCount
+                  ? "No network rules are currently available"
+                  : "Show confirmed network blocks and exact-site controls"
             }
             aria-expanded={shieldOpen}
             onClick={() => setShieldOpen((current) => !current)}
@@ -339,9 +344,11 @@ export default function App({
                 ? "Off"
                 : !loadedRuleCount
                   ? "No rules"
-                  : shield?.site?.hostname === activeHostname
-                    ? shield.site.blocked
-                    : (shield?.stats.totalBlocked ?? 0)}
+                  : activeOrigin
+                    ? shieldSiteKnown
+                      ? shield!.site!.blocked
+                      : "…"
+                    : "On"}
             </span>
           </button>
           <button
@@ -505,7 +512,10 @@ export default function App({
               title="Lunar Shield"
               onClose={() => setShieldOpen(false)}
             >
-              <ShieldPanel url={active?.url ?? ""} />
+              <ShieldPanel
+                url={active?.url ?? ""}
+                onDashboard={() => setShieldOpen(false)}
+              />
             </Modal>
           )}
           {tabMenu && (

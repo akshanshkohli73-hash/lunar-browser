@@ -6,6 +6,7 @@ export async function buildElectron() {
     entryPoints: {
       "main/index": "electron/main/index.ts",
       "preload/index": "electron/preload/index.ts",
+      "blocker/compile-worker": "electron/blocker/compile-worker.ts",
     },
     outdir: "dist/electron",
     outExtension: { ".js": ".cjs" },

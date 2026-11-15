@@ -7,31 +7,50 @@ import {
 } from "electron";
 import { externalDestination } from "../../shared/navigation";
 import { permissionKind, secureOrigin } from "./policy";
+import {
+  permissionKeySchema,
+  permissionModeSchema,
+  PERMISSION_LABELS,
+  type PermissionEntry,
+  type PermissionKey,
+  type PermissionMode,
+} from "../../shared/shield";
 
+interface PermissionPolicyStore {
+  get(): PermissionEntry[];
+  set(
+    origin: string,
+    permission: PermissionKey,
+    mode: PermissionMode,
+  ): Promise<void>;
+  reset(origin?: string): Promise<void>;
+}
 export class PermissionManager {
   private grants = new Set<string>();
   private denials = new Set<string>();
   private pending = new Set<number>();
+  private epoch = 0;
   private disposed = false;
   constructor(
     private session: Session,
     private window: BrowserWindow,
     private active: (id: number) => boolean,
+    private policies?: PermissionPolicyStore,
   ) {
     session.setPermissionCheckHandler(
       (wc, permission, requestingOrigin, details) => {
         if (!wc || !details.isMainFrame || !this.eligible(wc, requestingOrigin))
           return false;
         const origin = secureOrigin(requestingOrigin)!;
-        const media = details.mediaType;
         if (permissionKind(permission) === "allow") return true;
-        if (permission === "media")
-          return (
-            !!media &&
-            media !== "unknown" &&
-            this.grants.has(`${origin}|media:${media}`)
-          );
-        return this.grants.has(`${origin}|${permission}`);
+        const key =
+          permission === "media"
+            ? details.mediaType && details.mediaType !== "unknown"
+              ? `media:${details.mediaType}`
+              : ""
+            : permission;
+        if (!permissionKeySchema.safeParse(key).success) return false;
+        return this.mode(origin, key as PermissionKey) === "allow";
       },
     );
     session.setPermissionRequestHandler((wc, permission, callback, details) => {
@@ -49,13 +68,22 @@ export class PermissionManager {
       }
       const keys =
         permission === "media"
-          ? (mediaTypes ?? []).map((type) => `${origin}|media:${type}`)
-          : [`${origin}|${permission}`];
-      if (keys.some((key) => this.denials.has(key))) {
+          ? [...new Set(mediaTypes ?? [])].map(
+              (type) => `media:${type}` as PermissionKey,
+            )
+          : [permission as PermissionKey];
+      if (
+        !keys.length ||
+        keys.some(
+          (key) =>
+            !permissionKeySchema.safeParse(key).success ||
+            this.mode(origin, key) === "block",
+        )
+      ) {
         callback(false);
         return;
       }
-      if (keys.every((key) => this.grants.has(key))) {
+      if (keys.every((key) => this.mode(origin, key) === "allow")) {
         callback(true);
         return;
       }
@@ -63,27 +91,34 @@ export class PermissionManager {
         callback(false);
         return;
       }
-      const contentsId = wc.id;
+      const contentsId = wc.id,
+        epoch = this.epoch;
       this.pending.add(contentsId);
       void dialog
         .showMessageBox(window, {
           type: "question",
           title: "Site permission",
-          message: `Allow ${permission === "media" ? (mediaTypes ?? []).map((type) => (type === "audio" ? "microphone" : "camera")).join(" and ") : permission.replaceAll("-", " ")}?`,
-          detail: `${origin}\nOnly this origin, for this application session. You can reset grants in Preferences.`,
+          message: `Allow ${keys.map((key) => PERMISSION_LABELS[key]).join(" and ")}?`,
+          detail: `${origin}\nOnly this secure main-frame origin, for this application session. Persistent choices are managed in Lunar Shield.`,
           buttons: ["Block", "Allow for this session"],
           defaultId: 0,
           cancelId: 0,
           noLink: true,
         })
         .then((result) => {
-          const granted =
-            result.response === 1 &&
+          const current =
+            epoch === this.epoch &&
             this.eligible(wc, origin) &&
-            secureOrigin(wc.getURL()) === origin;
-          if (granted) keys.forEach((key) => this.grants.add(key));
-          else if (result.response === 0)
-            keys.forEach((key) => this.denials.add(key));
+            keys.every((key) => this.mode(origin, key) !== "block");
+          const granted = result.response === 1 && current;
+          if (granted)
+            keys.forEach((key) =>
+              this.remember(this.grants, `${origin}|${key}`),
+            );
+          else if (current && result.response === 0)
+            keys.forEach((key) =>
+              this.remember(this.denials, `${origin}|${key}`),
+            );
           callback(granted);
         })
         .catch(() => callback(false))
@@ -91,6 +126,21 @@ export class PermissionManager {
     });
     session.setDevicePermissionHandler(() => false);
     session.setDisplayMediaRequestHandler((_request, callback) => callback({}));
+  }
+  private remember(collection: Set<string>, key: string) {
+    if (collection.size >= 2048 && !collection.has(key))
+      collection.delete(collection.values().next().value!);
+    collection.add(key);
+  }
+  private mode(origin: string, permission: PermissionKey): PermissionMode {
+    const key = `${origin}|${permission}`,
+      saved = this.policies
+        ?.get()
+        .find(
+          (entry) => entry.origin === origin && entry.permission === permission,
+        )?.mode;
+    if (saved === "block" || this.denials.has(key)) return "block";
+    return saved === "allow" || this.grants.has(key) ? "allow" : "ask";
   }
   private eligible(wc: WebContents, requestingUrl: string): boolean {
     if (
@@ -107,43 +157,125 @@ export class PermissionManager {
   }
   public status(input: string) {
     const origin = secureOrigin(input);
-    const prefix = `${origin}|`;
+    const permissions = permissionKeySchema.options;
     return {
-      grants: [...this.grants]
-        .filter((key) => origin && key.startsWith(prefix))
-        .map((key) => key.slice(prefix.length)),
-      denials: [...this.denials]
-        .filter((key) => origin && key.startsWith(prefix))
-        .map((key) => key.slice(prefix.length)),
+      grants: origin
+        ? permissions.filter(
+            (permission) => this.mode(origin, permission) === "allow",
+          )
+        : [],
+      denials: origin
+        ? permissions.filter(
+            (permission) => this.mode(origin, permission) === "block",
+          )
+        : [],
     };
   }
-  public denySite(input: string, permission: string, deny: boolean) {
+  /** Explicit persistent Allow always passes through native, origin-labelled confirmation.
+   * A web page cannot reach this operation; main also validates the shell sender.
+   */
+  public async setSitePolicy(
+    input: string,
+    permission: PermissionKey,
+    mode: PermissionMode,
+  ) {
+    permissionKeySchema.parse(permission);
+    permissionModeSchema.parse(mode);
     const origin = secureOrigin(input);
     if (!origin)
       throw new Error(
         "Permissions can be configured only for a secure website origin.",
       );
+    if (this.disposed || this.window.isDestroyed())
+      throw new Error("The permission service is closing.");
+    const epoch = ++this.epoch;
+    if (mode === "allow") {
+      if (!this.window.isVisible() || this.window.isMinimized())
+        throw new Error(
+          "Bring Lunar to the foreground before confirming sensitive access.",
+        );
+      const result = await dialog.showMessageBox(this.window, {
+        type: "warning",
+        title: "Remember sensitive permission?",
+        message: `Always allow ${PERMISSION_LABELS[permission]} for ${origin}?`,
+        detail:
+          "Only this secure, active, visible main-frame origin may use this permission. The operating system may request additional consent. This persists until you choose Ask, Block or reset. Existing capture may continue until its page is closed or reloaded.",
+        buttons: ["Cancel", "Allow this origin"],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true,
+      });
+      if (
+        result.response !== 1 ||
+        epoch !== this.epoch ||
+        this.disposed ||
+        this.window.isDestroyed() ||
+        !this.window.isVisible() ||
+        this.window.isMinimized()
+      )
+        throw new Error(
+          "The permission change was cancelled or the page policy changed.",
+        );
+    }
+    if (this.policies) await this.policies.set(origin, permission, mode);
+    if (this.disposed || epoch !== this.epoch) return;
     const key = `${origin}|${permission}`;
     this.grants.delete(key);
-    if (deny) this.denials.add(key);
+    this.denials.delete(key);
+    // The optional in-memory store keeps adapters/tests useful without persistence.
+    if (!this.policies && mode === "allow") this.remember(this.grants, key);
+    if (mode === "block") this.remember(this.denials, key);
+  }
+  /** Legacy session-only deny/ask adapter; the trusted UI now uses setSitePolicy. */
+  public denySite(input: string, permission: string, deny: boolean) {
+    permissionKeySchema.parse(permission);
+    const origin = secureOrigin(input);
+    if (!origin)
+      throw new Error(
+        "Permissions can be configured only for a secure website origin.",
+      );
+    this.epoch++;
+    const key = `${origin}|${permission}`;
+    this.grants.delete(key);
+    if (deny) this.remember(this.denials, key);
     else this.denials.delete(key);
   }
-  public resetSite(input: string) {
+  public resetSite(input: string): Promise<void> {
     const origin = secureOrigin(input);
+    this.epoch++;
     for (const collection of [this.grants, this.denials])
       for (const key of collection)
-        if (key.startsWith(`${origin}|`)) collection.delete(key);
+        if (origin && key.startsWith(`${origin}|`)) collection.delete(key);
+    return origin && this.policies
+      ? this.policies.reset(origin)
+      : Promise.resolve();
   }
-  public reset() {
+  public async resetMatching(matches: (origin: string) => boolean) {
+    const origins = new Set([
+      ...(this.policies?.get().map((entry) => entry.origin) || []),
+      ...[...this.grants, ...this.denials].map((key) => key.split("|")[0]),
+    ]);
+    for (const origin of origins)
+      if (matches(origin)) await this.resetSite(origin);
+  }
+  public reset(): Promise<void> {
+    this.epoch++;
     this.grants.clear();
     this.denials.clear();
+    return this.policies?.reset() || Promise.resolve();
   }
   public dispose() {
     this.disposed = true;
-    this.reset();
+    this.epoch++;
+    this.grants.clear();
+    this.denials.clear();
     this.session.setPermissionCheckHandler(() => false);
     this.session.setPermissionRequestHandler((_wc, _permission, callback) =>
       callback(false),
+    );
+    this.session.setDevicePermissionHandler(() => false);
+    this.session.setDisplayMediaRequestHandler((_request, callback) =>
+      callback({}),
     );
   }
 }

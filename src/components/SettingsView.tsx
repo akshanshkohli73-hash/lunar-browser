@@ -45,21 +45,17 @@ function Toggle({
   );
 }
 export default function SettingsView() {
-  const { api, ready, settings, shield, updateSettings } = useBrowser();
+  const { api, ready, settings, updateSettings, openPage } = useBrowser();
   const [section, setSection] = useState("general"),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
     [error, setError] = useState("");
   const [aiStatus, setAIStatus] = useState<AIStatus | null>(null),
     [key, setKey] = useState(""),
-    [model, setModel] = useState(settings.aiModel),
-    [allowlist, setAllowlist] = useState(settings.shield.allowlist.join("\n"));
+    [model, setModel] = useState(settings.aiModel);
   useEffect(() => {
     setModel(settings.aiModel);
   }, [settings.aiModel]);
-  useEffect(() => {
-    setAllowlist(settings.shield.allowlist.join("\n"));
-  }, [settings.shield.allowlist]);
   useEffect(() => {
     void api
       ?.getAIStatus()
@@ -192,235 +188,36 @@ export default function SettingsView() {
                 are stored as validated JSON in the OS application-data folder.
                 Website storage is isolated from Lunar’s own interface.
               </p>
-              <h2>Network privacy</h2>
-              <Toggle
-                label="Restrict third-party network cookies"
-                hint="Strip Cookie / Set-Cookie headers for third-party HTTP(S) and WebSocket handshakes. This is not full storage partitioning or JavaScript cookie isolation."
-                value={settings.shield.blockThirdPartyCookies}
-                onChange={(value) =>
-                  update({
-                    shield: {
-                      ...settings.shield,
-                      blockThirdPartyCookies: value,
-                    },
-                  })
-                }
-              />
-              <Toggle
-                label="Upgrade eligible public HTTP navigations to HTTPS"
-                hint="Opt-in; skips IPs, local/test hosts and custom ports. No silent insecure fallback if HTTPS fails. Pausing Shield for a site disables this policy there."
-                value={settings.shield.httpsUpgrades}
-                onChange={(value) =>
-                  update({
-                    shield: { ...settings.shield, httpsUpgrades: value },
-                  })
-                }
-              />
-              <h2>Site permissions</h2>
+              <h2>One place for privacy controls</h2>
               <p>
-                Camera, microphone, location, notifications and clipboard reads
-                require origin-specific consent from the active top-level page.
-                Grants last for this application session. Cross-origin frames
-                and unsupported permissions are denied.
+                Lunar Shield now manages exact-origin policies, supported
+                Ask/Allow/Block permissions and deliberate cookie/cache/storage
+                clearing. Sensitive persistent Allow choices require native
+                confirmation. Cross-origin frames and unsupported device
+                permissions remain denied.
               </p>
-              <div className="button-row">
-                <button
-                  onClick={() =>
-                    void run(
-                      () => api!.resetPermissions(),
-                      "Session permission grants cleared. Reload pages to stop any existing capture.",
-                    )
-                  }
-                >
-                  Reset permission grants
-                </button>
-                <button
-                  onClick={() =>
-                    void run(
-                      () => api!.clearSiteData(),
-                      "Site data and cache cleared.",
-                    )
-                  }
-                >
-                  Clear site data & cache…
-                </button>
-              </div>
-              <p className="muted-text">
-                Screen capture, USB, Bluetooth, serial, arbitrary filesystem
-                access and unknown permission types are not supported. External
-                mail and telephone links require a separate confirmation.
-              </p>
+              <button onClick={() => void run(() => openPage("shield"), "")}>
+                Open privacy dashboard
+              </button>
             </>
           )}
           {section === "shield" && (
             <>
-              <h2>Network protection</h2>
-              <label className="block-label">
-                Blocking mode
-                <select
-                  value={settings.shield.mode}
-                  onChange={(event) =>
-                    update({
-                      shield: {
-                        ...settings.shield,
-                        mode:
-                          event.target.value === "strict"
-                            ? "strict"
-                            : "balanced",
-                      },
-                    })
-                  }
-                >
-                  <option value="balanced">
-                    Balanced · third-party matching resources
-                  </option>
-                  <option value="strict">
-                    Strict · include matching first-party resources
-                  </option>
-                </select>
-              </label>
-              <p className="muted-text">
-                Strict mode can break websites. Main-frame loads are never
-                cancelled by network lists; site allowlisting remains available.
+              <h2>Lunar Shield 2.0</h2>
+              <p>
+                Live network statistics, filter-list updates, custom rules,
+                exact-origin exceptions and the dedicated YouTube privacy
+                profile now share one dashboard. These are functional desktop
+                controls, not a second settings copy.
               </p>
-              <Toggle
-                label="Enable Lunar Shield"
-                hint="Uses Chromium request interception for matching network domains."
-                value={settings.shield.enabled}
-                onChange={(value) =>
-                  update({ shield: { ...settings.shield, enabled: value } })
-                }
-              />
-              {(
-                [
-                  "ads",
-                  "trackers",
-                  "telemetry",
-                  "social",
-                  "cryptomining",
-                  "popups",
-                ] as const
-              ).map((category) => (
-                <Toggle
-                  key={category}
-                  label={
-                    {
-                      ads: "Ad domains",
-                      trackers: "Tracker domains",
-                      telemetry: "Telemetry domains",
-                      social: "Social widgets",
-                      cryptomining: "Cryptomining domains",
-                      popups: "Script popups",
-                    }[category]
-                  }
-                  hint={
-                    category === "popups"
-                      ? "Deny script-created new windows. Normal new-tab links use controlled tabs."
-                      : "Conservative domain rules. May affect site features; use the site allowlist if needed."
-                  }
-                  value={settings.shield[category]}
-                  onChange={(value) =>
-                    update({
-                      shield: { ...settings.shield, [category]: value },
-                    })
-                  }
-                />
-              ))}
-              <h2>Filter sources</h2>
-              {shield?.lists.map((list) => (
-                <div className="filter-list" key={list.id}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={settings.shield.filterLists.includes(
-                        list.id as "lunar-core" | "stevenblack" | "easyprivacy",
-                      )}
-                      onChange={(event) => {
-                        const id = list.id as
-                          "lunar-core" | "stevenblack" | "easyprivacy";
-                        update({
-                          shield: {
-                            ...settings.shield,
-                            filterLists: event.target.checked
-                              ? [...settings.shield.filterLists, id]
-                              : settings.shield.filterLists.filter(
-                                  (value) => value !== id,
-                                ),
-                          },
-                        });
-                      }}
-                    />
-                    {list.name}
-                  </label>
-                  <small>
-                    {list.ruleCount.toLocaleString()} rules ·{" "}
-                    {list.updatedAt
-                      ? new Date(list.updatedAt).toLocaleString()
-                      : "No cached update"}
-                  </small>
-                  {list.source && (
-                    <small>
-                      {list.source} · {list.license}
-                    </small>
-                  )}
-                  {list.error && <p className="muted-text">{list.error}</p>}
-                </div>
-              ))}
-              <button
-                onClick={() =>
-                  void run(async () => {
-                    const state = await api!.refreshShield();
-                    const failure = state.lists.find(
-                      (list) =>
-                        settings.shield.filterLists.includes(
-                          list.id as
-                            "lunar-core" | "stevenblack" | "easyprivacy",
-                        ) && list.error,
-                    )?.error;
-                    if (failure) throw new Error(failure);
-                  }, "Selected maintained lists downloaded and cached.")
-                }
-              >
-                Refresh selected maintained lists
+              <button onClick={() => void run(() => openPage("shield"), "")}>
+                Open Lunar Shield dashboard
               </button>
               <p className="muted-text">
-                Ghostery's MPL-2.0 network engine parses supported ABP rules.
-                Optional StevenBlack hosts (converted to ABP) and an EasyPrivacy
-                network-only subset are fetched from fixed public repository
-                endpoints only on request. Cached rules survive restarts.
-                Cosmetic filters, scriptlets, redirects, HTML/CSP injection,
-                full-list compatibility and universal video-ad blocking are not
-                implemented.
+                Network protection cannot guarantee anonymity or remove every
+                advertisement. Actual request cancellations are separate from
+                popups and cookie-header removals.
               </p>
-              <label className="block-label">
-                Protection paused on these hosts and subdomains (one hostname
-                per line)
-                <textarea
-                  aria-label="Shield site allowlist"
-                  value={allowlist}
-                  onChange={(event) => setAllowlist(event.target.value)}
-                  rows={4}
-                />
-              </label>
-              <button
-                onClick={() =>
-                  update({
-                    shield: {
-                      ...settings.shield,
-                      allowlist: [
-                        ...new Set(
-                          allowlist
-                            .split(/\r?\n/u)
-                            .map((value) => value.trim().toLowerCase())
-                            .filter(Boolean),
-                        ),
-                      ],
-                    },
-                  })
-                }
-              >
-                Save site allowlist
-              </button>
             </>
           )}
           {section === "ai" && (

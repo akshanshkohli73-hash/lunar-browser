@@ -15,6 +15,7 @@ import {
   settingsSchema,
   layoutSchema,
   aiRequestSchema,
+  shieldListIdSchema,
 } from "./schemas";
 import type {
   BrowserSettings,
@@ -34,6 +35,28 @@ import type {
   AIStatus,
   SitePrivacy,
 } from "../electron/types";
+import {
+  originSchema,
+  sitePolicyPatchSchema,
+  customRuleInputSchema,
+  subscriptionInputSchema,
+  permissionKeySchema,
+  permissionModeSchema,
+  privacyClearSchema,
+  type SitePolicyPatch,
+  type CustomRuleInput,
+  type PermissionKey,
+  type PermissionMode,
+  type PrivacyClearRequest,
+  type PrivacyOverview,
+} from "./shield";
+export const youtubeActionSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("set"), enabled: z.boolean() }).strict(),
+  z.object({ type: z.literal("reset") }).strict(),
+  z.object({ type: z.literal("clearData") }).strict(),
+  z.object({ type: z.literal("resetPermissions") }).strict(),
+]);
+export type YoutubeAction = z.infer<typeof youtubeActionSchema>;
 export const browserCommandSchema = z.enum([
   "undo",
   "redo",
@@ -97,7 +120,25 @@ export const requestSchemas = {
   "downloads:reveal": tab,
   "downloads:clear": none,
   "shield:get": z.tuple([z.string().max(8192).refine(isWebUrl).optional()]),
-  "shield:refresh": none,
+  "shield:refresh": z.tuple([shieldListIdSchema.optional()]),
+  "shield:site": z.tuple([originSchema, sitePolicyPatchSchema.nullable()]),
+  "shield:saveRule": z.tuple([idSchema.nullable(), customRuleInputSchema]),
+  "shield:deleteRule": tab,
+  "shield:importRules": z.tuple([z.string().max(8 * 1024 * 1024)]),
+  "shield:exportRules": none,
+  "shield:addSubscription": z.tuple([subscriptionInputSchema]),
+  "shield:removeSubscription": tab,
+  "shield:resetList": z.tuple([shieldListIdSchema]),
+  "shield:clearHistory": none,
+  "shield:resetConfig": none,
+  "shield:youtube": z.tuple([youtubeActionSchema]),
+  "permissions:set": z.tuple([
+    originSchema,
+    permissionKeySchema,
+    permissionModeSchema,
+  ]),
+  "privacy:overview": none,
+  "privacy:clearSelected": z.tuple([privacyClearSchema]),
   "extensions:get": none,
   "extensions:load": none,
   "extensions:toggle": z.tuple([idSchema, z.boolean()]),
@@ -175,6 +216,20 @@ export interface Outputs {
   "downloads:clear": void;
   "shield:get": ShieldState;
   "shield:refresh": ShieldState;
+  "shield:site": ShieldState;
+  "shield:saveRule": ShieldState;
+  "shield:deleteRule": ShieldState;
+  "shield:importRules": ShieldState;
+  "shield:exportRules": boolean;
+  "shield:addSubscription": ShieldState;
+  "shield:removeSubscription": ShieldState;
+  "shield:resetList": ShieldState;
+  "shield:clearHistory": ShieldState;
+  "shield:resetConfig": ShieldState;
+  "shield:youtube": ShieldState;
+  "permissions:set": void;
+  "privacy:overview": PrivacyOverview;
+  "privacy:clearSelected": void;
   "extensions:get": ExtensionInfo[];
   "extensions:load": ExtensionInfo | null;
   "extensions:toggle": ExtensionInfo[];
@@ -198,6 +253,9 @@ export interface Outputs {
 }
 export type Channel = keyof typeof requestSchemas;
 export type Args<K extends Channel> = z.input<(typeof requestSchemas)[K]>;
+export type ParsedArgs<K extends Channel> = z.output<
+  (typeof requestSchemas)[K]
+>;
 export type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
 export type Shortcut =
   | "address"
@@ -248,7 +306,34 @@ export interface LunarAPI {
   revealDownload(id: string): Promise<void>;
   clearDownloads(): Promise<void>;
   getShieldState(url?: string): Promise<ShieldState>;
-  refreshShield(): Promise<ShieldState>;
+  refreshShield(id?: string): Promise<ShieldState>;
+  setShieldSite(
+    origin: string,
+    patch: SitePolicyPatch | null,
+  ): Promise<ShieldState>;
+  saveShieldRule(
+    id: string | null,
+    rule: CustomRuleInput,
+  ): Promise<ShieldState>;
+  deleteShieldRule(id: string): Promise<ShieldState>;
+  importShieldRules(text: string): Promise<ShieldState>;
+  exportShieldRules(): Promise<boolean>;
+  addShieldSubscription(input: {
+    name: string;
+    url: string;
+  }): Promise<ShieldState>;
+  removeShieldSubscription(id: string): Promise<ShieldState>;
+  resetShieldList(id: string): Promise<ShieldState>;
+  clearShieldHistory(): Promise<ShieldState>;
+  resetShieldConfig(): Promise<ShieldState>;
+  youtubeProtection(action: YoutubeAction): Promise<ShieldState>;
+  setSitePermission(
+    origin: string,
+    permission: PermissionKey,
+    mode: PermissionMode,
+  ): Promise<void>;
+  getPrivacyOverview(): Promise<PrivacyOverview>;
+  clearSelectedData(request: PrivacyClearRequest): Promise<void>;
   getExtensions(): Promise<ExtensionInfo[]>;
   loadUnpackedExtension(): Promise<ExtensionInfo | null>;
   toggleExtension(id: string, enabled: boolean): Promise<ExtensionInfo[]>;

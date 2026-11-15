@@ -17,6 +17,7 @@ await validateConfiguration(manifest.build, new DebugLogger(false));
 for (const file of [
   manifest.main,
   "dist/electron/preload/index.cjs",
+  "dist/electron/blocker/compile-worker.cjs",
   "dist/renderer/index.html",
   "assets/icons/lunar.ico",
   "assets/icons/lunar.png",

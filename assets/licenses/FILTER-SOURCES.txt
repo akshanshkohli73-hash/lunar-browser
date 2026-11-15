@@ -1,31 +1,88 @@
-Lunar Shield — optional filter sources
+Lunar Shield 2.0 — filter-source attribution and formats
 
-The application ships Lunar's own small domain rules. Optional third-party filter
-text is not bundled and is fetched only after the user selects a source and
-requests an update. It is stored in the user's profile; no browsing URLs are sent
-to list hosts. Supported network-only rules are parsed by @ghostery/adblocker.
+Lunar ships its own small domain-rule collection, not the external subscriptions
+below. External filter text is downloaded as data only after the user explicitly
+enables a source (which also opts in to background freshness checks) or requests
+its update. Compiled caches and original source text/attribution comments remain
+in the local user profile. Publisher hosts see the list download and IP address;
+Lunar does not send visited URLs, titles or request URLs to those hosts.
 
-EasyPrivacy network subset
-The EasyList authors (https://easylist.to/)
+Parser / matching engine
+@ghostery/adblocker 2.20.1 — Copyright Ghostery GmbH and contributors.
+License: Mozilla Public License 2.0 (MPL-2.0).
+https://github.com/ghostery/adblocker
+https://github.com/ghostery/adblocker/blob/master/LICENSE
+The generated THIRD-PARTY-NOTICES.txt includes the installed dependency licenses.
+Lunar reuses the indexed ABP network matcher; it does not execute filter text.
+
+EasyPrivacy — four-file network subset
+The EasyList authors (https://easylist.to/).
 Source: https://github.com/easylist/easylist/tree/master/easyprivacy
-Included files: easyprivacy_general.txt, easyprivacy_thirdparty.txt,
+Files: easyprivacy_general.txt, easyprivacy_thirdparty.txt,
 easyprivacy_trackingservers.txt, easyprivacy_allowlist.txt.
-This is not the full upstream EasyPrivacy subscription. Cosmetic, scriptlet,
-HTML, CSP, redirect/redirect-rule, replace and removeparam filters are excluded.
-License: GPL-3.0-or-later OR CC-BY-SA-3.0-or-later. Attribute the EasyList authors.
-Official license notice: https://easylist.to/pages/licence.html
-Corresponding notice source:
+License: GPL-3.0-or-later OR CC-BY-SA-3.0-or-later.
+Official notice: https://easylist.to/pages/licence.html
+Notice source:
 https://github.com/easylist/easylist.github.io/blob/master/content/pages/COPYING.rst
-If redistributing downloaded/modified filter data, comply with the chosen license
-(including attribution/share-alike for CC-BY-SA, or GPL source obligations).
+Reported category: tracker-list matches. This is not the full EasyPrivacy list.
+
+EasyList — eight-file network subset
+The EasyList authors (https://easylist.to/).
+Source: https://github.com/easylist/easylist/tree/master/easylist
+Files: easylist_adservers.txt, easylist_general_block.txt,
+easylist_general_block_dimensions.txt, easylist_specific_block.txt,
+easylist_specific_block_popup.txt, easylist_thirdparty.txt,
+easylist_allowlist.txt, easylist_allowlist_dimensions.txt.
+License: GPL-3.0-or-later OR CC-BY-SA-3.0-or-later.
+Official notice and corresponding notice source: the same EasyList links above.
+Reported category: advertising-related network matches. This is neither the full
+EasyList subscription nor a verified video-ad-removal mechanism.
+
+For both EasyList-family subsets, Lunar accepts supported ABP hostname/URL
+patterns, resource/domain/first-/third-party constraints and @@ network
+exceptions. Cosmetic/element hiding, scriptlets, full regular expressions,
+HTML/CSP/response rewriting, redirects, removeparam and executable directives are
+excluded and counted as unsupported. Comments/headers are retained in raw caches
+but not executed. Downloads and compilation are bounded; excluded-rule counts
+are shown per source. Changes are network-only adaptations, not upstream claims.
+When redistributing downloaded/modified data, comply with the chosen license:
+attribute the EasyList authors and retain notices, including share-alike for
+CC-BY-SA or corresponding-source obligations under the GPL option.
 
 StevenBlack Unified Hosts
 Source: https://github.com/StevenBlack/hosts
-MIT-licensed repository; included source lists retain their own licensing and
-attributions. See upstream readme/license before redistributing the aggregate.
-Lunar converts validated domain entries to ABP hostname-anchor network rules.
+License: MIT for the repository; included upstream lists retain their respective
+licenses, notices and attributions. See the upstream readme/license and aggregate
+file's included-source notices before redistributing its data.
+https://github.com/StevenBlack/hosts/blob/master/license.txt
+Format: hosts entries converted to validated ABP hostname-anchor network rules.
+Reported category: Other (mixed advertising/tracking sources), never inferred
+malware or a forensic threat classification.
 
-Both sources are downloaded from fixed public GitHub Contents API endpoints.
-GitHub may rate-limit requests. Updates are manual, bounded and validated; failed
-updates retain the last valid cached rules. A local cache timestamp is a download
-time, not an independent verification of upstream completeness or freshness.
+HaGeZi Threat Intelligence Feeds — mini (optional, disabled by default)
+Gerd HaGeZi and attributed upstream sources.
+Source: https://github.com/hagezi/dns-blocklists
+Selected file: adblock/tif.mini.txt
+https://github.com/hagezi/dns-blocklists/blob/main/adblock/tif.mini.txt
+License: GPL-3.0-only; retain upstream source notices and comply with GPL source
+and license obligations if redistributing the data or a modified version.
+https://github.com/hagezi/dns-blocklists/blob/main/LICENSE
+Format: ABP domain network rules, handled by the same non-executing parser.
+Reported category: known-threat-feed matches (e.g. malware/phishing/scam domains),
+not ordinary advertisements. A feed match can be wrong and is not a guarantee of
+safety or an independently verified finding about a site.
+
+Download / cache policy
+Built-in downloads use fixed public GitHub repository Contents API endpoints and
+raw content negotiation. GitHub can rate-limit or fail requests. Custom
+subscriptions are separate, deliberate user choices on a restricted public HTTPS
+host allowlist; their publishers retain all rights and licensing obligations.
+Never redistribute a custom source without checking its own license.
+
+Sources are not downloaded in full on every launch. Enabled stale sources are
+checked at most daily on startup/explicit enable, with conditional ETags when
+available; users may explicitly request an earlier check. Last successful data
+and last check times are displayed separately. Invalid data, failed compilation
+or failed cache persistence do not replace an active last-good engine. A local
+download/check timestamp is not independent verification of upstream freshness,
+coverage, accuracy or completeness. Source data is not included in installers.
