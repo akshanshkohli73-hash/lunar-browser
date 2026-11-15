@@ -262,7 +262,9 @@ export async function checkNativeShield({
     const popup = ui.getByRole("dialog", { name: "Lunar Shield", exact: true });
     await expect(popup).toBeVisible();
     await waitNative(0);
-    await expect(popup.getByText(origin, { exact: true })).toBeVisible();
+    const currentIdentity = popup.locator(".shield-origin > strong");
+    await expect(currentIdentity).toBeVisible();
+    await expect(currentIdentity).toHaveText(origin);
     const protect = popup.getByRole("checkbox", {
       name: /Protect this website/,
     });
