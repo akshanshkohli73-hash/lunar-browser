@@ -33,13 +33,18 @@ export async function checkNativeShield({
     "Native Shield 2 controlled integration started (not a live YouTube test).",
   );
   const hits = new Map(),
-    cookiesSeen = new Map();
+    cookiesSeen = new Map(),
+    navigationHits = new Map();
   const pixel = Buffer.from(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jH8kAAAAASUVORK5CYII=",
     "base64",
   );
   const server = http.createServer((request, response) => {
     const url = new URL(request.url, "http://fixture.invalid");
+    navigationHits.set(
+      `${request.headers.host}${url.pathname}`,
+      (navigationHits.get(`${request.headers.host}${url.pathname}`) || 0) + 1,
+    );
     response.setHeader("Cache-Control", "no-store");
     response.setHeader(
       "Access-Control-Allow-Origin",
@@ -119,7 +124,9 @@ export async function checkNativeShield({
                 !contents.isDestroyed() && contents.getURL() === url,
             );
           if (!contents)
-            throw new Error(`The native fixture tab is missing: ${url}`);
+            throw new Error(
+              `The native fixture tab is missing: ${url}; actual native contents: ${JSON.stringify(webContents.getAllWebContents().map((contents) => ({ id: contents.id, url: contents.getURL(), loading: contents.isLoading() })))}`,
+            );
           return contents.executeJavaScript(script, true);
         },
         { url, script },
@@ -160,13 +167,43 @@ export async function checkNativeShield({
       },
       { method, args, response },
     );
+  const waitFixture = async (id, url) => {
+    await waitTab(id, url);
+    const tab = (await api("bootstrap")).tabs.tabs.find((tab) => tab.id === id);
+    assert.ok(
+      tab && !tab.error,
+      `Fixture navigation must succeed: ${JSON.stringify({ tab, received: [...navigationHits] })}`,
+    );
+    await expect
+      .poll(
+        () =>
+          electron.evaluate(
+            ({ webContents }, url) =>
+              webContents
+                .getAllWebContents()
+                .some(
+                  (contents) =>
+                    !contents.isDestroyed() &&
+                    contents.getURL() === url &&
+                    !contents.isLoading(),
+                ),
+            url,
+          ),
+        {
+          timeout: 10000,
+          message: `Chromium must commit the controlled fixture ${url}`,
+        },
+      )
+      .toBe(true);
+    assert.equal(await native(url, "document.title"), "Shield native fixture");
+  };
   try {
     const a = await api("createTab", aURL);
     created.push(a.id);
-    await waitTab(a.id, aURL);
+    await waitFixture(a.id, aURL);
     const b = await api("createTab", bURL);
     created.push(b.id);
-    await waitTab(b.id, bURL);
+    await waitFixture(b.id, bURL);
     await native(aURL, "document.readyState");
     await native(bURL, "document.readyState");
     const initial = (await state()).protection.statistics.periods.all.totals;
@@ -607,7 +644,7 @@ export async function checkNativeShield({
     assert.equal((await api("getSitePrivacy", origin)).cookies, 0);
     assert.ok((await api("getSitePrivacy", other)).cookies >= 1);
     await api("reloadTab", a.id);
-    await waitTab(a.id, aURL);
+    await waitFixture(a.id, aURL);
     assert.equal(
       await native(aURL, "localStorage.getItem('shield-native-private')"),
       null,
@@ -672,6 +709,10 @@ export async function checkNativeShield({
     console.log(
       `PASS: Shield 2 native controlled integration: ${observations.checks.length} groups; source update ${observations.listUpdate.status}. Real YouTube playback/sign-in/ad outcomes are not verified.`,
     );
+    if (process.env.GITHUB_ACTIONS === "true")
+      console.log(
+        `::notice title=Verified native Shield fixtures::${JSON.stringify({ groups: observations.checks.length, checks: observations.checks, listUpdate: observations.listUpdate, liveYoutube: observations.liveYoutube })}`,
+      );
   } finally {
     const current = await api("bootstrap").catch(() => null);
     if (current) {

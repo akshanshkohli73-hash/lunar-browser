@@ -67,6 +67,37 @@ export async function checkOrganicMaterial(page, editor, evidence) {
   );
   await page.mouse.move(2, 2);
   await waitForPearlPreview(sample, 1);
+  const snapshot = () =>
+    sample.evaluate((node) => {
+      const rect = node.getBoundingClientRect(),
+        scene = node.closest(".dashboard-preview");
+      const nodes = [node, ...scene.querySelectorAll("img")];
+      for (
+        let ancestor = node.parentElement;
+        ancestor;
+        ancestor = ancestor.parentElement
+      )
+        nodes.push(ancestor);
+      return {
+        rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+        fonts: document.fonts.status,
+        nodes: nodes.map((target) => {
+          const style = getComputedStyle(target);
+          return {
+            target: target.className,
+            pointer: target.style.getPropertyValue("--glass-pointer-presence"),
+            transform: style.transform,
+            opacity: style.opacity,
+            background: style.background,
+            border: style.borderColor,
+            backdrop: style.backdropFilter,
+            scroll: target.scrollTop,
+            before: getComputedStyle(target, "::before").background,
+          };
+        }),
+      };
+    });
+  const before = await snapshot();
   const optical = await sample.screenshot({
     path: `${evidence}-pearl-reflection.png`,
     animations: "allow",
@@ -88,7 +119,72 @@ export async function checkOrganicMaterial(page, editor, evidence) {
     webglRequired: false,
     material: "pearl-css",
     physicallyRefractive: false,
+    before,
+    after: await snapshot(),
   };
+  if (!observed.stable) {
+    // Diagnose the two original, non-retried captures without altering either
+    // image or the strict equality gate. Decode only after capture has finished.
+    observed.pixelDifference = await page.evaluate(
+      async (images) => {
+        const read = async (data) => {
+          const image = new Image();
+          image.src = `data:image/png;base64,${data}`;
+          await image.decode();
+          const canvas = document.createElement("canvas");
+          canvas.width = image.width;
+          canvas.height = image.height;
+          const context = canvas.getContext("2d");
+          context.drawImage(image, 0, 0);
+          return {
+            width: image.width,
+            height: image.height,
+            data: context.getImageData(0, 0, image.width, image.height).data,
+          };
+        };
+        const [a, b] = await Promise.all(images.map(read));
+        if (a.width !== b.width || a.height !== b.height)
+          return { a: [a.width, a.height], b: [b.width, b.height] };
+        let count = 0,
+          left = a.width,
+          top = a.height,
+          right = 0,
+          bottom = 0,
+          maxChannelDifference = 0;
+        for (let i = 0; i < a.data.length; i += 4)
+          if (
+            a.data[i] !== b.data[i] ||
+            a.data[i + 1] !== b.data[i + 1] ||
+            a.data[i + 2] !== b.data[i + 2] ||
+            a.data[i + 3] !== b.data[i + 3]
+          ) {
+            count++;
+            const x = (i / 4) % a.width,
+              y = Math.floor(i / 4 / a.width);
+            left = Math.min(left, x);
+            top = Math.min(top, y);
+            right = Math.max(right, x);
+            bottom = Math.max(bottom, y);
+            for (let c = 0; c < 4; c++)
+              maxChannelDifference = Math.max(
+                maxChannelDifference,
+                Math.abs(a.data[i + c] - b.data[i + c]),
+              );
+          }
+        return {
+          width: a.width,
+          height: a.height,
+          count,
+          bounds: [left, top, right, bottom],
+          maxChannelDifference,
+        };
+      },
+      [optical.toString("base64"), stable.toString("base64")],
+    );
+    console.error(
+      `Pearl strict-capture diagnostic: ${JSON.stringify(observed)}`,
+    );
+  }
   fs.writeFileSync(
     `${evidence}-pearl.json`,
     JSON.stringify(observed, null, 2) + "\n",

@@ -34,6 +34,30 @@ export async function waitForPearlPreview(
           const scene = node.closest(".dashboard-preview");
           if (!scene) throw new Error("Missing Pearl wallpaper preview");
           const relevant = new Set(scene.getAnimations({ subtree: true }));
+          const materialNodes = [
+            node,
+            ...scene.querySelectorAll(".glass-surface,.glass-backing"),
+          ];
+          for (
+            let ancestor = scene.parentElement;
+            ancestor;
+            ancestor = ancestor.parentElement
+          )
+            materialNodes.push(ancestor);
+          // Pointer highlights use the shared finite RAF clock, not the Web
+          // Animations API. After the caller leaves the preview, their inline
+          // presence must retire naturally before a static pixel assertion.
+          const pointerLighting = materialNodes
+            .filter(
+              (node) =>
+                Number(
+                  node.style.getPropertyValue("--glass-pointer-presence"),
+                ) > 0,
+            )
+            .map((node) => ({
+              target: node.className,
+              presence: node.style.getPropertyValue("--glass-pointer-presence"),
+            }));
           for (
             let ancestor = scene.parentElement;
             ancestor;
@@ -53,6 +77,7 @@ export async function waitForPearlPreview(
             ),
             outgoingImages: scene.querySelectorAll(".wallpaper-outgoing")
               .length,
+            pointerLighting,
             animations: animations.map((animation) => ({
               target: animation.effect?.target?.className ?? "pseudo-element",
               state: animation.playState,
@@ -76,6 +101,7 @@ export async function waitForPearlPreview(
       fonts: "loaded",
       imagesDecoded: true,
       outgoingImages: 0,
+      pointerLighting: [],
       animations: [],
     });
   const element = await sample.elementHandle();
@@ -178,6 +204,28 @@ export async function checkPearlCaptureReadiness(browser, evidence) {
       delete node.__captureForcedFinish;
     });
     await waitForPearlPreview(sample, 0);
+    await sample.evaluate((node) => {
+      node.style.setProperty("--glass-pointer-presence", "0.5");
+      const end = performance.now() + 150;
+      const retire = (now) => {
+        if (now < end) requestAnimationFrame(retire);
+        else node.style.removeProperty("--glass-pointer-presence");
+      };
+      requestAnimationFrame(retire);
+    });
+    await waitForPearlPreview(sample, 0);
+    await sample.evaluate((node) =>
+      node.style.setProperty("--glass-pointer-presence", "0.5"),
+    );
+    await assert.rejects(
+      () => waitForPearlPreview(sample, 0, { settleTimeout: 300 }),
+      /Pearl preview inputs and finite scene motion must settle/u,
+      "The guard must reject non-retiring JS pointer lighting as well as an infinite CSS animation",
+    );
+    await sample.evaluate((node) =>
+      node.style.removeProperty("--glass-pointer-presence"),
+    );
+    await waitForPearlPreview(sample, 0);
     fs.writeFileSync(
       `${evidence}-capture-readiness.json`,
       JSON.stringify(
@@ -186,6 +234,8 @@ export async function checkPearlCaptureReadiness(browser, evidence) {
           finiteAnimationAwaited: true,
           finiteAnimationForceFinished: false,
           infiniteAnimationRejected: true,
+          finitePointerLightingAwaited: true,
+          nonRetiringPointerLightingRejected: true,
         },
         null,
         2,

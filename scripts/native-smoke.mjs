@@ -105,7 +105,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       executablePath: executable,
       args: [
         ...(packaged ? ["--lunar-native-test"] : [repo]),
-        "--host-resolver-rules=MAP *.lunar-shield.test 127.0.0.1",
+        "--host-resolver-rules=MAP localhost 127.0.0.1,MAP *.lunar-shield.test 127.0.0.1",
         // Deterministic software WebGL2 for CI only; never production launch flags.
         "--use-gl=angle",
         "--use-angle=swiftshader",
