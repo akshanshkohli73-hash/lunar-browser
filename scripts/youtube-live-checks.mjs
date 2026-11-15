@@ -117,7 +117,11 @@ export async function observeLiveYouTube({ electron, api, evidence }) {
           const observation = {
             reachable: response.ok,
             status: response.status,
-            finalOrigin: new URL(response.url).origin,
+            // Electron's net.fetch Response may leave url empty, including on
+            // a genuine HTTP response. Do not relabel that as a network error.
+            ...(typeof response.url === "string" && URL.canParse(response.url)
+              ? { finalOrigin: new URL(response.url).origin }
+              : { responseOrigin: "not-exposed-by-response" }),
           };
           await response.body?.cancel();
           return observation;
