@@ -114,6 +114,22 @@ describe("per-window, opt-in session persistence", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it("uses the actual saved baseline when the settings path writes a session snapshot independently", () => {
+    const save = vi.spyOn(storage, "saveSession");
+    saver.queue(next);
+    vi.advanceTimersByTime(500);
+    saver.queue(latest);
+    // The real settings IPC also persists a current snapshot when given this
+    // preference, even if it was already enabled. That invalidates a private
+    // last-saved marker; returning to the previous tabs must write them again.
+    storage.updateSettings({ restoreSession: true }, latest);
+    expect(new StorageService(profile).getSession()).toEqual(latest);
+    saver.queue(next);
+    vi.advanceTimersByTime(500);
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(new StorageService(profile).getSession()).toEqual(next);
+  });
+
   it("replaces failed pending data with the most recent snapshot instead of reviving stale tabs", () => {
     failOneWrite();
     saver.queue(next);

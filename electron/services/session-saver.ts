@@ -5,10 +5,12 @@ import type { StorageService } from "./storage";
 export class SessionSaver {
   private timer: ReturnType<typeof setTimeout> | undefined;
   private pending: { state: SessionState; serialized: string } | undefined;
-  private lastSaved = "";
   private disposed = false;
   constructor(
-    private storage: Pick<StorageService, "getSettings" | "saveSession">,
+    private storage: Pick<
+      StorageService,
+      "getSettings" | "getSession" | "saveSession"
+    >,
     private report: (message: string) => void,
   ) {}
   public queue(state: SessionState) {
@@ -16,11 +18,12 @@ export class SessionSaver {
     if (!this.storage.getSettings().restoreSession) {
       this.clearTimer();
       this.pending = undefined;
-      this.lastSaved = "";
       return;
     }
     const serialized = JSON.stringify(state);
-    if (serialized === this.lastSaved) {
+    // This is a cached, validated read, not disk I/O. Settings opt-in can also
+    // save a snapshot; a private marker misses those writes and failed saves.
+    if (serialized === JSON.stringify(this.storage.getSession())) {
       this.clearTimer();
       this.pending = undefined;
       return;
@@ -44,13 +47,10 @@ export class SessionSaver {
     if (!this.pending) return;
     if (!this.storage.getSettings().restoreSession) {
       this.pending = undefined;
-      this.lastSaved = "";
       return;
     }
     try {
       this.storage.saveSession(this.pending.state);
-      // A failed write must never become the deduplication baseline.
-      this.lastSaved = this.pending.serialized;
       this.pending = undefined;
     } catch (error) {
       this.report(
