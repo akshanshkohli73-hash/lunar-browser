@@ -266,6 +266,22 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
       ui.getByRole("region", { name: "New tab dashboard" }),
     ).toBeVisible();
     await waitNative(0);
+    // Run the focused privacy gate before the larger material/media suite so a
+    // network/permission failure gets a bounded, immediate native diagnostic.
+    const shieldEntry = await api("createTab", `${origin}/shield-entry`);
+    await waitTab(shieldEntry.id, `${origin}/shield-entry`);
+    await waitNative(1);
+    await checkNativeShield({
+      electron,
+      ui,
+      api,
+      waitTab,
+      waitNative,
+      profile,
+      evidence,
+    });
+    await api("closeTab", shieldEntry.id);
+    await waitNative(0);
     const dashboard = await api("getDashboard");
     await checkNativeAquaCoquette(ui, api, evidence);
     await checkNativeAquaTabs(ui, api, evidence);
@@ -1489,18 +1505,6 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
     assert.equal(await fetchPixel(), "allowed");
     assert.equal(adHits, before + 1);
     await api("updateSettings", { shield: settings.shield });
-    console.log(
-      "Baseline native navigation/material checks reached the Shield 2 gate.",
-    );
-    await checkNativeShield({
-      electron,
-      ui,
-      api,
-      waitTab,
-      waitNative,
-      profile,
-      evidence,
-    });
     const fixture = await electron.evaluate(
       async ({ dialog, BrowserWindow }, folder) => {
         const oldOpen = dialog.showOpenDialog,
