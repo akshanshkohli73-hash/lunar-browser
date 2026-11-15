@@ -59,6 +59,7 @@ export async function observeLiveYouTube({ electron, api, evidence }) {
   const open = async (name, url) => {
     const observation = { name, requested: url, status: "unverified" };
     result.pages.push(observation);
+    let tabId;
     try {
       if (Date.now() >= deadline)
         throw new Error("Public-site observation budget exhausted");
@@ -67,6 +68,7 @@ export async function observeLiveYouTube({ electron, api, evidence }) {
       );
       const tab = await api("createTab", url);
       tabs.push(tab.id);
+      tabId = tab.id;
       activeContents = await electron.evaluate(
         ({ webContents }, before) =>
           webContents
@@ -102,7 +104,15 @@ export async function observeLiveYouTube({ electron, api, evidence }) {
         status: page.app && !page.consent ? "page-rendered" : "not-verified",
       });
     } catch (error) {
-      observation.error = error.message;
+      observation.error = error.message.slice(0, 1200);
+      if (tabId) {
+        const tab = (await api("bootstrap")).tabs.tabs.find(
+          (tab) => tab.id === tabId,
+        );
+        observation.navigation = tab
+          ? { url: tab.url, error: tab.error || null, loading: tab.isLoading }
+          : { closed: true };
+      }
     }
     return observation;
   };
@@ -132,11 +142,14 @@ export async function observeLiveYouTube({ electron, api, evidence }) {
       12000,
     );
     result.reachability = reachability;
-    if (!reachability.reachable) return result;
+    // Main-process fetch and a real tab can have different user agents or
+    // upstream treatment. Always attempt the actual native homepage too; a
+    // failed preflight alone must not be called a failed browser/player test.
     const home = await open("homepage", "https://www.youtube.com/");
-    if (home.consent) {
-      result.remaining =
-        "Consent interstitial: no acceptance was silently supplied; remaining player/account flows unverified";
+    if (home.consent || home.status !== "page-rendered") {
+      result.remaining = home.consent
+        ? "Consent interstitial: no acceptance was silently supplied; remaining player/account flows unverified"
+        : "Native homepage rendering not verified; later player/account flows unverified";
       return result;
     }
     const search = await open(
