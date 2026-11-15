@@ -76,6 +76,49 @@ const settle = async () => {
   await Promise.resolve();
 };
 describe("native-confirmed persisted Ask/Allow/Block policies", () => {
+  it("preserves user-activated delegated fullscreen for a visible secure embed without granting sensitive iframe permissions", () => {
+    const result = vi.fn<(allowed: boolean) => void>();
+    expect(
+      check(wc, "fullscreen", "https://www.youtube.com", {
+        isMainFrame: false,
+      }),
+    ).toBe(true);
+    request(wc, "fullscreen", result, {
+      isMainFrame: false,
+      requestingUrl: "https://www.youtube.com/embed/fixture",
+    });
+    expect(result).toHaveBeenLastCalledWith(true);
+    for (const permission of [
+      "notifications",
+      "clipboard-read",
+      "media",
+    ] as const)
+      expect(
+        check(wc, permission, "https://www.youtube.com", {
+          isMainFrame: false,
+          mediaType: "video",
+        }),
+      ).toBe(false);
+    expect(
+      check(wc, "fullscreen", "http://insecure.example.net", {
+        isMainFrame: false,
+      }),
+    ).toBe(false);
+    active = false;
+    expect(
+      check(wc, "fullscreen", "https://www.youtube.com", {
+        isMainFrame: false,
+      }),
+    ).toBe(false);
+    active = true;
+    url = "http://insecure.example.org";
+    expect(
+      check(wc, "fullscreen", "https://www.youtube.com", {
+        isMainFrame: false,
+      }),
+    ).toBe(false);
+    expect(dialogs.show).not.toHaveBeenCalled();
+  });
   it("requires explicit native confirmation for persistent Allow and grants only that exact eligible main-frame origin", async () => {
     await expect(
       manager.setSitePolicy(

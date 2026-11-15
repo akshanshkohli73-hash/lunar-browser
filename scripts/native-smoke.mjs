@@ -85,6 +85,20 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
   );
   const videoMeasurements = [];
   let electron, ui;
+  // A hung native evaluation must fail this isolated test, not occupy a runner
+  // until the workflow's outer 30-minute limit with no diagnostic outcome.
+  const nativeDeadline = setTimeout(
+    () => {
+      const message =
+        "Native integration exceeded its 10-minute execution budget. Inspect the last completed checkpoint; this is a failed test, not a skipped or passing gate.";
+      console.error(message);
+      if (process.env.GITHUB_ACTIONS === "true")
+        console.error(`::error file=scripts/native-smoke.mjs::${message}`);
+      process.exit(1);
+    },
+    10 * 60 * 1000,
+  );
+  nativeDeadline.unref();
   const privateMediaRequests = new Map();
   const launch = async () => {
     electron = await _electron.launch({
@@ -1475,6 +1489,9 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
     assert.equal(await fetchPixel(), "allowed");
     assert.equal(adHits, before + 1);
     await api("updateSettings", { shield: settings.shield });
+    console.log(
+      "Baseline native navigation/material checks reached the Shield 2 gate.",
+    );
     await checkNativeShield({
       electron,
       ui,
@@ -2051,6 +2068,7 @@ if (packaged ? !fs.existsSync(packaged) : !fs.existsSync(marker)) {
     throw error;
   } finally {
     await electron?.close();
+    clearTimeout(nativeDeadline);
     for (const response of pendingResponses) response.destroy();
     await new Promise((resolve) => server.close(resolve));
     fs.rmSync(profile, { recursive: true, force: true });

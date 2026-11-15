@@ -39,10 +39,17 @@ export class PermissionManager {
   ) {
     session.setPermissionCheckHandler(
       (wc, permission, requestingOrigin, details) => {
-        if (!wc || !details.isMainFrame || !this.eligible(wc, requestingOrigin))
+        if (!wc) return false;
+        if (permissionKind(permission) === "allow")
+          return this.defaultGrant(
+            wc,
+            permission,
+            requestingOrigin,
+            details.isMainFrame,
+          );
+        if (!details.isMainFrame || !this.eligible(wc, requestingOrigin))
           return false;
         const origin = secureOrigin(requestingOrigin)!;
-        if (permissionKind(permission) === "allow") return true;
         const key =
           permission === "media"
             ? details.mediaType && details.mediaType !== "unknown"
@@ -54,18 +61,29 @@ export class PermissionManager {
       },
     );
     session.setPermissionRequestHandler((wc, permission, callback, details) => {
-      if (!details.isMainFrame || !this.eligible(wc, details.requestingUrl)) {
+      const mediaTypes =
+        "mediaTypes" in details ? details.mediaTypes : undefined;
+      const kind = permissionKind(permission, mediaTypes);
+      if (kind === "allow") {
+        callback(
+          this.defaultGrant(
+            wc,
+            permission,
+            details.requestingUrl,
+            details.isMainFrame,
+          ),
+        );
+        return;
+      }
+      if (
+        kind !== "prompt" ||
+        !details.isMainFrame ||
+        !this.eligible(wc, details.requestingUrl)
+      ) {
         callback(false);
         return;
       }
       const origin = secureOrigin(details.requestingUrl)!;
-      const mediaTypes =
-        "mediaTypes" in details ? details.mediaTypes : undefined;
-      const kind = permissionKind(permission, mediaTypes);
-      if (kind !== "prompt") {
-        callback(kind === "allow");
-        return;
-      }
       const keys =
         permission === "media"
           ? [...new Set(mediaTypes ?? [])].map(
@@ -142,18 +160,38 @@ export class PermissionManager {
     if (saved === "block" || this.denials.has(key)) return "block";
     return saved === "allow" || this.grants.has(key) ? "allow" : "ask";
   }
+  private visibleOwned(wc: WebContents): boolean {
+    return (
+      !this.disposed &&
+      !this.window.isDestroyed() &&
+      this.window.isVisible() &&
+      !this.window.isMinimized() &&
+      !wc.isDestroyed() &&
+      this.active(wc.id)
+    );
+  }
   private eligible(wc: WebContents, requestingUrl: string): boolean {
-    if (
-      this.disposed ||
-      this.window.isDestroyed() ||
-      !this.window.isVisible() ||
-      this.window.isMinimized() ||
-      wc.isDestroyed() ||
-      !this.active(wc.id)
-    )
-      return false;
+    if (!this.visibleOwned(wc)) return false;
     const origin = secureOrigin(requestingUrl);
     return !!origin && secureOrigin(wc.getURL()) === origin;
+  }
+  private defaultGrant(
+    wc: WebContents,
+    permission: string,
+    requestingUrl: string,
+    isMainFrame: boolean,
+  ) {
+    if (isMainFrame) return this.eligible(wc, requestingUrl);
+    // Fullscreen is not a camera/device grant. Chromium still requires the
+    // iframe's allowfullscreen/Permissions-Policy and transient user activation.
+    // Do not break a genuine embedded player's fullscreen by applying the
+    // sensitive, main-frame-only rule to this non-sensitive capability.
+    return (
+      permission === "fullscreen" &&
+      this.visibleOwned(wc) &&
+      !!secureOrigin(wc.getURL()) &&
+      !!secureOrigin(requestingUrl)
+    );
   }
   public status(input: string) {
     const origin = secureOrigin(input);

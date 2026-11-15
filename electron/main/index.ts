@@ -266,7 +266,10 @@ handle("shield:addSubscription", (ctx, input) =>
   ctx.shield.addSubscription(input),
 );
 handle("shield:removeSubscription", async (ctx, id) => {
-  const result = await ctx.shield.removeSubscription(id);
+  if (!ctx.shield.getConfig().subscriptions.some((source) => source.id === id))
+    throw new Error("Only custom subscriptions can be removed.");
+  // Disable first: a preference-save failure must not strand a deleted source
+  // ID that makes all later validated Shield preference edits impossible.
   const current = ctx.storage.getSettings();
   const settings = ctx.storage.updateSettings({
     shield: {
@@ -275,6 +278,7 @@ handle("shield:removeSubscription", async (ctx, id) => {
     },
   });
   send("settings:updated", settings);
+  const result = await ctx.shield.removeSubscription(id);
   ctx.shield.notify();
   return { ...result, settings: settings.shield };
 });
@@ -317,12 +321,12 @@ handle("shield:resetConfig", async (ctx) => {
     "Removes custom rules/subscriptions, site overrides and saved permission policies. Keeps bookmarks, wallpapers, browsing data and protection statistics. Existing capture requires a page reload or close to stop.",
     "Reset protection",
   );
-  await ctx.shield.resetConfig();
-  await ctx.permissions.reset();
   const settings = ctx.storage.updateSettings({
     shield: structuredClone(DEFAULT_SHIELD),
   });
   send("settings:updated", settings);
+  await ctx.shield.resetConfig();
+  await ctx.permissions.reset();
   ctx.shield.notify();
   return ctx.shield.getState();
 });

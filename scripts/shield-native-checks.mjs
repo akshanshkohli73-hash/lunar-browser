@@ -23,6 +23,15 @@ export async function checkNativeShield({
       checks: [],
       liveYoutube: "not-executed-local-fixtures-only",
     };
+  const record = (message) => {
+    observations.checks.push(message);
+    console.log(
+      `Native Shield checkpoint ${observations.checks.length}: ${message}`,
+    );
+  };
+  console.log(
+    "Native Shield 2 controlled integration started (not a live YouTube test).",
+  );
   const hits = new Map(),
     cookiesSeen = new Map();
   const pixel = Buffer.from(
@@ -82,19 +91,40 @@ export async function checkNativeShield({
     bURL = `${other}/shield-two`;
   const asset = (host, probe, extension = "js") =>
     `http://${host}:${port}/asset.${extension}?probe=${probe}`;
-  const native = (url, script) =>
-    electron.evaluate(
-      async ({ webContents }, { url, script }) => {
-        const contents = webContents
-          .getAllWebContents()
-          .find(
-            (contents) => !contents.isDestroyed() && contents.getURL() === url,
+  const bounded = async (operation, label, timeout = 15000) => {
+    let timer;
+    try {
+      return await Promise.race([
+        operation,
+        new Promise((_resolve, reject) => {
+          timer = setTimeout(
+            () =>
+              reject(new Error(`Native Shield fixture timed out: ${label}`)),
+            timeout,
           );
-        if (!contents)
-          throw new Error(`The native fixture tab is missing: ${url}`);
-        return contents.executeJavaScript(script, true);
-      },
-      { url, script },
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  const native = (url, script) =>
+    bounded(
+      electron.evaluate(
+        async ({ webContents }, { url, script }) => {
+          const contents = webContents
+            .getAllWebContents()
+            .find(
+              (contents) =>
+                !contents.isDestroyed() && contents.getURL() === url,
+            );
+          if (!contents)
+            throw new Error(`The native fixture tab is missing: ${url}`);
+          return contents.executeJavaScript(script, true);
+        },
+        { url, script },
+      ),
+      `${new URL(url).pathname} evaluation`,
     );
   const request = async (pageURL, target, kind = "script") => {
     const result = await native(
@@ -182,7 +212,7 @@ export async function checkNativeShield({
       beforeRedirect.evaluated + 1,
       "A redirect chain has one Chromium request identity",
     );
-    observations.checks.push(
+    record(
       "actual cancellation/allow/server delivery, one redirect identity, inactive-tab attribution",
     );
 
@@ -242,7 +272,7 @@ export async function checkNativeShield({
       "blocked",
     );
     await api("setShieldSite", origin, null);
-    observations.checks.push(
+    record(
       "actual compact popup toggle, native-view occlusion, exact-origin/resource isolation and reset",
     );
     const beforeCookieHeaders = (await state()).protection.site.counters
@@ -276,7 +306,7 @@ export async function checkNativeShield({
     );
     assert.equal(cookiesSeen.get("cookie-response-on") || "", "");
     await api("setShieldSite", origin, null);
-    observations.checks.push(
+    record(
       "native third-party Set-Cookie interception and exact-site cookie-policy override; not full storage partitioning",
     );
 
@@ -287,6 +317,40 @@ export async function checkNativeShield({
     await expect(panel).toBeVisible();
     const sections = panel.getByRole("navigation", { name: "Shield sections" });
     await expect(sections.getByRole("button")).toHaveCount(8);
+    const size = await electron.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0].getContentSize(),
+    );
+    for (const [width, height] of [[800, 600], size]) {
+      await electron.evaluate(
+        ({ BrowserWindow }, size) =>
+          BrowserWindow.getAllWindows()[0].setContentSize(...size),
+        [width, height],
+      );
+      for (const button of await sections.getByRole("button").all()) {
+        await button.scrollIntoViewIfNeeded();
+        const hit = await button.evaluate((node) => {
+          const rect = node.getBoundingClientRect(),
+            target = document.elementFromPoint(
+              rect.x + rect.width / 2,
+              rect.y + rect.height / 2,
+            );
+          return {
+            owned: target === node || node.contains(target),
+            height: rect.height,
+            inside: rect.left >= 0 && rect.right <= innerWidth,
+          };
+        });
+        assert.ok(
+          hit.owned && hit.inside && hit.height >= 40,
+          "Shield section hit targets remain reachable at native minimum bounds",
+        );
+        await button.click();
+        await expect(button).toHaveAttribute("aria-current", "page");
+      }
+    }
+    record(
+      "all eight dashboard section hit targets and switching at native 800x600/content-size bounds",
+    );
     await sections
       .getByRole("button", { name: "Custom rules", exact: true })
       .click();
@@ -378,7 +442,7 @@ export async function checkNativeShield({
         (rule) => rule.enabled === false && rule.text === custom.text,
       ),
     );
-    observations.checks.push(
+    record(
       "real packaged worker path, UI custom-rule add/toggle, actual resource matching, atomic invalid import, exception-only rule and native-dialog export",
     );
 
@@ -418,7 +482,7 @@ export async function checkNativeShield({
       .getByRole("combobox", { name: "Statistics period" })
       .selectOption("all");
     await ui.screenshot({ path: `${evidence}-shield-dashboard.png` });
-    observations.checks.push(
+    record(
       "dedicated YouTube UI toggle/reset independence and truthful activity language; no live-site/player assertion",
     );
 
@@ -447,8 +511,43 @@ export async function checkNativeShield({
     assert.equal(await native(aURL, "typeof window.lunarAPI"), "undefined");
     await api("resetSitePermissions", origin);
     assert.deepEqual((await api("getSitePrivacy", origin)).grants, []);
-    observations.checks.push(
+    record(
       "real Chromium notifications deny/confirmed-allow/Ask, cancelled native policy confirmation and no website preload bridge (not camera/OS-consent certification)",
+    );
+    const frameURL = `${other}/fullscreen-embed`;
+    await native(
+      aURL,
+      `new Promise(resolve => { const frame=document.createElement('iframe');frame.allowFullscreen=true;frame.src=${JSON.stringify(frameURL)};frame.onload=()=>resolve(true);document.body.append(frame); })`,
+    );
+    const fullscreen = await electron.evaluate(
+      async ({ webContents }, { url, frameURL }) => {
+        const contents = webContents
+          .getAllWebContents()
+          .find((contents) => contents.getURL() === url);
+        const frame = contents.mainFrame.frames.find(
+          (frame) => frame.url === frameURL,
+        );
+        if (!frame)
+          throw new Error("The native fullscreen fixture frame is missing.");
+        return frame.executeJavaScript(
+          "document.documentElement.requestFullscreen().then(()=>true,error=>error.name+': '+error.message)",
+          true,
+        );
+      },
+      { url: aURL, frameURL },
+    );
+    assert.equal(
+      fullscreen,
+      true,
+      "A delegated, user-activated iframe must retain real fullscreen",
+    );
+    await native(aURL, "document.exitFullscreen().then(()=>true)");
+    await expect
+      .poll(() => native(aURL, "document.fullscreenElement===null"))
+      .toBe(true);
+    await native(aURL, "document.querySelector('iframe').remove()");
+    record(
+      "actual user-activated cross-origin iframe fullscreen/exit; not a live YouTube player test",
     );
 
     await native(
@@ -517,7 +616,7 @@ export async function checkNativeShield({
       await native(bURL, "localStorage.getItem('shield-native-private')"),
       "keep-me",
     );
-    observations.checks.push(
+    record(
       "actual privacy inventory without values, rejected unsupported range/cancelled deletion, Chromium selected cookies/cache/storage clearing preserves unrelated origin",
     );
 
@@ -562,7 +661,7 @@ export async function checkNativeShield({
           (await state()).protection.statistics.periods.all.totals.blocked,
       )
       .toBe(1);
-    observations.checks.push(
+    record(
       "actual aggregate clear through confirmed IPC, new terminal outcomes counted after reset",
     );
     observations.statistics = (await state()).protection.statistics;
@@ -583,6 +682,7 @@ export async function checkNativeShield({
         await api("switchTab", previous.tabs.activeTabId);
       await waitNative(1);
     }
+    server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));
   }
 }
