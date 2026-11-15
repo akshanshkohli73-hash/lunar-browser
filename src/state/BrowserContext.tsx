@@ -135,6 +135,20 @@ export function BrowserProvider({ children }: { children: React.ReactNode }) {
     [api, ready, tabs],
   );
   const revision = useRef(-1);
+  // Subscription snapshots are authoritative over replies that were requested
+  // earlier. Keep domains independent so untouched bootstrap fields still load.
+  const updates = useRef({
+    settings: 0,
+    dashboard: 0,
+    bookmarks: 0,
+    shield: 0,
+  });
+  // Order confirmed replies, not just requests: a later failed save must not
+  // prevent an earlier successful one from updating an otherwise idle domain.
+  const requests = useRef({
+    settings: { next: 0, accepted: 0 },
+    dashboard: { next: 0, accepted: 0 },
+  });
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]),
     [shield, setShield] = useState<ShieldState | null>(null),
     [errors, setErrors] = useState<string[]>([]);
@@ -160,6 +174,7 @@ export function BrowserProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!api) return;
     let live = true;
+    const beforeBootstrap = { ...updates.current };
     const receiveTabs = (state: TabsSnapshot) => {
       if (live && state.revision >= revision.current) {
         revision.current = state.revision;
@@ -168,39 +183,68 @@ export function BrowserProvider({ children }: { children: React.ReactNode }) {
     };
     const unsubscribers = [
       api.onTabsUpdated(receiveTabs),
-      api.onDashboardUpdated(setDashboard),
-      api.onSettingsUpdated(setSettings),
-      api.onBookmarksUpdated(setBookmarks),
-      api.onShieldUpdated(setShield),
-      api.onError(report),
+      api.onDashboardUpdated((state) => {
+        if (!live) return;
+        updates.current.dashboard++;
+        setDashboard(state);
+      }),
+      api.onSettingsUpdated((state) => {
+        if (!live) return;
+        updates.current.settings++;
+        setSettings(state);
+      }),
+      api.onBookmarksUpdated((state) => {
+        if (!live) return;
+        updates.current.bookmarks++;
+        setBookmarks(state);
+      }),
+      api.onShieldUpdated((state) => {
+        if (!live) return;
+        updates.current.shield++;
+        setShield(state);
+      }),
+      api.onError((error) => {
+        if (live) report(error);
+      }),
     ];
     api
       .bootstrap()
       .then((state) => {
         if (!live) return;
         receiveTabs(state.tabs);
-        setSettings(state.settings);
-        setDashboard(state.dashboard);
-        setBookmarks(state.bookmarks);
-        setShield(state.shield);
+        if (updates.current.settings === beforeBootstrap.settings)
+          setSettings(state.settings);
+        if (updates.current.dashboard === beforeBootstrap.dashboard)
+          setDashboard(state.dashboard);
+        if (updates.current.bookmarks === beforeBootstrap.bookmarks)
+          setBookmarks(state.bookmarks);
+        if (updates.current.shield === beforeBootstrap.shield)
+          setShield(state.shield);
         state.warnings.forEach(report);
         if (typeof state.windowActive === "boolean") {
           setNativeWindowActive(state.windowActive);
+          let activityUpdated = false;
           unsubscribers.push(
             api.onWindowActivity((active) => {
-              if (live) setNativeWindowActive(active);
+              if (!live) return;
+              activityUpdated = true;
+              setNativeWindowActive(active);
             }),
           );
           void api
             .getWindowActivity()
             .then((active) => {
-              if (live) setNativeWindowActive(active);
+              if (live && !activityUpdated) setNativeWindowActive(active);
             })
-            .catch(report);
+            .catch((error) => {
+              if (live) report(error);
+            });
         }
         setReady(true);
       })
-      .catch(report);
+      .catch((error) => {
+        if (live) report(error);
+      });
     return () => {
       live = false;
       unsubscribers.forEach((unsubscribe) => unsubscribe());
@@ -223,8 +267,16 @@ export function BrowserProvider({ children }: { children: React.ReactNode }) {
         );
       if (!ready)
         throw new Error("Wait until your saved preferences have loaded.");
+      const request = ++requests.current.settings.next;
+      const beforeSave = updates.current.settings;
       const saved = await api.updateSettings(partial);
-      setSettings(saved);
+      if (
+        request > requests.current.settings.accepted &&
+        beforeSave === updates.current.settings
+      ) {
+        requests.current.settings.accepted = request;
+        setSettings(saved);
+      }
     },
     [api, ready],
   );
@@ -236,7 +288,16 @@ export function BrowserProvider({ children }: { children: React.ReactNode }) {
         );
       if (!ready)
         throw new Error("Wait until your saved dashboard has loaded.");
-      setDashboard(await api.updateDashboard(patch));
+      const request = ++requests.current.dashboard.next;
+      const beforeSave = updates.current.dashboard;
+      const saved = await api.updateDashboard(patch);
+      if (
+        request > requests.current.dashboard.accepted &&
+        beforeSave === updates.current.dashboard
+      ) {
+        requests.current.dashboard.accepted = request;
+        setDashboard(saved);
+      }
     },
     [api, ready],
   );

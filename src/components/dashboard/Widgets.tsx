@@ -132,12 +132,12 @@ function BookmarksWidget({ widget, navigate }: WidgetProps) {
 }
 function NotesWidget({ widget }: WidgetProps) {
   const { dashboard, updateDashboard, api, ready } = useBrowser();
-  const [note, setNote] = useState(dashboard.note),
-    [status, setStatus] = useState(""),
+  // Follow saved updates only while pristine. A save may finish after more typing,
+  // including an intentional empty draft, so never synchronize over local edits.
+  const [draft, setDraft] = useState<string | null>(null),
+    [status, setStatus] = useState<"idle" | "saved" | Error>("idle"),
     [busy, setBusy] = useState(false);
-  useEffect(() => {
-    setNote(dashboard.note);
-  }, [dashboard.note]);
+  const note = draft ?? dashboard.note;
   return (
     <>
       <h2>
@@ -151,13 +151,19 @@ function NotesWidget({ widget }: WidgetProps) {
         value={note}
         placeholder="Something worth keeping…"
         onChange={(event) => {
-          setNote(event.target.value);
-          setStatus("Unsaved changes");
+          setDraft(event.target.value);
+          setStatus("idle");
         }}
       />
       <div className="widget-footer">
         <small role="status">
-          {status || "Shared dashboard note · stored only in this profile"}
+          {status instanceof Error
+            ? status.message
+            : note !== dashboard.note
+              ? "Unsaved changes"
+              : status === "saved"
+                ? "Saved locally"
+                : "Shared dashboard note · stored only in this profile"}
         </small>
         <button
           disabled={!api || !ready || busy || note === dashboard.note}
@@ -165,12 +171,13 @@ function NotesWidget({ widget }: WidgetProps) {
             setBusy(true);
             try {
               await updateDashboard({ note });
-              setStatus("Saved locally");
+              setDraft((current) => (current === note ? null : current));
+              setStatus("saved");
             } catch (error) {
               setStatus(
                 error instanceof Error
-                  ? error.message
-                  : "Could not save. Copy your note to keep it.",
+                  ? error
+                  : new Error("Could not save. Copy your note to keep it."),
               );
             } finally {
               setBusy(false);

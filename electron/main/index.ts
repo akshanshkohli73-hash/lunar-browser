@@ -43,7 +43,7 @@ import {
   type Reply,
   type Shortcut,
 } from "../../shared/api";
-import type { SessionState } from "../types";
+import { SessionSaver } from "../services/session-saver";
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -405,40 +405,15 @@ async function createWindow() {
   );
   await registerWallpaperProtocol(uiSession.protocol, wallpapers);
   storage.warnings.push(...migrationWarnings);
-  let sessionTimer: ReturnType<typeof setTimeout> | undefined,
-    restoring = true,
-    lastSession = "";
-  let pendingSession: SessionState | undefined;
-  const saveSession = () => {
-    if (pendingSession) {
-      try {
-        storage.saveSession(pendingSession);
-      } catch (error) {
-        reportOwned(
-          error instanceof Error
-            ? error.message
-            : "Could not save the session.",
-        );
-      }
-      pendingSession = undefined;
-    }
-  };
-  const queueSession = (state: SessionState) => {
-    if (restoring || !storage.getSettings().restoreSession) return;
-    const serialized = JSON.stringify(state);
-    if (serialized === lastSession) return;
-    lastSession = serialized;
-    pendingSession = state;
-    if (sessionTimer) clearTimeout(sessionTimer);
-    sessionTimer = setTimeout(saveSession, 500);
-  };
+  let restoring = true;
+  const sessions = new SessionSaver(storage, reportOwned);
   const shortcut = (action: Shortcut) => sendOwned("browser:shortcut", action);
   const tabs = new TabManager(window, {
     session: webSession,
     settings: () => storage.getSettings(),
     onNavigate: (item) => storage.addHistory(item),
     onChanged: (state) => {
-      queueSession(state);
+      if (!restoring) sessions.queue(state);
       shield.notify();
     },
     onError: reportOwned,
@@ -557,9 +532,7 @@ async function createWindow() {
   window.on("hide", reportActivity);
   window.once("ready-to-show", () => window.show());
   window.on("close", () => {
-    if (sessionTimer) clearTimeout(sessionTimer);
-    pendingSession = tabs.sessionState();
-    saveSession();
+    sessions.dispose(tabs.sessionState());
     // Detach/destroy native children before their owning BrowserWindow goes away.
     ai.dispose();
     tabs.dispose();
