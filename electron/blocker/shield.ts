@@ -293,6 +293,10 @@ export class LunarShield {
       prefs,
       context.youtube,
     );
+    // Clearing history must not make a late redirect look like a new request.
+    // Keep only bounded IDs (no URL/origin data), including requests that first
+    // arrive while the clear transaction is writing its primary/recovery copies.
+    if (this.clearing) this.markFinished(attachment, details.id);
     if (!this.clearing && !attachment.finished.has(details.id)) {
       let request = attachment.pending.get(details.id);
       if (!request) {
@@ -359,6 +363,7 @@ export class LunarShield {
     return { cancel: false };
   }
   private markFinished(attachment: Attachment, id: number) {
+    if (attachment.finished.has(id)) return;
     if (attachment.finished.size >= 8192)
       attachment.finished.delete(attachment.finished.values().next().value!);
     attachment.finished.add(id);
@@ -841,6 +846,11 @@ export class LunarShield {
     if (this.disposed)
       return Promise.reject(new Error("The filter service is closing."));
     this.clearing = true;
+    for (const attachment of this.attachments.values()) {
+      for (const id of attachment.pending.keys())
+        this.markFinished(attachment, id);
+      attachment.pending.clear();
+    }
     this.clearingHistory = this.performHistoryClear().finally(() => {
       this.clearingHistory = null;
     });
@@ -861,10 +871,8 @@ export class LunarShield {
         socialBlocked: 0,
         popupsBlocked: 0,
       };
-      for (const attachment of this.attachments.values()) {
-        attachment.pending.clear();
-        attachment.finished.clear();
-      }
+      // Retain bounded ID tombstones, not the cleared request/context data.
+      // Late redirect/terminal callbacks must not repopulate cleared history.
       this.engine.clearCache();
     } finally {
       this.clearing = false;

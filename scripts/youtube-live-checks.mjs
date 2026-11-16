@@ -29,7 +29,11 @@ export async function observeLiveYouTube({ electron, api, evidence }) {
           const contents = webContents.fromId(id);
           if (!contents || contents.isDestroyed())
             throw new Error("Live observation tab was closed");
-          return contents.executeJavaScript(script, true);
+          // webContents.executeJavaScript waits for the entire page load;
+          // YouTube can keep loading resources while its DOM is already live.
+          // Observe the actual current main frame, without pretending a load
+          // event timeout proves either a working or a broken player.
+          return contents.mainFrame.executeJavaScript(script, true);
         },
         { id: activeContents, script },
       ),

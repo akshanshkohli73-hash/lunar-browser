@@ -34,7 +34,8 @@ export async function checkNativeShield({
   );
   const hits = new Map(),
     cookiesSeen = new Map(),
-    navigationHits = new Map();
+    navigationHits = new Map(),
+    delayedRedirects = new Set();
   const pixel = Buffer.from(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jH8kAAAAASUVORK5CYII=",
     "base64",
@@ -74,6 +75,11 @@ export async function checkNativeShield({
           "window.__shieldNativeAsset = (window.__shieldNativeAsset || 0) + 1;",
         );
       }
+      return;
+    }
+    if (url.pathname === "/pending-clear-redirect") {
+      delayedRedirects.add(response);
+      response.once("close", () => delayedRedirects.delete(response));
       return;
     }
     if (url.pathname === "/redirect") {
@@ -685,7 +691,29 @@ export async function checkNativeShield({
     const beforeClear = (await state()).protection.statistics.periods.all.totals
       .blocked;
     assert.ok(beforeClear > 0);
+    await native(
+      aURL,
+      `window.__shieldNativeClearProbe = new Promise(resolve => { const script=document.createElement('script');script.onload=()=>{script.remove();resolve('allowed')};script.onerror=()=>{script.remove();resolve('blocked')};script.src=${JSON.stringify(`${origin}/pending-clear-redirect`)};document.body.append(script); }); true`,
+    );
+    await expect.poll(() => delayedRedirects.size).toBe(1);
     await confirm("clearShieldHistory");
+    for (const response of delayedRedirects) {
+      response.writeHead(302, {
+        Location: asset("ads.lunar-shield.test", "cleared-late-redirect"),
+      });
+      response.end();
+    }
+    assert.equal(
+      await native(aURL, "window.__shieldNativeClearProbe"),
+      "blocked",
+      "History clear must not disable actual filtering of an in-flight redirect",
+    );
+    assert.equal(hits.get("cleared-late-redirect") || 0, 0);
+    assert.equal(
+      (await state()).protection.statistics.periods.all.totals.evaluated,
+      0,
+      "The old Chromium request identity must not repopulate cleared aggregates",
+    );
     assert.equal(
       (await state()).protection.statistics.periods.all.totals.blocked,
       0,
@@ -701,7 +729,7 @@ export async function checkNativeShield({
       )
       .toBe(1);
     record(
-      "actual aggregate clear through confirmed IPC, new terminal outcomes counted after reset",
+      "actual aggregate clear through confirmed IPC, an in-flight real redirect stays filtered without resurrecting cleared counts, new terminal outcomes counted after reset",
     );
     observations.statistics = (await state()).protection.statistics;
     fs.writeFileSync(

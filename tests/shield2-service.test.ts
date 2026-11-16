@@ -385,6 +385,77 @@ describe("durable rules/policies, recovery and independent profile operations", 
     fixture.finish(2, "net::ERR_ABORTED");
     expect(shield.getState().protection!.youtube.compatibility).toHaveLength(1);
   });
+  it("keeps bounded request-ID tombstones across history clear, including late redirects, multiple sessions and requests arriving during the clear", async () => {
+    const second = new ShieldSessionFixture();
+    shield.attachSession(second.session, (id) => urls.get(id) || "");
+    const pending = fixture.details(40, "https://ordinary.example.net/pending");
+    fixture.start(pending);
+    second.start(
+      second.details(40, "https://ordinary.example.net/other-pending"),
+    );
+    fixture.request(41, "https://ads.doubleclick.net/already-finished");
+    let release!: () => void, entered!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const writing = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const rename = fs.promises.rename;
+    vi.spyOn(fs.promises, "rename").mockImplementation(async (from, to) => {
+      if (String(to).endsWith("shield-statistics.json")) {
+        entered();
+        await gate;
+      }
+      await rename(from, to);
+    });
+    const clearing = shield.clearHistory();
+    await writing;
+    try {
+      expect(
+        fixture.start(
+          fixture.details(
+            42,
+            "https://ads.doubleclick.net/started-during-clear",
+          ),
+        ).cancel,
+      ).toBe(true);
+      fixture.finish(40);
+    } finally {
+      release();
+    }
+    await clearing;
+    for (const id of [40, 41, 42]) {
+      expect(
+        fixture.start({
+          ...pending,
+          id,
+          url: "https://ads.doubleclick.net/late-redirect",
+        }).cancel,
+      ).toBe(true);
+      fixture.finish(id, "net::ERR_BLOCKED_BY_CLIENT");
+    }
+    expect(
+      second.start(
+        second.details(40, "https://ads.doubleclick.net/other-late-redirect"),
+      ).cancel,
+    ).toBe(true);
+    second.finish(40, "net::ERR_BLOCKED_BY_CLIENT");
+    expect(total().totals).toMatchObject({
+      evaluated: 0,
+      blocked: 0,
+      allowed: 0,
+    });
+    expect(shield.getState().protection!.site!.recent).toEqual([]);
+    fixture.request(43, "https://ads.doubleclick.net/genuinely-new");
+    second.request(43, "https://ads.doubleclick.net/new-in-other-session");
+    expect(total().totals).toMatchObject({
+      evaluated: 2,
+      blocked: 2,
+      allowed: 0,
+    });
+    expect(total().unresolved).toBe(0);
+  });
   it("clears persisted aggregates and unresolved IDs without touching rules, settings or unrelated profile data", async () => {
     await shield.saveRule(null, { text: "||custom.example^", enabled: true });
     fixture.request(1, "https://ads.doubleclick.net/a");
